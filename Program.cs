@@ -1,16 +1,33 @@
-namespace SteamTV;
+// SteamTV — entry point.
+// See README.md for project description, build options, and settings location.
+using System;
+using System.Linq;
+using System.Threading;
+using System.Windows.Forms;
 
-static class Program
+namespace SteamTV
 {
-    /// <summary>
-    ///  The main entry point for the application.
-    /// </summary>
-    [STAThread]
-    static void Main()
+
+    internal static class Program
     {
-        // To customize application configuration such as set high DPI settings or default font,
-        // see https://aka.ms/applicationconfiguration.
-        ApplicationConfiguration.Initialize();
-        Application.Run(new Form1());
-    }    
+        [STAThread]
+        private static void Main(string[] args)
+        {
+            bool autostart = args.Any(a =>
+                a.Equals("-autostart", StringComparison.OrdinalIgnoreCase) ||
+                a.Equals("/autostart", StringComparison.OrdinalIgnoreCase));
+
+            // Prevent a second instance (manual start + autostart must not duplicate)
+            bool createdNew;
+            using (var mutex = new Mutex(true, "SteamTV_SingleInstance_8f2b1c", out createdNew))
+            {
+                if (!createdNew) return;
+
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new MainForm(autostart));
+            }
+        }
+    }
+
 }

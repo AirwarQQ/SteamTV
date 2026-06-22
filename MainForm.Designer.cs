@@ -1,6 +1,9 @@
-﻿namespace SteamTV;
+﻿using System.Drawing;
 
-partial class Form1
+namespace SteamTV
+{
+
+partial class MainForm
 {
     /// <summary>
     ///  Required designer variable.
@@ -29,10 +32,11 @@ partial class Form1
     private void InitializeComponent()
     {
         components = new System.ComponentModel.Container();
-        AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(800, 450);
-        Text = "Form1";
+        this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+        this.ClientSize = new Size(800, 450);
+        this.Text = "Form1";
     }
 
     #endregion
+}
 }

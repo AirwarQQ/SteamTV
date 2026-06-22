@@ -2,10 +2,33 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <Nullable>enable</Nullable>
-    <UseWindowsForms>true</UseWindowsForms>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>SteamTV</RootNamespace>
+    <AssemblyName>SteamTV</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <Deterministic>true</Deterministic>
+    <ApplicationIcon>start_icon.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Management" />
+  </ItemGroup>
+
+  <!--
+    Only needed so that `dotnet build` can build net4.8 on a machine without the
+    Targeting Pack installed (this is a build-time Microsoft package, not included in the exe).
+    If .NET Framework 4.8 Developer Pack is already on the system — this line can be removed.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Exclude Displaytest.cs from the main project (it has its own Main entry point) -->
+  <ItemGroup>
+    <Compile Remove="Displaytest.cs" />
+  </ItemGroup>
 
 </Project>

@@ -30,7 +30,7 @@ namespace SteamTV
         public bool EnableBigPicture = true;
         public bool AutoMonitorOnStart = true;   // start monitoring immediately on autostart
 
-        public string AdbPath = @"C:\migrate\pc\steamTV\final3\platform-tools\adb.exe";
+        public string AdbPath = @"adb.exe";
         public string SteamPath = @"C:\Program Files (x86)\Steam\steam.exe";
         public string HdmiActivityPattern = @"com\.xiaomi\.mitv\.tvplayer/\.ExternalSourceActivity";
         public string TvHomeComponent = "com.spocky.projengmenu/.ui.home.MainActivity";

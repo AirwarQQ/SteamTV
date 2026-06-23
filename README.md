@@ -77,7 +77,7 @@ All settings are stored in the registry at `HKCU\Software\SteamTV`.
 Advanced paths (`adb.exe`, `steam.exe`, Android component names, HDMI activity pattern) can be edited directly in the registry if the defaults don't match your setup.
 
 **Default paths:**
-- `adb.exe` — `C:\migrate\pc\steamTV\final3\platform-tools\adb.exe` *(change to your actual path)*
+- `adb.exe` — assumes `adb` is on your `PATH`; set the full path in the registry if needed (e.g. `C:\platform-tools\adb.exe`)
 - `steam.exe` — `C:\Program Files (x86)\Steam\steam.exe`
 
 ---

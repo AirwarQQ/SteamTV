@@ -105,6 +105,15 @@ namespace SteamTV
             Disconnect();
             Thread.Sleep(1000);
         }
+
+        // Returns true if ADB is reachable and the device accepts the connection.
+        // Safe to call from a background thread.
+        public bool IsAdbReachable(int timeoutMs = 4000)
+        {
+            string output;
+            RunCapture("connect " + _ip, out output, timeoutMs);
+            return output.IndexOf("connected to", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
     }
 
 }

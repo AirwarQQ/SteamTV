@@ -1,5 +1,6 @@
-﻿// Controller detection (WMI), Big Picture status, minimizing/launching Steam.
+// Controller detection (WMI), Big Picture status, minimizing/launching Steam.
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Management;
@@ -8,20 +9,28 @@ using System.Text.RegularExpressions;
 namespace SteamTV
 {
 
+    // Represents a gamepad currently connected and visible to Windows.
+    internal sealed class ConnectedGamepad
+    {
+        public string HardwareId;    // canonical "VID_XXXX&PID_YYYY"
+        public string FriendlyName;  // from WMI Name field
+
+        public override string ToString() =>
+            string.IsNullOrEmpty(FriendlyName) ? HardwareId
+                : FriendlyName + "  (" + HardwareId + ")";
+    }
+
     internal static class SteamHelper
     {
-        private static readonly Regex SwitchProRe = new Regex(@"VID_057E.*PID_2009", RegexOptions.IgnoreCase);
-        private static readonly Regex SwitchProInstRe = new Regex(@"VID&0002057E.*PID&2009", RegexOptions.IgnoreCase);
-        private static readonly Regex EightBitDoRe = new Regex(@"VID_37D7.*PID_2501", RegexOptions.IgnoreCase);
-        private const string GamepadUsage = "UP:0001_U:0005";
+        private const string GamepadUsage = "UP:0001_U:0005";  // HID usage: Generic Desktop / Game Pad
 
+        // Cached searcher for the 2-second polling loop — created once, .Get() runs the query each time.
         private static ManagementObjectSearcher _searcher;
 
         private static ManagementObjectSearcher GetSearcher()
         {
             if (_searcher == null)
             {
-                // HIDClass
                 _searcher = new ManagementObjectSearcher(
                     "root\\CIMV2",
                     "SELECT PNPDeviceID, HardwareID, ConfigManagerErrorCode FROM Win32_PnPEntity " +
@@ -30,31 +39,74 @@ namespace SteamTV
             return _searcher;
         }
 
-        public static bool IsControllerConnected()
+        // Normalize any HID HardwareID string to "VID_XXXX&PID_YYYY" (upper-case, no revision suffix).
+        private static string ExtractVidPid(string hwid)
         {
+            if (string.IsNullOrEmpty(hwid)) return null;
+            var v = Regex.Match(hwid, @"VID_([0-9A-Fa-f]{4})", RegexOptions.IgnoreCase);
+            var p = Regex.Match(hwid, @"PID_([0-9A-Fa-f]{4})", RegexOptions.IgnoreCase);
+            if (!v.Success || !p.Success) return null;
+            return "VID_" + v.Groups[1].Value.ToUpperInvariant()
+                 + "&PID_" + p.Groups[1].Value.ToUpperInvariant();
+        }
+
+        // Enumerate all HID game controllers visible to Windows right now.
+        // Uses a fresh searcher so callers get an accurate snapshot (not cached).
+        // Called on user demand (Refresh button), not in the hot 2-second polling loop.
+        public static List<ConnectedGamepad> EnumerateGamepads()
+        {
+            var result = new List<ConnectedGamepad>();
             try
             {
-                using (var results = GetSearcher().Get())
+                using (var s = new ManagementObjectSearcher(
+                    "root\\CIMV2",
+                    "SELECT Name, PNPDeviceID, HardwareID FROM Win32_PnPEntity " +
+                    "WHERE ClassGuid='{745a17a0-74d3-11d0-b6fe-00a0c90f57da}'"))
+                using (var items = s.Get())
                 {
-                    foreach (ManagementObject mo in results)
+                    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (ManagementObject mo in items)
                     using (mo)
                     {
                         string[] hwids = mo["HardwareID"] as string[] ?? Array.Empty<string>();
-                        string instanceId = mo["PNPDeviceID"] as string ?? "";
-                        uint? cmErr = null;
-                        try { if (mo["ConfigManagerErrorCode"] != null) cmErr = Convert.ToUInt32(mo["ConfigManagerErrorCode"]); }
-                        catch { }
+                        if (!hwids.Any(h => h.IndexOf(GamepadUsage, StringComparison.OrdinalIgnoreCase) >= 0))
+                            continue;
 
-                        bool usage = hwids.Any(h => h.IndexOf(GamepadUsage, StringComparison.OrdinalIgnoreCase) >= 0);
-                        if (!usage) continue;
+                        string vidPid = hwids.Select(ExtractVidPid).FirstOrDefault(x => x != null);
+                        if (vidPid == null || !seen.Add(vidPid)) continue;
 
-                        // Switch Pro: VID/PID match + OK status (ConfigManagerErrorCode == 0)
-                        bool switchVidPid = hwids.Any(h => SwitchProRe.IsMatch(h)) || SwitchProInstRe.IsMatch(instanceId);
-                        if (switchVidPid && cmErr.HasValue && cmErr.Value == 0)
-                            return true;
+                        result.Add(new ConnectedGamepad
+                        {
+                            HardwareId = vidPid,
+                            FriendlyName = mo["Name"] as string ?? vidPid
+                        });
+                    }
+                }
+            }
+            catch { }
+            return result;
+        }
 
-                        // 8BitDo / 37D7:2501: device presence is sufficient
-                        if (hwids.Any(h => EightBitDoRe.IsMatch(h)))
+        // Hot-path controller check used by the monitor loop every 2 s.
+        // Reuses the cached searcher to avoid repeated ManagementObjectSearcher creation.
+        public static bool IsWatchedControllerConnected(IReadOnlyList<GamepadEntry> watched)
+        {
+            if (watched == null || watched.Count == 0) return false;
+            try
+            {
+                using (var items = GetSearcher().Get())
+                {
+                    foreach (ManagementObject mo in items)
+                    using (mo)
+                    {
+                        string[] hwids = mo["HardwareID"] as string[] ?? Array.Empty<string>();
+                        if (!hwids.Any(h => h.IndexOf(GamepadUsage, StringComparison.OrdinalIgnoreCase) >= 0))
+                            continue;
+
+                        string vidPid = hwids.Select(ExtractVidPid).FirstOrDefault(x => x != null);
+                        if (vidPid == null) continue;
+
+                        if (watched.Any(w => string.Equals(w.HardwareId, vidPid, StringComparison.OrdinalIgnoreCase)))
                             return true;
                     }
                 }
@@ -105,7 +157,7 @@ namespace SteamTV
                     UseShellExecute = true
                 });
             }
-            catch { /* steam not found — ignored, caller can log if needed */ }
+            catch { }
         }
     }
 

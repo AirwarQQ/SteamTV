@@ -9,6 +9,7 @@
     <Nullable>disable</Nullable>
     <Deterministic>true</Deterministic>
     <ApplicationIcon>start_icon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,7 +1,8 @@
-// Main window (WinForms): IP field, target display, checkboxes, log, tray icon.
+// Main window: tab-based UI — Monitor settings, Gamepad management, Test actions.
 using System;
 using System.Drawing;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
@@ -13,16 +14,36 @@ namespace SteamTV
         private readonly AppSettings _settings;
         private readonly MonitorService _monitor;
 
+        // Monitor tab
         private TextBox _txtIp;
+        private NumericUpDown _numHdmiPort;
         private NumericUpDown _numTarget;
+        private Label _lblAdb;
         private CheckBox _chkDisableOthers;
+        private CheckBox _chkWakeTV;
+        private CheckBox _chkSourceSwitch;
+        private CheckBox _chkBigPicture;
         private CheckBox _chkAutostart;
-        private Button _btnStart, _btnStop, _btnDisplays, _btnExit;
         private Label _lblStatus;
+        private Button _btnStart, _btnStop, _btnExit;
+
+        // Gamepads tab
+        private ListBox _lstWatched;
+        private ListBox _lstConnected;
+        private Label _lblNoGamepads;
+
+        // Shared
+        private TabControl _tabs;
         private TextBox _txtLog;
         private NotifyIcon _tray;
+        private ToolStripMenuItem _miTrayAutostart;
+        private ToolStripMenuItem _miTrayAutoMonitor;
         private System.Windows.Forms.Timer _statusTimer;
         private bool _reallyExit;
+
+        // ADB periodic check state
+        private DateTime _lastAdbCheck = DateTime.MinValue;
+        private bool _adbCheckPending;
 
         private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private const string RunValueName = "SteamTV_Controller";
@@ -38,118 +59,339 @@ namespace SteamTV
             LoadSettingsToUi();
 
             _statusTimer = new System.Windows.Forms.Timer { Interval = 1000 };
-            _statusTimer.Tick += (s, e) => UpdateStatusLabel();
+            _statusTimer.Tick += (s, e) => OnStatusTick();
             _statusTimer.Start();
 
             if (autostart)
-            {
-                // started from autostart: hide to tray and start immediately
-                Shown += (s, e) => { HideToTray(); StartMonitor(); };
-            }
+                Shown += (s, e) => { HideToTray(); if (_settings.AutoMonitorOnStart) StartMonitor(); };
         }
+
+        // -------------------------------------------------------------------------
+        // UI construction
+        // -------------------------------------------------------------------------
 
         private void BuildUi()
         {
+            SuspendLayout();
             Text = "SteamTV Monitor";
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(380, 360);
+            ClientSize = new Size(492, 556);
             Font = new Font("Segoe UI", 9f);
+            Icon = LoadAppIcon();
 
-            var lblIp = new Label { Text = "TV IP:", Location = new Point(15, 18), AutoSize = true };
-            _txtIp = new TextBox { Location = new Point(140, 15), Width = 220 };
-
-            var lblTarget = new Label { Text = "Target Display #:", Location = new Point(15, 50), AutoSize = true };
-            _numTarget = new NumericUpDown { Location = new Point(140, 47), Width = 60, Minimum = 1, Maximum = 64, Value = 3 };
-            _btnDisplays = new Button { Text = "Displays…", Location = new Point(210, 46), Width = 90 };
-            _btnDisplays.Click += (s, e) => ShowDisplays();
-
-            _chkDisableOthers = new CheckBox
+            _tabs = new TabControl { Left = 0, Top = 0, Width = 492, Height = 316 };
+            _tabs.TabPages.Add(BuildMonitorTab());
+            _tabs.TabPages.Add(BuildGamepadsTab());
+            _tabs.TabPages.Add(BuildTestTab());
+            _tabs.SelectedIndexChanged += (s, e) =>
             {
-                Text = "Disable other monitors (except target)",
-                Location = new Point(15, 82),
-                AutoSize = true
+                if (_tabs.SelectedIndex == 1) RefreshConnectedList();
             };
 
-            _chkAutostart = new CheckBox
-            {
-                Text = "Auto-start with Windows (background)",
-                Location = new Point(15, 108),
-                AutoSize = true
-            };
-            _chkAutostart.CheckedChanged += (s, e) => SetAutostart(_chkAutostart.Checked);
-
+            // Status + buttons live on the main form (outside tabs) so they're always visible
             _lblStatus = new Label
             {
-                Location = new Point(15, 140),
-                AutoSize = true,
+                Left = 8, Top = 322, AutoSize = true,
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
             };
 
-            _btnStart = new Button { Text = "Start", Location = new Point(15, 165), Width = 110, Height = 32 };
+            _btnStart = new Button { Text = "Start", Left = 8, Top = 346, Width = 100, Height = 28 };
             _btnStart.Click += (s, e) => StartMonitor();
 
-            _btnStop = new Button { Text = "Stop", Location = new Point(135, 165), Width = 110, Height = 32 };
+            _btnStop = new Button { Text = "Stop", Left = 116, Top = 346, Width = 100, Height = 28 };
             _btnStop.Click += (s, e) => _monitor.Stop();
 
-            _btnExit = new Button { Text = "Exit", Location = new Point(255, 165), Width = 105, Height = 32 };
+            _btnExit = new Button { Text = "Exit", Left = 374, Top = 346, Width = 110, Height = 28 };
             _btnExit.Click += (s, e) => { _reallyExit = true; Close(); };
 
-            var lblLog = new Label { Text = "Log:", Location = new Point(15, 205), AutoSize = true };
+            var lblLog = new Label { Text = "Log:", Left = 8, Top = 382, AutoSize = true };
+
             _txtLog = new TextBox
             {
-                Location = new Point(15, 225),
-                Size = new Size(345, 120),
-                Multiline = true,
-                ReadOnly = true,
+                Left = 8, Top = 400, Width = 476, Height = 148,
+                Multiline = true, ReadOnly = true,
                 ScrollBars = ScrollBars.Vertical,
-                BackColor = Color.White
+                BackColor = Color.FromArgb(250, 250, 250),
+                Font = new Font("Consolas", 8.5f)
             };
+
+            BuildTray();
 
             Controls.AddRange(new Control[]
             {
-                lblIp, _txtIp, lblTarget, _numTarget, _btnDisplays,
-                _chkDisableOthers, _chkAutostart, _lblStatus,
-                _btnStart, _btnStop, _btnExit, lblLog, _txtLog
+                _tabs, _lblStatus, _btnStart, _btnStop, _btnExit, lblLog, _txtLog
             });
 
-            // system tray — so the monitor can run in background without a visible window
-            var menu = new ContextMenuStrip();
-            menu.Items.Add("Show", null, (s, e) => RestoreFromTray());
-            menu.Items.Add("Start", null, (s, e) => StartMonitor());
-            menu.Items.Add("Stop", null, (s, e) => _monitor.Stop());
-            menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("Exit", null, (s, e) => { _reallyExit = true; Close(); });
+            // Must be set AFTER controls are added so PerformAutoScale() fires with a valid HWND.
+            // PerMonitorV2 (declared in app.manifest) makes WinForms call GetDpiForWindow(Handle)
+            // which returns the actual per-monitor DPI, not the system default.
+            AutoScaleDimensions = new SizeF(96F, 96F);
+            AutoScaleMode = AutoScaleMode.Dpi;
 
-            _tray = new NotifyIcon
-            {
-                Text = "SteamTV Monitor",
-                Icon = SystemIcons.Application,
-                Visible = false,
-                ContextMenuStrip = menu
-            };
-            _tray.DoubleClick += (s, e) => RestoreFromTray();
+            UpdateStatusLabel();
 
             FormClosing += OnFormClosing;
             Resize += (s, e) => { if (WindowState == FormWindowState.Minimized) HideToTray(); };
 
-            UpdateStatusLabel();
+            ResumeLayout(false);
+            PerformLayout();
         }
+
+        private TabPage BuildMonitorTab()
+        {
+            var tab = new TabPage("Monitor");
+            var p = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10) };
+
+            // --- Connection group ---
+            var grpConn = new GroupBox { Text = "Connection", Left = 8, Top = 4, Width = 460, Height = 86 };
+
+            var lblIp = new Label { Text = "TV IP:", Left = 8, Top = 22, AutoSize = true };
+            _txtIp = new TextBox { Left = 80, Top = 19, Width = 210 };
+
+            _lblAdb = new Label
+            {
+                Text = "○ ADB  ↺15s",
+                Left = 295, Top = 22, AutoSize = true,
+                ForeColor = Color.Gray,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Cursor = Cursors.Help
+            };
+            var ttAdb = new ToolTip();
+            ttAdb.SetToolTip(_lblAdb, "ADB reachability check — runs in background every 15 s.\n● green = reachable   ● orange = not reachable");
+
+            var lblHdmi = new Label { Text = "HDMI port:", Left = 8, Top = 54, AutoSize = true };
+            _numHdmiPort = new NumericUpDown { Left = 80, Top = 51, Width = 48, Minimum = 1, Maximum = 4 };
+            var lblHdmiHint = new Label
+            {
+                Text = "(1–4, used by the TV External Source app)",
+                Left = 136, Top = 54, AutoSize = true, ForeColor = Color.Gray
+            };
+
+            grpConn.Controls.AddRange(new Control[]
+                { lblIp, _txtIp, _lblAdb, lblHdmi, _numHdmiPort, lblHdmiHint });
+
+            // --- Display group ---
+            var grpDisp = new GroupBox { Text = "Display", Left = 8, Top = 96, Width = 460, Height = 52 };
+
+            var lblTarget = new Label { Text = "Target display #:", Left = 8, Top = 22, AutoSize = true };
+            _numTarget = new NumericUpDown { Left = 120, Top = 19, Width = 52, Minimum = 1, Maximum = 64, Value = 3 };
+            var btnDisplays = new Button { Text = "Displays…", Left = 182, Top = 18, Width = 88, Height = 24 };
+            btnDisplays.Click += (s, e) => ShowDisplaysList();
+
+            grpDisp.Controls.AddRange(new Control[] { lblTarget, _numTarget, btnDisplays });
+
+            // --- Features group ---
+            // Height=130 fits 5 checkboxes at 22 px spacing within the ~291 px tab content area
+            var grpFeat = new GroupBox { Text = "Features", Left = 8, Top = 154, Width = 460, Height = 130 };
+
+            _chkDisableOthers = Chk("Disable other monitors when TV is active", 8, 18);
+            _chkWakeTV = Chk("Wake TV via ADB on gamepad connect", 8, 40);
+            _chkSourceSwitch = Chk("Switch HDMI source on TV", 8, 62);
+            _chkBigPicture = Chk("Launch Steam Big Picture", 8, 84);
+            _chkAutostart = Chk("Run at Windows startup (hidden in tray)", 8, 106);
+            _chkAutostart.CheckedChanged += (s, e) => SetAutostart(_chkAutostart.Checked);
+
+            grpFeat.Controls.AddRange(new Control[]
+                { _chkDisableOthers, _chkWakeTV, _chkSourceSwitch, _chkBigPicture, _chkAutostart });
+
+            p.Controls.AddRange(new Control[] { grpConn, grpDisp, grpFeat });
+            tab.Controls.Add(p);
+            return tab;
+        }
+
+        private TabPage BuildGamepadsTab()
+        {
+            var tab = new TabPage("Gamepads");
+            var p = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10) };
+
+            // Watched list
+            var grpWatched = new GroupBox
+            {
+                Text = "Watched — trigger SteamTV when any of these connects",
+                Left = 8, Top = 4, Width = 460, Height = 138
+            };
+
+            _lstWatched = new ListBox { Left = 8, Top = 18, Width = 360, Height = 82 };
+
+            var btnRemove = new Button { Text = "Remove", Left = 376, Top = 18, Width = 76, Height = 28 };
+            btnRemove.Click += (s, e) => RemoveWatchedGamepad();
+
+            _lblNoGamepads = new Label
+            {
+                Text = "⚠  No gamepads configured — add at least one to enable the trigger.",
+                Left = 8, Top = 106, Width = 444, Height = 22,
+                ForeColor = Color.OrangeRed
+            };
+
+            grpWatched.Controls.AddRange(new Control[] { _lstWatched, btnRemove, _lblNoGamepads });
+
+            // Connected list
+            var grpConnected = new GroupBox
+            {
+                Text = "Connected right now",
+                Left = 8, Top = 148, Width = 460, Height = 122
+            };
+
+            _lstConnected = new ListBox { Left = 8, Top = 18, Width = 360, Height = 68 };
+
+            var btnRefresh = new Button { Text = "Refresh", Left = 376, Top = 18, Width = 76, Height = 28 };
+            btnRefresh.Click += (s, e) => RefreshConnectedList();
+
+            var btnAdd = new Button { Text = "↑ Add to Watched", Left = 8, Top = 92, Width = 160, Height = 24 };
+            btnAdd.Click += (s, e) => AddToWatched();
+
+            grpConnected.Controls.AddRange(new Control[] { _lstConnected, btnRefresh, btnAdd });
+
+            p.Controls.AddRange(new Control[] { grpWatched, grpConnected });
+            tab.Controls.Add(p);
+            return tab;
+        }
+
+        private TabPage BuildTestTab()
+        {
+            var tab = new TabPage("Test");
+            var p = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10) };
+
+            var grp = new GroupBox { Text = "Test individual actions", Left = 8, Top = 4, Width = 460, Height = 258 };
+
+            int x1 = 10, x2 = 238, bw = 210, bh = 30, yStep = 38;
+            int y = 22;
+
+            grp.Controls.Add(TestBtn("Wake TV", x1, y, bw, bh,
+                () => new Adb(_settings.AdbPath, _settings.TvIp).WakeTv()));
+            grp.Controls.Add(TestBtn("Switch HDMI Source", x2, y, bw, bh, () =>
+            {
+                var adb = new Adb(_settings.AdbPath, _settings.TvIp);
+                adb.SwitchSourceToPc(_settings.HdmiSourcePackage);
+                return "done (port " + _settings.HdmiPort + ")";
+            }));
+            y += yStep;
+
+            grp.Controls.Add(TestBtn("Check ADB Connection", x1, y, bw, bh, () =>
+            {
+                bool ok = new Adb(_settings.AdbPath, _settings.TvIp).IsAdbReachable(5000);
+                return ok ? "reachable ✓" : "not reachable ✗";
+            }));
+            grp.Controls.Add(TestBtn("Restore TV Home Screen", x2, y, bw, bh, () =>
+            {
+                new Adb(_settings.AdbPath, _settings.TvIp).RestoreSourceBeforeShutdown(_settings.TvHomeComponent);
+                return "done";
+            }));
+            y += yStep;
+
+            grp.Controls.Add(TestBtn("Start Big Picture", x1, y, bw, bh, () =>
+            {
+                SteamHelper.StartBigPicture(_settings.SteamPath);
+                return "launched";
+            }));
+            grp.Controls.Add(TestBtn("List Displays", x2, y, bw, bh, () =>
+            {
+                var list = DisplayManager.ListDisplays();
+                if (list.Count == 0) return "none found";
+                var sb = new StringBuilder();
+                foreach (var d in list)
+                    sb.Append("#" + d.Number + " " + (d.Active ? "[on]" : "[off]") + " " + d.FriendlyName + " | ");
+                return sb.ToString().TrimEnd(' ', '|');
+            }));
+            y += yStep;
+
+            grp.Controls.Add(TestBtn("Enable Display #N", x1, y, bw, bh, () =>
+            {
+                string err;
+                bool ok = DisplayManager.EnableDisplay(_settings.TargetDisplay, out err);
+                return ok ? "enabled #" + _settings.TargetDisplay : err;
+            }));
+            grp.Controls.Add(TestBtn("Disable Display #N", x2, y, bw, bh, () =>
+            {
+                string err;
+                bool ok = DisplayManager.DisableDisplay(_settings.TargetDisplay, out err);
+                return ok ? "disabled #" + _settings.TargetDisplay : err;
+            }));
+            y += yStep;
+
+            grp.Controls.Add(TestBtn("Restore All Displays", x1, y, bw, bh, () =>
+            {
+                string snap_err;
+                var snap = DisplayManager.QueryAll(out snap_err);
+                if (snap == null) return "query failed: " + snap_err;
+                string err;
+                bool ok = DisplayManager.RestoreAll(snap, out err);
+                return ok ? "restored" : err;
+            }));
+            grp.Controls.Add(TestBtn("Minimize Steam", x2, y, bw, bh, () =>
+            {
+                SteamHelper.MinimizeSteamWindow();
+                return "done";
+            }));
+
+            p.Controls.Add(grp);
+
+            var lblNote = new Label
+            {
+                Text = "Each action runs in the background and logs the result below. " +
+                       "Settings are saved before each test.",
+                Left = 8, Top = 268, Width = 460, Height = 32,
+                ForeColor = Color.Gray
+            };
+            p.Controls.Add(lblNote);
+
+            tab.Controls.Add(p);
+            return tab;
+        }
+
+        // -------------------------------------------------------------------------
+        // Helpers
+        // -------------------------------------------------------------------------
+
+        private static CheckBox Chk(string text, int x, int y)
+            => new CheckBox { Text = text, Left = x, Top = y, AutoSize = true };
+
+        private Button TestBtn(string label, int x, int y, int w, int h, Func<string> action)
+        {
+            var btn = new Button { Text = label, Left = x, Top = y, Width = w, Height = h };
+            btn.Click += (s, e) =>
+            {
+                SaveUiToSettings();
+                AppendLog("[Test] " + label + "...");
+                Task.Run(() =>
+                {
+                    string result;
+                    try { result = action(); }
+                    catch (Exception ex) { result = "ERROR: " + ex.Message; }
+                    AppendLog("[Test] " + label + " → " + result);
+                });
+            };
+            return btn;
+        }
+
+        // -------------------------------------------------------------------------
+        // Settings sync
+        // -------------------------------------------------------------------------
 
         private void LoadSettingsToUi()
         {
             _txtIp.Text = _settings.TvIp;
+            _numHdmiPort.Value = Math.Max(1, Math.Min(4, _settings.HdmiPort));
             _numTarget.Value = Math.Max(_numTarget.Minimum, Math.Min(_numTarget.Maximum, _settings.TargetDisplay));
             _chkDisableOthers.Checked = _settings.DisableOthers;
+            _chkWakeTV.Checked = _settings.EnableWakeTV;
+            _chkSourceSwitch.Checked = _settings.EnableSourceSwitch;
+            _chkBigPicture.Checked = _settings.EnableBigPicture;
             _chkAutostart.Checked = IsAutostartEnabled();
+            RefreshWatchedList();
         }
 
         private void SaveUiToSettings()
         {
             _settings.TvIp = _txtIp.Text.Trim();
+            _settings.HdmiPort = (int)_numHdmiPort.Value;
             _settings.TargetDisplay = (int)_numTarget.Value;
             _settings.DisableOthers = _chkDisableOthers.Checked;
+            _settings.EnableWakeTV = _chkWakeTV.Checked;
+            _settings.EnableSourceSwitch = _chkSourceSwitch.Checked;
+            _settings.EnableBigPicture = _chkBigPicture.Checked;
             _settings.Save();
         }
 
@@ -164,42 +406,72 @@ namespace SteamTV
             _monitor.Start();
         }
 
-        private void OnRunningChanged(bool running)
+        // -------------------------------------------------------------------------
+        // Gamepad management
+        // -------------------------------------------------------------------------
+
+        private void RefreshWatchedList()
         {
-            if (InvokeRequired) { BeginInvoke(new Action(() => OnRunningChanged(running))); return; }
-            UpdateStatusLabel();
-            // lock settings editing while running
-            _txtIp.Enabled = _numTarget.Enabled = _chkDisableOthers.Enabled = !running;
-            _btnStart.Enabled = !running;
-            _btnStop.Enabled = running;
+            _lstWatched.Items.Clear();
+            foreach (var g in _settings.WatchedGamepads)
+                _lstWatched.Items.Add(g);
+            _lblNoGamepads.Visible = _settings.WatchedGamepads.Count == 0;
         }
 
-        private void UpdateStatusLabel()
+        private void RefreshConnectedList()
         {
-            if (_monitor.IsRunning)
+            _lstConnected.Items.Clear();
+            _lstConnected.Items.Add("Scanning...");
+            Task.Run(() =>
             {
-                _lblStatus.Text = "Status: Running";
-                _lblStatus.ForeColor = Color.Green;
-            }
-            else
-            {
-                _lblStatus.Text = "Status: Stopped";
-                _lblStatus.ForeColor = Color.Red;
-            }
-            if (_tray != null) _tray.Text = "SteamTV — " + (_monitor.IsRunning ? "running" : "stopped");
+                var pads = SteamHelper.EnumerateGamepads();
+                BeginInvoke(new Action(() =>
+                {
+                    _lstConnected.Items.Clear();
+                    if (pads.Count == 0)
+                        _lstConnected.Items.Add("(no gamepad-class HID devices detected)");
+                    else
+                        foreach (var g in pads)
+                            _lstConnected.Items.Add(g);
+                }));
+            });
         }
 
-        private void AppendLog(string msg)
+        private void AddToWatched()
         {
-            if (InvokeRequired) { BeginInvoke(new Action(() => AppendLog(msg))); return; }
-            string line = "[" + DateTime.Now.ToString("HH:mm:ss") + "] " + msg + Environment.NewLine;
-            _txtLog.AppendText(line);
-            // keep the log from growing too large
-            if (_txtLog.TextLength > 20000)
-                _txtLog.Text = _txtLog.Text.Substring(_txtLog.TextLength - 12000);
+            if (_lstConnected.SelectedItem is ConnectedGamepad pad)
+            {
+                if (_settings.WatchedGamepads.Exists(w =>
+                    string.Equals(w.HardwareId, pad.HardwareId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    MessageBox.Show("This gamepad is already in the watched list.", "SteamTV");
+                    return;
+                }
+                _settings.WatchedGamepads.Add(new GamepadEntry
+                {
+                    HardwareId = pad.HardwareId,
+                    FriendlyName = pad.FriendlyName
+                });
+                _settings.Save();
+                RefreshWatchedList();
+            }
         }
 
-        private void ShowDisplays()
+        private void RemoveWatchedGamepad()
+        {
+            if (_lstWatched.SelectedItem is GamepadEntry entry)
+            {
+                _settings.WatchedGamepads.Remove(entry);
+                _settings.Save();
+                RefreshWatchedList();
+            }
+        }
+
+        // -------------------------------------------------------------------------
+        // Display list popup
+        // -------------------------------------------------------------------------
+
+        private void ShowDisplaysList()
         {
             var list = DisplayManager.ListDisplays();
             if (list.Count == 0)
@@ -208,17 +480,82 @@ namespace SteamTV
                 return;
             }
             var sb = new StringBuilder();
-            sb.AppendLine("Detected displays (number — as shown in \"Screen Settings\"):");
+            sb.AppendLine("Detected displays (number as in Windows Screen Settings):");
             sb.AppendLine();
             foreach (var d in list)
-                sb.AppendLine("#" + d.Number + "  " + (d.Active ? "[active]   " : "[disabled]  ") +
-                              (string.IsNullOrEmpty(d.FriendlyName) ? "(name unavailable)" : d.FriendlyName));
+                sb.AppendLine("#" + d.Number + "  " +
+                    (d.Active ? "[active]  " : "[off]     ") +
+                    (string.IsNullOrEmpty(d.FriendlyName) ? "(name unavailable)" : d.FriendlyName));
             sb.AppendLine();
-            sb.AppendLine("Enter the TV display number in the \"Target Display #\" field.");
+            sb.AppendLine("Enter the TV display number in \"Target display #\".");
             MessageBox.Show(sb.ToString(), "Displays");
         }
 
-        // --- autostart ---
+        // -------------------------------------------------------------------------
+        // Status + ADB check
+        // -------------------------------------------------------------------------
+
+        private void OnRunningChanged(bool running)
+        {
+            if (InvokeRequired) { BeginInvoke(new Action(() => OnRunningChanged(running))); return; }
+            UpdateStatusLabel();
+            bool canEdit = !running;
+            _txtIp.Enabled = _numHdmiPort.Enabled = _numTarget.Enabled = canEdit;
+            _chkDisableOthers.Enabled = _chkWakeTV.Enabled = _chkSourceSwitch.Enabled = canEdit;
+            _chkBigPicture.Enabled = canEdit;
+            _btnStart.Enabled = canEdit;
+            _btnStop.Enabled = running;
+        }
+
+        private void OnStatusTick()
+        {
+            UpdateStatusLabel();
+
+            // ADB check: run every 15 s in a background task
+            if (!_adbCheckPending && (DateTime.Now - _lastAdbCheck).TotalSeconds >= 15)
+            {
+                _adbCheckPending = true;
+                string ip = _settings.TvIp;
+                string adbPath = _settings.AdbPath;
+                Task.Run(() =>
+                {
+                    bool ok = new Adb(adbPath, ip).IsAdbReachable(4000);
+                    BeginInvoke(new Action(() =>
+                    {
+                        _adbCheckPending = false;
+                        _lastAdbCheck = DateTime.Now;
+                        _lblAdb.Text = "● ADB  ↺15s";
+                        _lblAdb.ForeColor = ok ? Color.Green : Color.OrangeRed;
+                    }));
+                });
+            }
+        }
+
+        private void UpdateStatusLabel()
+        {
+            bool running = _monitor.IsRunning;
+            _lblStatus.Text = running ? "● Running" : "● Stopped";
+            _lblStatus.ForeColor = running ? Color.Green : Color.OrangeRed;
+            if (_tray != null)
+                _tray.Text = "SteamTV — " + (running ? "running" : "stopped");
+        }
+
+        // -------------------------------------------------------------------------
+        // Log
+        // -------------------------------------------------------------------------
+
+        private void AppendLog(string msg)
+        {
+            if (InvokeRequired) { BeginInvoke(new Action(() => AppendLog(msg))); return; }
+            _txtLog.AppendText("[" + DateTime.Now.ToString("HH:mm:ss") + "] " + msg + Environment.NewLine);
+            if (_txtLog.TextLength > 20000)
+                _txtLog.Text = _txtLog.Text.Substring(_txtLog.TextLength - 12000);
+        }
+
+        // -------------------------------------------------------------------------
+        // Autostart
+        // -------------------------------------------------------------------------
+
         private static bool IsAutostartEnabled()
         {
             try
@@ -249,7 +586,62 @@ namespace SteamTV
             }
         }
 
-        // --- tray / closing ---
+        // -------------------------------------------------------------------------
+        // Tray icon
+        // -------------------------------------------------------------------------
+
+        private void BuildTray()
+        {
+            _miTrayAutostart = new ToolStripMenuItem("Autostart app") { CheckOnClick = true };
+            _miTrayAutostart.Click += (s, e) =>
+            {
+                // Sync with Monitor tab checkbox — its CheckedChanged calls SetAutostart()
+                _chkAutostart.Checked = _miTrayAutostart.Checked;
+            };
+
+            _miTrayAutoMonitor = new ToolStripMenuItem("Auto-start monitoring on launch") { CheckOnClick = true };
+            _miTrayAutoMonitor.Click += (s, e) =>
+            {
+                _settings.AutoMonitorOnStart = _miTrayAutoMonitor.Checked;
+                _settings.Save();
+            };
+
+            var menu = new ContextMenuStrip();
+            menu.Opening += (s, e) =>
+            {
+                // Refresh checked state each time the menu opens
+                _miTrayAutostart.Checked = IsAutostartEnabled();
+                _miTrayAutoMonitor.Checked = _settings.AutoMonitorOnStart;
+            };
+            menu.Items.Add("Show", null, (s, e) => RestoreFromTray());
+            menu.Items.Add("Start monitoring", null, (s, e) => StartMonitor());
+            menu.Items.Add("Stop monitoring", null, (s, e) => _monitor.Stop());
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(_miTrayAutostart);
+            menu.Items.Add(_miTrayAutoMonitor);
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Exit", null, (s, e) => { _reallyExit = true; Close(); });
+
+            _tray = new NotifyIcon
+            {
+                Text = "SteamTV Monitor",
+                Icon = LoadAppIcon(),
+                Visible = true,
+                ContextMenuStrip = menu
+            };
+            _tray.DoubleClick += (s, e) => RestoreFromTray();
+        }
+
+        // -------------------------------------------------------------------------
+        // DPI scaling
+        // -------------------------------------------------------------------------
+
+        private static Icon LoadAppIcon()
+        {
+            try { return Icon.ExtractAssociatedIcon(Application.ExecutablePath); }
+            catch { return SystemIcons.Application; }
+        }
+
         private void HideToTray()
         {
             _tray.Visible = true;
@@ -263,19 +655,16 @@ namespace SteamTV
             ShowInTaskbar = true;
             WindowState = FormWindowState.Normal;
             Activate();
-            _tray.Visible = false;
         }
 
         private void OnFormClosing(object sender, FormClosingEventArgs e)
         {
-            // Close button / Alt+F4 — minimize to tray, monitor keeps running.
             if (e.CloseReason == CloseReason.UserClosing && !_reallyExit)
             {
                 e.Cancel = true;
                 HideToTray();
                 return;
             }
-            // Real exit
             _statusTimer?.Stop();
             _monitor.Stop();
             if (_tray != null) _tray.Visible = false;

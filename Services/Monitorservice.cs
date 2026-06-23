@@ -1,4 +1,4 @@
-﻿// Background loop — core logic: reacts to gamepad and Big Picture.
+// Background loop — core logic: reacts to gamepad and Big Picture.
 using System;
 using System.Threading;
 
@@ -41,6 +41,8 @@ namespace SteamTV
             RunningChanged?.Invoke(true);
             L("Monitor started. IP=" + _s.TvIp + ", display #" + _s.TargetDisplay +
               (_s.DisableOthers ? ", other monitors will be disabled." : "."));
+            if (_s.WatchedGamepads.Count == 0)
+                L("WARNING: no gamepads configured — add at least one in the Gamepads tab.");
         }
 
         public void Stop()
@@ -53,7 +55,6 @@ namespace SteamTV
             L("Monitor stopped.");
         }
 
-        // true -> cancelled
         private bool Sleep(CancellationToken ct, int ms) => ct.WaitHandle.WaitOne(ms);
 
         private void RunLoop(CancellationToken ct)
@@ -67,14 +68,16 @@ namespace SteamTV
             {
                 try
                 {
-                    bool curController = SteamHelper.IsControllerConnected();
+                    bool curController = SteamHelper.IsWatchedControllerConnected(_s.WatchedGamepads);
                     bool curBp = SteamHelper.IsBigPictureRunning();
 
-                    // --- ACTIVATION: gamepad just connected, Big Picture not yet running ---
+                    // --- ACTIVATION: watched gamepad just connected, Big Picture not yet running ---
                     if (curController && !prevController && !curBp)
                     {
                         L("Gamepad connected -> activating TV.");
-                        L(adb.WakeTv());
+
+                        if (_s.EnableWakeTV)
+                            L(adb.WakeTv());
 
                         string err;
                         if (_s.DisableOthers)
@@ -82,42 +85,32 @@ namespace SteamTV
                             _preActivateSnapshot = DisplayManager.QueryAll(out err);
                             if (_preActivateSnapshot == null) L("Failed to save monitor layout: " + err);
 
-                            // Resolve target display to its stable physical ID NOW (before any config changes)
                             _targetPhysicalId = DisplayManager.ResolvePhysicalId(_s.TargetDisplay, out err);
                             if (_targetPhysicalId == null)
-                            {
                                 L("Cannot resolve physical ID for display #" + _s.TargetDisplay + ": " + err);
-                            }
-                            else
-                            {
-                                L("Target physical ID resolved: " + _targetPhysicalId.Value.AdapterId.LowPart + "/" + _targetPhysicalId.Value.TargetId);
-                            }
 
                             if (!DisplayManager.EnableDisplay(_s.TargetDisplay, out err))
                                 L("Enable display: " + err);
                             else
                             {
-                                L("Display #" + _s.TargetDisplay + " enabled successfully.");
-                                // Wait for Windows to apply the display change before querying again
+                                L("Display #" + _s.TargetDisplay + " enabled.");
                                 L("Waiting 1.5s for Windows to apply display change...");
                                 if (Sleep(ct, 1500)) return;
                             }
 
-                            // Use physical ID for disabling — immune to DISPLAY number reassignment
                             if (_targetPhysicalId != null)
                             {
                                 if (!DisplayManager.DisableAllExceptPhysical(_targetPhysicalId.Value, out err, L))
                                     L("Disable other monitors FAILED: " + err);
                                 else
-                                    L("Only target display left active (by physical ID).");
+                                    L("Only target display active.");
                             }
                             else
                             {
-                                // Fallback to legacy method if resolution failed
                                 if (!DisplayManager.DisableAllExcept(_s.TargetDisplay, out err, L))
                                     L("Disable other monitors FAILED: " + err);
                                 else
-                                    L("Only display #" + _s.TargetDisplay + " left active.");
+                                    L("Only display #" + _s.TargetDisplay + " active.");
                             }
                         }
                         else
@@ -125,27 +118,39 @@ namespace SteamTV
                             if (!DisplayManager.EnableDisplay(_s.TargetDisplay, out err))
                                 L("Enable display: " + err);
                         }
+
                         _displayEnabled = true;
 
-                        adb.SwitchSourceToPc(_s.HdmiSourcePackage);
-
-                        // wait for HDMI source to appear (up to 10 seconds)
-                        double elapsed = 0;
-                        while (!adb.IsHdmiSourceActive(_s.HdmiActivityPattern) && elapsed < 10.0)
+                        if (_s.EnableSourceSwitch)
                         {
-                            if (Sleep(ct, 200)) return;
-                            elapsed += 0.2;
+                            adb.SwitchSourceToPc(_s.HdmiSourcePackage);
+
+                            double elapsed = 0;
+                            while (!adb.IsHdmiSourceActive(_s.HdmiActivityPattern) && elapsed < 10.0)
+                            {
+                                if (Sleep(ct, 200)) return;
+                                elapsed += 0.2;
+                            }
+
+                            if (adb.IsHdmiSourceActive(_s.HdmiActivityPattern))
+                            {
+                                if (Sleep(ct, 1000)) return;
+                                L("HDMI source active.");
+                                if (_s.EnableBigPicture)
+                                {
+                                    L("Starting Big Picture.");
+                                    SteamHelper.StartBigPicture(_s.SteamPath);
+                                }
+                            }
+                            else
+                            {
+                                L("HDMI source did not activate within 10s.");
+                            }
                         }
-
-                        if (adb.IsHdmiSourceActive(_s.HdmiActivityPattern))
+                        else if (_s.EnableBigPicture)
                         {
-                            if (Sleep(ct, 1000)) return;
-                            L("HDMI source active -> starting Big Picture.");
+                            L("Starting Big Picture (source switch disabled).");
                             SteamHelper.StartBigPicture(_s.SteamPath);
-                        }
-                        else
-                        {
-                            L("HDMI source did not activate within 10s.");
                         }
                     }
 
@@ -170,7 +175,9 @@ namespace SteamTV
                                 L("Disable display: " + err);
                         }
 
-                        adb.RestoreSourceBeforeShutdown(_s.TvHomeComponent);
+                        if (_s.EnableSourceSwitch)
+                            adb.RestoreSourceBeforeShutdown(_s.TvHomeComponent);
+
                         adb.Disconnect();
                         SteamHelper.MinimizeSteamWindow();
                         _displayEnabled = false;

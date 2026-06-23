@@ -26,6 +26,14 @@ namespace SteamTV
 
         public const uint DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME = 1;
         public const uint DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME = 2;
+        public const uint DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_PREFERRED_MODE = 4;
+
+        public const uint DISPLAYCONFIG_TARGET_MODE_DEFAULT = 0;
+        public const uint DISPLAYCONFIG_TARGET_MODE_DRIVER = 1;
+        public const uint DISPLAYCONFIG_TARGET_MODE_USER = 2;
+
+        public const uint DISPLAYCONFIG_MODE_INFO_TYPE_SOURCE = 1;
+        public const uint DISPLAYCONFIG_MODE_INFO_TYPE_TARGET = 2;
 
         public const int ERROR_SUCCESS = 0;
 
@@ -182,12 +190,16 @@ namespace SteamTV
         [DllImport("user32.dll")]
         public static extern int DisplayConfigGetDeviceInfo(ref DISPLAYCONFIG_TARGET_DEVICE_NAME requestPacket);
 
+        [DllImport("user32.dll")]
+        public static extern int DisplayConfigSetDeviceInfo(ref DISPLAYCONFIG_TARGET_DEVICE_NAME requestPacket);
+
         // --- ChangeDisplaySettingsEx for setting primary display ---
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         public static extern int ChangeDisplaySettingsEx(string lpszDeviceName, ref DEVMODE lpDevMode, IntPtr hwnd, uint dwFlags, IntPtr lParam);
 
         public const uint CDS_SET_PRIMARY = 0x00000010;
         public const uint CDS_UPDATEREGISTRY = 0x00000001;
+        public const uint CDS_DISABLE = 0x00000020;
 
         // DM_POSITION fields
         public const uint DM_POSITION = 0x00000800;

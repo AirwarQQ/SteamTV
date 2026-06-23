@@ -14,6 +14,30 @@ namespace SteamTV
         public Native.DISPLAYCONFIG_MODE_INFO[] Modes;
     }
 
+    // Stable physical display identifier (does not change when DISPLAY numbers are reassigned)
+    internal struct PhysicalDisplayId
+    {
+        public Native.LUID AdapterId;
+        public uint TargetId;
+
+        public override bool Equals(object obj)
+        {
+            if (!(obj is PhysicalDisplayId)) return false;
+            var o = (PhysicalDisplayId)obj;
+            return AdapterId.LowPart == o.AdapterId.LowPart
+                && AdapterId.HighPart == o.AdapterId.HighPart
+                && TargetId == o.TargetId;
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return ((int)AdapterId.LowPart * 397 ^ (int)AdapterId.HighPart) * 397 ^ (int)TargetId;
+            }
+        }
+    }
+
     internal struct DisplayEntry
     {
         public int Number;          // \\.\DISPLAYn -> n (display number in "Screen Settings")
@@ -159,7 +183,74 @@ namespace SteamTV
                 }
             }
             if (!changed) return true; // already disabled
-            return Apply(snap.Paths, snap.Modes, ApplyFlags, out error);
+            return ApplyCompact(snap.Paths, snap.Modes, out error);
+        }
+
+        // Passes only active paths with a compact, re-indexed modes array to SetDisplayConfig.
+        // This avoids ERROR_INVALID_PARAMETER (87) caused by orphaned mode entries — entries that
+        // were referenced by disabled paths but remain in the array after those paths go inactive.
+        // Also resets the source position to (0,0) when a single source remains, because Windows
+        // requires the only (primary) display to be at the origin.
+        private static bool ApplyCompact(
+            Native.DISPLAYCONFIG_PATH_INFO[] allPaths,
+            Native.DISPLAYCONFIG_MODE_INFO[] allModes,
+            out string error)
+        {
+            var activePaths = allPaths.Where(p => IsActive(p)).ToArray();
+
+            // Collect every mode index that is still referenced by an active path
+            var usedIdx = new HashSet<uint>();
+            foreach (var p in activePaths)
+            {
+                if (p.sourceInfo.modeInfoIdx != Native.DISPLAYCONFIG_PATH_MODE_IDX_INVALID
+                    && p.sourceInfo.modeInfoIdx < (uint)allModes.Length)
+                    usedIdx.Add(p.sourceInfo.modeInfoIdx);
+                if (p.targetInfo.modeInfoIdx != Native.DISPLAYCONFIG_PATH_MODE_IDX_INVALID
+                    && p.targetInfo.modeInfoIdx < (uint)allModes.Length)
+                    usedIdx.Add(p.targetInfo.modeInfoIdx);
+            }
+
+            // Build compact modes array: only referenced entries, contiguous indices
+            var oldToNew = new Dictionary<uint, uint>();
+            var compactModes = new List<Native.DISPLAYCONFIG_MODE_INFO>();
+            foreach (uint old in usedIdx.OrderBy(x => x))
+            {
+                oldToNew[old] = (uint)compactModes.Count;
+                compactModes.Add(allModes[old]);
+            }
+
+            // A single remaining source mode must sit at (0,0) — Windows enforces this for primary
+            int sourceCount = compactModes.Count(m => m.infoType == Native.DISPLAYCONFIG_MODE_INFO_TYPE_SOURCE);
+            if (sourceCount == 1)
+            {
+                for (int i = 0; i < compactModes.Count; i++)
+                {
+                    if (compactModes[i].infoType != Native.DISPLAYCONFIG_MODE_INFO_TYPE_SOURCE) continue;
+                    var m = compactModes[i];
+                    m.modeUnion.sourceMode.position.x = 0;
+                    m.modeUnion.sourceMode.position.y = 0;
+                    compactModes[i] = m;
+                    break;
+                }
+            }
+
+            // Re-index paths so their modeInfoIdx values point into the compact array
+            var remapped = new Native.DISPLAYCONFIG_PATH_INFO[activePaths.Length];
+            for (int i = 0; i < activePaths.Length; i++)
+            {
+                remapped[i] = activePaths[i];
+                remapped[i].sourceInfo.modeInfoIdx = RemapIdx(activePaths[i].sourceInfo.modeInfoIdx, oldToNew);
+                remapped[i].targetInfo.modeInfoIdx = RemapIdx(activePaths[i].targetInfo.modeInfoIdx, oldToNew);
+            }
+
+            return Apply(remapped, compactModes.ToArray(), ApplyFlags, out error);
+        }
+
+        private static uint RemapIdx(uint idx, Dictionary<uint, uint> map)
+        {
+            if (idx == Native.DISPLAYCONFIG_PATH_MODE_IDX_INVALID) return idx;
+            uint v;
+            return map.TryGetValue(idx, out v) ? v : Native.DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
         }
 
         // Make a specific display the primary display via ChangeDisplaySettingsEx.
@@ -182,77 +273,80 @@ namespace SteamTV
             return false;
         }
 
-        // Keep only the target display active, disable all others one by one.
+        // Resolve a DISPLAY number to its stable physical identifier (adapterId + targetId).
+        // Returns null if the display number is not found among available paths.
+        public static PhysicalDisplayId? ResolvePhysicalId(int displayNumber, out string error)
+        {
+            error = null;
+            var snap = QueryAll(out error);
+            if (snap == null) return null;
+
+            foreach (var p in snap.Paths)
+            {
+                if (NumberOf(p) == displayNumber && p.targetInfo.targetAvailable != 0)
+                {
+                    return new PhysicalDisplayId
+                    {
+                        AdapterId = p.targetInfo.adapterId,
+                        TargetId = p.targetInfo.id
+                    };
+                }
+            }
+            error = "Display #" + displayNumber + " not found among available paths.";
+            return null;
+        }
+
+        // Check if a path's target matches the given physical display ID.
+        private static bool Matches(PhysicalDisplayId id, Native.DISPLAYCONFIG_PATH_INFO p)
+        {
+            return p.targetInfo.adapterId.LowPart == id.AdapterId.LowPart
+                && p.targetInfo.adapterId.HighPart == id.AdapterId.HighPart
+                && p.targetInfo.id == id.TargetId;
+        }
+
+
+        // Disable all active displays except the one identified by targetId, in a single SetDisplayConfig call.
+        public static bool DisableAllExceptPhysical(PhysicalDisplayId targetId, out string error, Action<string> log = null)
+        {
+            error = null;
+            var snap = QueryAll(out error);
+            if (snap == null) return false;
+
+            bool anyChanged = false;
+            for (int i = 0; i < snap.Paths.Length; i++)
+            {
+                if (!IsActive(snap.Paths[i])) continue;
+                if (Matches(targetId, snap.Paths[i])) continue;
+
+                string name = GetTargetFriendlyName(
+                    snap.Paths[i].targetInfo.adapterId, snap.Paths[i].targetInfo.id) ?? "(unknown)";
+                log?.Invoke("DisableAllExceptPhysical: marking inactive: " + name);
+
+                snap.Paths[i].flags &= ~Native.DISPLAYCONFIG_PATH_ACTIVE;
+                snap.Paths[i].sourceInfo.modeInfoIdx = Native.DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
+                snap.Paths[i].targetInfo.modeInfoIdx = Native.DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
+                anyChanged = true;
+            }
+
+            if (!anyChanged)
+            {
+                log?.Invoke("DisableAllExceptPhysical: target is already the only active display.");
+                return true;
+            }
+
+            log?.Invoke("DisableAllExceptPhysical: applying compact config...");
+            bool ok = ApplyCompact(snap.Paths, snap.Modes, out error);
+            log?.Invoke(ok ? "DisableAllExceptPhysical: done." : "DisableAllExceptPhysical: failed: " + error);
+            return ok;
+        }
+
+        // Legacy method (kept for backward compatibility, uses DISPLAY numbers).
         public static bool DisableAllExcept(int displayNumber, out string error, Action<string> log = null)
         {
             error = null;
-            
-            // Collect unique active display numbers (excluding target)
-            var snap = QueryAll(out error);
-            if (snap == null) return false;
-            
-            var toDisable = new HashSet<int>();
-            foreach (var p in snap.Paths)
-            {
-                if (!IsActive(p)) continue;
-                int num = NumberOf(p);
-                if (num < 0) continue;
-                if (num == displayNumber) continue;
-                toDisable.Add(num);
-            }
-            
-            if (toDisable.Count == 0) { log?.Invoke("DisableAllExcept: nothing to disable."); return true; }
-            
-            log?.Invoke("DisableAllExcept: need to disable displays: " + string.Join(", ", toDisable));
-            
-            // First: make target display the primary (so we can disable the old primary)
-            log?.Invoke("DisableAllExcept: making display #" + displayNumber + " primary first...");
-            string errPrimary;
-            SetPrimaryDisplay(displayNumber, out errPrimary);
-            if (errPrimary != null)
-            {
-                log?.Invoke("DisableAllExcept: SetPrimaryDisplay warning: " + errPrimary + " (continuing anyway)");
-            }
-            
-            // Disable one by one, re-querying after each to handle Windows restrictions
-            foreach (int disp in toDisable)
-            {
-                log?.Invoke("DisableAllExcept: trying to disable display #" + disp + "...");
-                string err2;
-                if (DisableDisplay(disp, out err2))
-                {
-                    log?.Invoke("DisableAllExcept: display #" + disp + " disabled OK");
-                }
-                else
-                {
-                    log?.Invoke("DisableAllExcept: display #" + disp + " failed: " + err2 + " (skipping)");
-                    // Don't fail completely — some displays (like primary) can't be disabled
-                }
-            }
-            
-            // Verify final state
-            var finalSnap = QueryAll(out error);
-            if (finalSnap != null)
-            {
-                var stillActive = new List<int>();
-                foreach (var p in finalSnap.Paths)
-                {
-                    if (!IsActive(p)) continue;
-                    int num = NumberOf(p);
-                    if (num < 0 || num == displayNumber) continue;
-                    if (!stillActive.Contains(num)) stillActive.Add(num);
-                }
-                if (stillActive.Count > 0)
-                {
-                    log?.Invoke("DisableAllExcept: still active (couldn't disable): " + string.Join(", ", stillActive));
-                }
-                else
-                {
-                    log?.Invoke("DisableAllExcept: all non-target displays disabled successfully.");
-                }
-            }
-            
-            return true; // partial success is acceptable
+            var physId = ResolvePhysicalId(displayNumber, out error);
+            if (physId == null) return false;
+            return DisableAllExceptPhysical(physId.Value, out error, log);
         }
 
         // Restore layout from snapshot (enable monitors back).

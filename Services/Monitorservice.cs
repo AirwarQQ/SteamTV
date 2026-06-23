@@ -13,6 +13,7 @@ namespace SteamTV
         private volatile bool _running;
 
         private DisplayConfigSnapshot _preActivateSnapshot;
+        private PhysicalDisplayId? _targetPhysicalId;
         private bool _displayEnabled;
 
         public event Action<string> Log;
@@ -22,7 +23,11 @@ namespace SteamTV
 
         public MonitorService(AppSettings s) { _s = s; }
 
-        private void L(string msg) => Log?.Invoke(msg);
+        private void L(string msg)
+        {
+            Console.WriteLine("[" + DateTime.Now.ToString("HH:mm:ss") + "] " + msg);
+            Log?.Invoke(msg);
+        }
 
         public void Start()
         {
@@ -77,15 +82,43 @@ namespace SteamTV
                             _preActivateSnapshot = DisplayManager.QueryAll(out err);
                             if (_preActivateSnapshot == null) L("Failed to save monitor layout: " + err);
 
+                            // Resolve target display to its stable physical ID NOW (before any config changes)
+                            _targetPhysicalId = DisplayManager.ResolvePhysicalId(_s.TargetDisplay, out err);
+                            if (_targetPhysicalId == null)
+                            {
+                                L("Cannot resolve physical ID for display #" + _s.TargetDisplay + ": " + err);
+                            }
+                            else
+                            {
+                                L("Target physical ID resolved: " + _targetPhysicalId.Value.AdapterId.LowPart + "/" + _targetPhysicalId.Value.TargetId);
+                            }
+
                             if (!DisplayManager.EnableDisplay(_s.TargetDisplay, out err))
                                 L("Enable display: " + err);
                             else
+                            {
                                 L("Display #" + _s.TargetDisplay + " enabled successfully.");
-                            
-                            if (!DisplayManager.DisableAllExcept(_s.TargetDisplay, out err, L))
-                                L("Disable other monitors FAILED: " + err);
+                                // Wait for Windows to apply the display change before querying again
+                                L("Waiting 1.5s for Windows to apply display change...");
+                                if (Sleep(ct, 1500)) return;
+                            }
+
+                            // Use physical ID for disabling — immune to DISPLAY number reassignment
+                            if (_targetPhysicalId != null)
+                            {
+                                if (!DisplayManager.DisableAllExceptPhysical(_targetPhysicalId.Value, out err, L))
+                                    L("Disable other monitors FAILED: " + err);
+                                else
+                                    L("Only target display left active (by physical ID).");
+                            }
                             else
-                                L("Only display #" + _s.TargetDisplay + " left active.");
+                            {
+                                // Fallback to legacy method if resolution failed
+                                if (!DisplayManager.DisableAllExcept(_s.TargetDisplay, out err, L))
+                                    L("Disable other monitors FAILED: " + err);
+                                else
+                                    L("Only display #" + _s.TargetDisplay + " left active.");
+                            }
                         }
                         else
                         {
@@ -129,6 +162,7 @@ namespace SteamTV
                             else
                                 L("Monitor layout restored.");
                             _preActivateSnapshot = null;
+                            _targetPhysicalId = null;
                         }
                         else
                         {

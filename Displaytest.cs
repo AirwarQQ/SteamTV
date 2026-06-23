@@ -6,7 +6,7 @@
 //
 // Build (from project root, .NET Framework only — csc is included in Windows):
 //   %WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:exe /out:DisplayTest.exe ^
-//     Tools\DisplayTest.cs Interop\Native.cs Services\DisplayManager.cs
+//     Displaytest.cs Interop\Native.cs Services\Displaymanager.cs
 //   (or just run build-displaytest.bat)
 //
 // Usage:

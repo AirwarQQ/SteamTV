@@ -37,6 +37,7 @@ namespace SteamTV
                 using (var results = GetSearcher().Get())
                 {
                     foreach (ManagementObject mo in results)
+                    using (mo)
                     {
                         string[] hwids = mo["HardwareID"] as string[] ?? Array.Empty<string>();
                         string instanceId = mo["PNPDeviceID"] as string ?? "";
@@ -80,22 +81,17 @@ namespace SteamTV
 
         public static void MinimizeSteamWindow()
         {
-            bool found = false;
             foreach (var p in Process.GetProcessesByName("steamwebhelper"))
             {
                 try
                 {
                     if (p.MainWindowHandle != IntPtr.Zero &&
                         string.Equals(p.MainWindowTitle, "Steam", StringComparison.Ordinal))
-                    {
                         Native.ShowWindowAsync(p.MainWindowHandle, Native.SW_MINIMIZE);
-                        found = true;
-                    }
                 }
                 catch { }
                 finally { p.Dispose(); }
             }
-            _ = found;
         }
 
         public static void StartBigPicture(string steamPath)

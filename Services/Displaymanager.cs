@@ -366,7 +366,7 @@ namespace SteamTV
 
             // 3) fallback — just "Extend to all monitors"
             int r = Native.SetDisplayConfig(0, null, 0, null, Native.SDC_APPLY | Native.SDC_TOPOLOGY_EXTEND);
-            if (r == Native.ERROR_SUCCESS) { error = null; return true; }
+            if (r == Native.ERROR_SUCCESS) { error = "WARNING: exact restore failed — monitors set to Extend (saved layout lost)."; return true; }
             error = "RestoreAll fallback SetDisplayConfig=" + r;
             return false;
         }

@@ -78,10 +78,11 @@ namespace SteamTV
             return "TV is already on.";
         }
 
-        public void SwitchSourceToPc(string hdmiPackage)
+        public void SwitchSourceToPc(string hdmiPackage, CancellationToken ct = default)
         {
+            if (string.IsNullOrEmpty(hdmiPackage)) return;
             Connect();
-            Thread.Sleep(1000);
+            if (ct.WaitHandle.WaitOne(1000)) return;
             Run("shell monkey -p " + hdmiPackage + " -c android.intent.category.LAUNCHER 1");
         }
 
@@ -99,11 +100,11 @@ namespace SteamTV
             return false;
         }
 
-        public void RestoreSourceBeforeShutdown(string homeComponent)
+        public void RestoreSourceBeforeShutdown(string homeComponent, CancellationToken ct = default)
         {
             Run("shell am start -n " + homeComponent);
             Disconnect();
-            Thread.Sleep(1000);
+            ct.WaitHandle.WaitOne(1000);
         }
 
         // Returns true if ADB is reachable and the device accepts the connection.

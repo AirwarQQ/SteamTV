@@ -402,6 +402,12 @@ namespace SteamTV
                 MessageBox.Show("Enter the TV IP address.", "SteamTV", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
+            System.Net.IPAddress addr;
+            if (!System.Net.IPAddress.TryParse(_txtIp.Text.Trim(), out addr))
+            {
+                MessageBox.Show("Invalid IP address format.", "SteamTV", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
             SaveUiToSettings();
             _monitor.Start();
         }
@@ -514,20 +520,30 @@ namespace SteamTV
             // ADB check: run every 15 s in a background task
             if (!_adbCheckPending && (DateTime.Now - _lastAdbCheck).TotalSeconds >= 15)
             {
-                _adbCheckPending = true;
-                string ip = _settings.TvIp;
-                string adbPath = _settings.AdbPath;
-                Task.Run(() =>
+                System.Net.IPAddress addr;
+                if (!System.Net.IPAddress.TryParse(_settings.TvIp ?? "", out addr))
                 {
-                    bool ok = new Adb(adbPath, ip).IsAdbReachable(4000);
-                    BeginInvoke(new Action(() =>
+                    _lastAdbCheck = DateTime.Now;
+                    _lblAdb.Text = "● ADB  invalid IP";
+                    _lblAdb.ForeColor = Color.OrangeRed;
+                }
+                else
+                {
+                    _adbCheckPending = true;
+                    string ip = _settings.TvIp;
+                    string adbPath = _settings.AdbPath;
+                    Task.Run(() =>
                     {
-                        _adbCheckPending = false;
-                        _lastAdbCheck = DateTime.Now;
-                        _lblAdb.Text = "● ADB  ↺15s";
-                        _lblAdb.ForeColor = ok ? Color.Green : Color.OrangeRed;
-                    }));
-                });
+                        bool ok = new Adb(adbPath, ip).IsAdbReachable(4000);
+                        BeginInvoke(new Action(() =>
+                        {
+                            _adbCheckPending = false;
+                            _lastAdbCheck = DateTime.Now;
+                            _lblAdb.Text = "● ADB  ↺15s";
+                            _lblAdb.ForeColor = ok ? Color.Green : Color.OrangeRed;
+                        }));
+                    });
+                }
             }
         }
 
@@ -666,6 +682,8 @@ namespace SteamTV
                 return;
             }
             _statusTimer?.Stop();
+            _monitor.Log -= AppendLog;
+            _monitor.RunningChanged -= OnRunningChanged;
             _monitor.Stop();
             if (_tray != null) _tray.Visible = false;
         }

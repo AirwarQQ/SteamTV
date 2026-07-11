@@ -83,34 +83,41 @@ namespace SteamTV
                         if (_s.DisableOthers)
                         {
                             _preActivateSnapshot = DisplayManager.QueryAll(out err);
-                            if (_preActivateSnapshot == null) L("Failed to save monitor layout: " + err);
-
-                            _targetPhysicalId = DisplayManager.ResolvePhysicalId(_s.TargetDisplay, out err);
-                            if (_targetPhysicalId == null)
-                                L("Cannot resolve physical ID for display #" + _s.TargetDisplay + ": " + err);
-
-                            if (!DisplayManager.EnableDisplay(_s.TargetDisplay, out err))
-                                L("Enable display: " + err);
-                            else
+                            if (_preActivateSnapshot == null)
                             {
-                                L("Display #" + _s.TargetDisplay + " enabled.");
-                                L("Waiting 1.5s for Windows to apply display change...");
-                                if (Sleep(ct, 1500)) return;
-                            }
-
-                            if (_targetPhysicalId != null)
-                            {
-                                if (!DisplayManager.DisableAllExceptPhysical(_targetPhysicalId.Value, out err, L))
-                                    L("Disable other monitors FAILED: " + err);
-                                else
-                                    L("Only target display active.");
+                                L("Failed to save monitor layout: " + err + " — skipping monitor disable to avoid unrecoverable state.");
+                                if (!DisplayManager.EnableDisplay(_s.TargetDisplay, out err))
+                                    L("Enable display: " + err);
                             }
                             else
                             {
-                                if (!DisplayManager.DisableAllExcept(_s.TargetDisplay, out err, L))
-                                    L("Disable other monitors FAILED: " + err);
+                                _targetPhysicalId = DisplayManager.ResolvePhysicalId(_s.TargetDisplay, out err);
+                                if (_targetPhysicalId == null)
+                                    L("Cannot resolve physical ID for display #" + _s.TargetDisplay + ": " + err);
+
+                                if (!DisplayManager.EnableDisplay(_s.TargetDisplay, out err))
+                                    L("Enable display: " + err);
                                 else
-                                    L("Only display #" + _s.TargetDisplay + " active.");
+                                {
+                                    L("Display #" + _s.TargetDisplay + " enabled.");
+                                    L("Waiting 1.5s for Windows to apply display change...");
+                                    if (Sleep(ct, 1500)) return;
+                                }
+
+                                if (_targetPhysicalId != null)
+                                {
+                                    if (!DisplayManager.DisableAllExceptPhysical(_targetPhysicalId.Value, out err, L))
+                                        L("Disable other monitors FAILED: " + err);
+                                    else
+                                        L("Only target display active.");
+                                }
+                                else
+                                {
+                                    if (!DisplayManager.DisableAllExcept(_s.TargetDisplay, out err, L))
+                                        L("Disable other monitors FAILED: " + err);
+                                    else
+                                        L("Only display #" + _s.TargetDisplay + " active.");
+                                }
                             }
                         }
                         else
@@ -123,7 +130,7 @@ namespace SteamTV
 
                         if (_s.EnableSourceSwitch)
                         {
-                            adb.SwitchSourceToPc(_s.HdmiSourcePackage);
+                            adb.SwitchSourceToPc(_s.HdmiSourcePackage, ct);
 
                             double elapsed = 0;
                             while (!adb.IsHdmiSourceActive(_s.HdmiActivityPattern) && elapsed < 10.0)
@@ -144,6 +151,7 @@ namespace SteamTV
                             }
                             else
                             {
+                                // TODO: consider rolling back display activation when HDMI source fails — currently leaves display enabled with no Big Picture
                                 L("HDMI source did not activate within 10s.");
                             }
                         }
@@ -163,7 +171,9 @@ namespace SteamTV
                         if (_s.DisableOthers && _preActivateSnapshot != null)
                         {
                             if (!DisplayManager.RestoreAll(_preActivateSnapshot, out err))
-                                L("Restore monitors: " + err);
+                                L("Restore monitors FAILED: " + err);
+                            else if (!string.IsNullOrEmpty(err))
+                                L("Restore monitors (fallback): " + err);
                             else
                                 L("Monitor layout restored.");
                             _preActivateSnapshot = null;
@@ -176,12 +186,11 @@ namespace SteamTV
                         }
 
                         if (_s.EnableSourceSwitch)
-                            adb.RestoreSourceBeforeShutdown(_s.TvHomeComponent);
+                            adb.RestoreSourceBeforeShutdown(_s.TvHomeComponent, ct);
 
                         adb.Disconnect();
                         SteamHelper.MinimizeSteamWindow();
                         _displayEnabled = false;
-                        SteamHelper.MinimizeSteamWindow();
                     }
 
                     prevController = curController;

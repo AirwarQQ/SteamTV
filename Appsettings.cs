@@ -32,7 +32,9 @@ namespace SteamTV
 
         public string AdbPath = @"adb.exe";
         public string SteamPath = @"C:\Program Files (x86)\Steam\steam.exe";
+        // TODO: make HdmiActivityPattern user-configurable in UI (Advanced tab) — currently hardcoded to Xiaomi/MITV, breaks on other OEM firmwares
         public string HdmiActivityPattern = @"com\.xiaomi\.mitv\.tvplayer/\.ExternalSourceActivity";
+        // TODO: make TvHomeComponent user-configurable in UI (Advanced tab) — currently hardcoded to one OEM launcher
         public string TvHomeComponent = "com.spocky.projengmenu/.ui.home.MainActivity";
 
         public List<GamepadEntry> WatchedGamepads = new List<GamepadEntry>();
@@ -78,32 +80,36 @@ namespace SteamTV
                     }
                 }
             }
-            catch { /* missing/corrupt settings — use defaults */ }
+            catch (Exception ex) { Console.WriteLine("[AppSettings] Load error: " + ex.Message); }
             return s;
         }
 
         public void Save()
         {
-            using (var k = Registry.CurrentUser.CreateSubKey(RegPath))
+            try
             {
-                k.SetValue("TvIp", TvIp ?? "");
-                k.SetValue("TargetDisplay", TargetDisplay, RegistryValueKind.DWord);
-                k.SetValue("HdmiPort", HdmiPort, RegistryValueKind.DWord);
-                k.SetValue("DisableOthers", DisableOthers ? 1 : 0, RegistryValueKind.DWord);
-                k.SetValue("EnableWakeTV", EnableWakeTV ? 1 : 0, RegistryValueKind.DWord);
-                k.SetValue("EnableSourceSwitch", EnableSourceSwitch ? 1 : 0, RegistryValueKind.DWord);
-                k.SetValue("EnableBigPicture", EnableBigPicture ? 1 : 0, RegistryValueKind.DWord);
-                k.SetValue("AutoMonitorOnStart", AutoMonitorOnStart ? 1 : 0, RegistryValueKind.DWord);
-                k.SetValue("AdbPath", AdbPath ?? "");
-                k.SetValue("SteamPath", SteamPath ?? "");
-                k.SetValue("HdmiActivityPattern", HdmiActivityPattern ?? "");
-                k.SetValue("TvHomeComponent", TvHomeComponent ?? "");
+                using (var k = Registry.CurrentUser.CreateSubKey(RegPath))
+                {
+                    k.SetValue("TvIp", TvIp ?? "");
+                    k.SetValue("TargetDisplay", TargetDisplay, RegistryValueKind.DWord);
+                    k.SetValue("HdmiPort", HdmiPort, RegistryValueKind.DWord);
+                    k.SetValue("DisableOthers", DisableOthers ? 1 : 0, RegistryValueKind.DWord);
+                    k.SetValue("EnableWakeTV", EnableWakeTV ? 1 : 0, RegistryValueKind.DWord);
+                    k.SetValue("EnableSourceSwitch", EnableSourceSwitch ? 1 : 0, RegistryValueKind.DWord);
+                    k.SetValue("EnableBigPicture", EnableBigPicture ? 1 : 0, RegistryValueKind.DWord);
+                    k.SetValue("AutoMonitorOnStart", AutoMonitorOnStart ? 1 : 0, RegistryValueKind.DWord);
+                    k.SetValue("AdbPath", AdbPath ?? "");
+                    k.SetValue("SteamPath", SteamPath ?? "");
+                    k.SetValue("HdmiActivityPattern", HdmiActivityPattern ?? "");
+                    k.SetValue("TvHomeComponent", TvHomeComponent ?? "");
 
-                string[] raw = WatchedGamepads
-                    .Select(e => (e.HardwareId ?? "") + "|" + (e.FriendlyName ?? ""))
-                    .ToArray();
-                k.SetValue("WatchedGamepads", raw, RegistryValueKind.MultiString);
+                    string[] raw = WatchedGamepads
+                        .Select(e => (e.HardwareId ?? "") + "|" + (e.FriendlyName ?? ""))
+                        .ToArray();
+                    k.SetValue("WatchedGamepads", raw, RegistryValueKind.MultiString);
+                }
             }
+            catch (Exception ex) { Console.WriteLine("[AppSettings] Save error: " + ex.Message); }
         }
 
         private static int ToInt(object v, int def)

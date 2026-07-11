@@ -25,6 +25,7 @@ namespace SteamTV
         private const string GamepadUsage = "UP:0001_U:0005";  // HID usage: Generic Desktop / Game Pad
 
         // Cached searcher for the 2-second polling loop — created once, .Get() runs the query each time.
+        // TODO: dispose _searcher on app shutdown to release WMI handle (implement IDisposable or call Dispose in a cleanup method)
         private static ManagementObjectSearcher _searcher;
 
         private static ManagementObjectSearcher GetSearcher()
@@ -34,7 +35,8 @@ namespace SteamTV
                 _searcher = new ManagementObjectSearcher(
                     "root\\CIMV2",
                     "SELECT PNPDeviceID, HardwareID, ConfigManagerErrorCode FROM Win32_PnPEntity " +
-                    "WHERE ClassGuid='{745a17a0-74d3-11d0-b6fe-00a0c90f57da}'");
+                    "WHERE ClassGuid='{745a17a0-74d3-11d0-b6fe-00a0c90f57da}'",
+                    new EnumerationOptions { Timeout = TimeSpan.FromSeconds(5) });
             }
             return _searcher;
         }
@@ -61,7 +63,8 @@ namespace SteamTV
                 using (var s = new ManagementObjectSearcher(
                     "root\\CIMV2",
                     "SELECT Name, PNPDeviceID, HardwareID FROM Win32_PnPEntity " +
-                    "WHERE ClassGuid='{745a17a0-74d3-11d0-b6fe-00a0c90f57da}'"))
+                    "WHERE ClassGuid='{745a17a0-74d3-11d0-b6fe-00a0c90f57da}'",
+                    new EnumerationOptions { Timeout = TimeSpan.FromSeconds(10) }))
                 using (var items = s.Get())
                 {
                     var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -83,7 +86,7 @@ namespace SteamTV
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Console.WriteLine("[SteamHelper] EnumerateGamepads: " + ex.Message); }
             return result;
         }
 
@@ -111,7 +114,7 @@ namespace SteamTV
                     }
                 }
             }
-            catch { return false; }
+            catch (Exception ex) { Console.WriteLine("[SteamHelper] IsWatchedControllerConnected: " + ex.Message); return false; }
             return false;
         }
 
@@ -150,6 +153,7 @@ namespace SteamTV
         {
             try
             {
+                // TODO: validate steamPath exists before Process.Start — if path is wrong, failure is completely silent
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = steamPath,
@@ -157,7 +161,7 @@ namespace SteamTV
                     UseShellExecute = true
                 });
             }
-            catch { }
+            catch (Exception ex) { Console.WriteLine("[SteamHelper] StartBigPicture: " + ex.Message); }
         }
     }
 

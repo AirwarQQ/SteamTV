@@ -211,6 +211,12 @@ namespace SteamTV
         public const uint DM_POSITION = 0x00000800;
         public const uint DM_PELSWIDTH = 0x00040000;
         public const uint DM_PELSHEIGHT = 0x00080000;
+        public const uint DM_DISPLAYFREQUENCY = 0x00400000;
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern bool EnumDisplaySettingsEx(string lpszDeviceName, int iModeNum, ref DEVMODE lpDevMode, uint dwFlags);
+
+        public const int ENUM_CURRENT_SETTINGS = -1;
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         public struct DEVMODE
@@ -222,8 +228,8 @@ namespace SteamTV
             public ushort dmSize;
             public ushort dmDriverExtra;
             public uint dmFields;
-            public short dmPositionX;
-            public short dmPositionY;
+            public int dmPositionX;
+            public int dmPositionY;
             public uint dmDisplayOrientation;
             public uint dmDisplayFixedOutput;
             public short dmColor;

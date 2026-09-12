@@ -128,6 +128,11 @@ namespace SteamTV
 
                         _displayEnabled = true;
 
+                        if (Sleep(ct, 500)) return;
+                        string rrErr;
+                        if (!DisplayManager.SetHighestRefreshRate(_s.TargetDisplay, out rrErr, L))
+                            L("Set refresh rate: " + rrErr);
+
                         if (_s.EnableSourceSwitch)
                         {
                             adb.SwitchSourceToPc(_s.HdmiSourcePackage, ct);

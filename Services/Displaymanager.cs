@@ -253,6 +253,66 @@ namespace SteamTV
             return map.TryGetValue(idx, out v) ? v : Native.DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
         }
 
+        // Force the target display to the highest refresh rate available at its current
+        // resolution/color depth. CCD's SetDisplayConfig (used by EnableDisplay) leaves the mode
+        // choice to Windows when a path is re-attached, which tends to pick a conservative
+        // default (e.g. 60 Hz) instead of the last-used high refresh rate — this corrects that
+        // after the topology has settled.
+        public static bool SetHighestRefreshRate(int displayNumber, out string error, Action<string> log = null)
+        {
+            error = null;
+            string deviceName = @"\\.\DISPLAY" + displayNumber;
+
+            var current = new Native.DEVMODE();
+            current.dmSize = (ushort)Marshal.SizeOf(typeof(Native.DEVMODE));
+            if (!Native.EnumDisplaySettingsEx(deviceName, Native.ENUM_CURRENT_SETTINGS, ref current, 0))
+            {
+                error = "EnumDisplaySettingsEx(current) failed for " + deviceName;
+                return false;
+            }
+            log?.Invoke("SetHighestRefreshRate: current " + current.dmPelsWidth + "x" + current.dmPelsHeight +
+                "x" + current.dmBitsPerPel + "bpp @ " + current.dmDisplayFrequency + "Hz on " + deviceName);
+
+            uint bestFreq = current.dmDisplayFrequency;
+            var freqsAtCurrentRes = new SortedSet<uint>();
+            var mode = new Native.DEVMODE();
+            for (int i = 0; ; i++)
+            {
+                mode.dmSize = (ushort)Marshal.SizeOf(typeof(Native.DEVMODE));
+                if (!Native.EnumDisplaySettingsEx(deviceName, i, ref mode, 0)) break;
+
+                if (mode.dmPelsWidth == current.dmPelsWidth
+                    && mode.dmPelsHeight == current.dmPelsHeight
+                    && mode.dmBitsPerPel == current.dmBitsPerPel)
+                {
+                    freqsAtCurrentRes.Add(mode.dmDisplayFrequency);
+                    if (mode.dmDisplayFrequency > bestFreq)
+                        bestFreq = mode.dmDisplayFrequency;
+                }
+            }
+            log?.Invoke("SetHighestRefreshRate: Hz available at " + current.dmPelsWidth + "x" + current.dmPelsHeight +
+                "x" + current.dmBitsPerPel + "bpp: " + string.Join(", ", freqsAtCurrentRes));
+
+            if (bestFreq <= current.dmDisplayFrequency)
+            {
+                log?.Invoke("SetHighestRefreshRate: no higher-Hz mode found at same resolution/bpp — nothing to change.");
+                return true; // already at the best available rate
+            }
+
+            var target = current;
+            target.dmFields = Native.DM_DISPLAYFREQUENCY;
+            target.dmDisplayFrequency = bestFreq;
+
+            int r = Native.ChangeDisplaySettingsEx(deviceName, ref target, IntPtr.Zero, Native.CDS_UPDATEREGISTRY, IntPtr.Zero);
+            log?.Invoke("SetHighestRefreshRate: ChangeDisplaySettingsEx(" + bestFreq + "Hz) -> " + r);
+            if (r != Native.ERROR_SUCCESS)
+            {
+                error = "ChangeDisplaySettingsEx=" + r;
+                return false;
+            }
+            return true;
+        }
+
         // Make a specific display the primary display via ChangeDisplaySettingsEx.
         public static bool SetPrimaryDisplay(int displayNumber, out string error)
         {

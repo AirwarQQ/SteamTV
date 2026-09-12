@@ -325,6 +325,14 @@ namespace SteamTV
                 SteamHelper.MinimizeSteamWindow();
                 return "done";
             }));
+            y += yStep;
+
+            grp.Controls.Add(TestBtn("Set Highest Refresh Rate", x1, y, bw, bh, () =>
+            {
+                string err;
+                bool ok = DisplayManager.SetHighestRefreshRate(_settings.TargetDisplay, out err, AppendLog);
+                return ok ? "applied to #" + _settings.TargetDisplay : err;
+            }));
 
             p.Controls.Add(grp);
 

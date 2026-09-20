@@ -43,7 +43,7 @@ Accept the connection prompt on the TV.
 ```
 dotnet build -c Release
 ```
-Output: `bin\Release\net48\SteamTV.exe`
+Output: `bin\Release\net48\SteamTV.exe` — a single self-contained exe (WPF-UI is merged in at build time via Costura.Fody), nothing else to copy alongside it.
 
 Or open in Visual Studio 2022+ and press **Build**.
 
@@ -56,7 +56,9 @@ Open **SteamTV.exe** and fill in the **Monitor** tab:
 | **HDMI port** | Port number your PC is connected to (1–4); used by the TV External Source app |
 | **Target display #** | Windows display number for the TV — click **Displays…** to find it |
 
-Click **Start** to begin monitoring. The ADB indicator (top-right) shows reachability, refreshed every 15 s.
+Click **Start** to begin monitoring. The ADB indicator under the TV IP field shows reachability, refreshed every 15 s.
+
+Light / Dark / Auto theme switcher is in the title bar (top-right); Auto follows the Windows theme and updates live if you change it.
 
 ### 5. Add your gamepad
 Go to the **Gamepads** tab → click **Refresh** → select your gamepad from the "Connected right now" list → click **↑ Add to Watched**.
@@ -66,7 +68,7 @@ The monitoring loop triggers when any watched gamepad connects.
 ### 6. Autostart (optional)
 On the **Monitor** tab, check **Run at Windows startup (hidden in tray)**. The app will start minimised to tray and begin monitoring automatically.
 
-To control this from the tray icon: right-click → **Autostart app** / **Auto-start monitoring on launch**.
+To control this from the tray icon: right-click → **Autostart app** / **Auto-start monitoring on launch**. The tray icon itself turns red when ADB can't reach the TV (green when it can), and the right-click menu shows current ADB and monitoring status at the top.
 
 ---
 
@@ -99,11 +101,10 @@ All toggles are on the **Monitor** tab under **Features**:
 
 ```
 SteamTV/
-├─ Program.cs              — entry point (single-instance mutex, -autostart flag)
+├─ App.xaml / App.xaml.cs  — entry point (single-instance mutex, -autostart flag, WPF-UI theme)
+├─ MainWindow.xaml / .cs   — tab UI: Monitor, Gamepads, Test; tray icon
 ├─ Appsettings.cs          — registry-backed settings + GamepadEntry model
-├─ MainForm.cs             — tab UI: Monitor, Gamepads, Test; tray icon
-├─ app.manifest            — PerMonitorV2 DPI awareness (crisp on HiDPI displays)
-├─ App.config              — WinForms DPI opt-in
+├─ app.manifest            — PerMonitorV2 DPI awareness (crisp on HiDPI displays, handled natively by WPF)
 ├─ Interop/
 │  └─ Native.cs            — P/Invoke: user32 CCD display API, dwmapi
 ├─ Services/
@@ -114,19 +115,19 @@ SteamTV/
 └─ Displaytest.cs          — standalone CLI tool for testing display switching
 ```
 
+UI is built with [WPF-UI](https://github.com/lepoco/wpfui) (Fluent design, follows the Windows light/dark theme automatically).
+
 ---
 
 ## DisplayTest (debug tool)
 
-A separate console app that exercises the same `DisplayManager` functions:
+A separate console app that exercises the same `DisplayManager` functions — excluded from the main build (it has its own `Main`), build it with `build-displaytest.bat` (no SDK required, just the .NET Framework compiler already on Windows):
 
 ```
-dotnet run --project . -- DisplayTest list       # list displays + CCD path table
-dotnet run --project . -- DisplayTest on 3       # enable display #3
-dotnet run --project . -- DisplayTest off 3      # disable display #3
+DisplayTest list       # list displays + CCD path table
+DisplayTest on 3       # enable display #3
+DisplayTest off 3      # disable display #3
 ```
-
-Or build it separately with `build-displaytest.bat` (no SDK required — .NET Framework only).
 
 ---
 

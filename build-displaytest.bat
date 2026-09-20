@@ -9,7 +9,7 @@ if not exist "%CSC%" set "CSC=%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.ex
 if not exist "%CSC%" ( echo csc.exe not found (.NET Framework). & pause & exit /b 1 )
 
 "%CSC%" /nologo /target:exe /out:DisplayTest.exe ^
-  Tools\DisplayTest.cs Interop\Native.cs Services\DisplayManager.cs
+  Displaytest.cs Interop\Native.cs Services\Displaymanager.cs
 
 if errorlevel 1 ( echo. & echo [!] Build failed. & pause & exit /b 1 )
 echo.

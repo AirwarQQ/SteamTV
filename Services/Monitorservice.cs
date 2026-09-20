@@ -57,6 +57,30 @@ namespace SteamTV
 
         private bool Sleep(CancellationToken ct, int ms) => ct.WaitHandle.WaitOne(ms);
 
+        // Restores the pre-activation monitor layout (or just disables the TV display if
+        // "disable others" was off). Shared by normal deactivation and the source-switch-failed
+        // rollback, since both need to undo exactly the same display change.
+        private void RestoreDisplayState()
+        {
+            string err;
+            if (_s.DisableOthers && _preActivateSnapshot != null)
+            {
+                if (!DisplayManager.RestoreAll(_preActivateSnapshot, out err))
+                    L("Restore monitors FAILED: " + err);
+                else if (!string.IsNullOrEmpty(err))
+                    L("Restore monitors (fallback): " + err);
+                else
+                    L("Monitor layout restored.");
+                _preActivateSnapshot = null;
+                _targetPhysicalId = null;
+            }
+            else
+            {
+                if (!DisplayManager.DisableDisplay(_s.TargetDisplay, out err))
+                    L("Disable display: " + err);
+            }
+        }
+
         private void RunLoop(CancellationToken ct)
         {
             var adb = new Adb(_s.AdbPath, _s.TvIp);
@@ -156,8 +180,11 @@ namespace SteamTV
                             }
                             else
                             {
-                                // TODO: consider rolling back display activation when HDMI source fails — currently leaves display enabled with no Big Picture
-                                L("HDMI source did not activate within 10s.");
+                                L("HDMI source did not activate within 10s — rolling back.");
+                                RestoreDisplayState();
+                                adb.RestoreSourceBeforeShutdown(_s.TvHomeComponent, ct);
+                                adb.Disconnect();
+                                _displayEnabled = false;
                             }
                         }
                         else if (_s.EnableBigPicture)
@@ -171,24 +198,7 @@ namespace SteamTV
                     if (_displayEnabled && prevBp && !curBp)
                     {
                         L("Big Picture closed -> deactivating TV.");
-
-                        string err;
-                        if (_s.DisableOthers && _preActivateSnapshot != null)
-                        {
-                            if (!DisplayManager.RestoreAll(_preActivateSnapshot, out err))
-                                L("Restore monitors FAILED: " + err);
-                            else if (!string.IsNullOrEmpty(err))
-                                L("Restore monitors (fallback): " + err);
-                            else
-                                L("Monitor layout restored.");
-                            _preActivateSnapshot = null;
-                            _targetPhysicalId = null;
-                        }
-                        else
-                        {
-                            if (!DisplayManager.DisableDisplay(_s.TargetDisplay, out err))
-                                L("Disable display: " + err);
-                        }
+                        RestoreDisplayState();
 
                         if (_s.EnableSourceSwitch)
                             adb.RestoreSourceBeforeShutdown(_s.TvHomeComponent, ct);

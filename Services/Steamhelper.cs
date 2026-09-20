@@ -25,7 +25,7 @@ namespace SteamTV
         private const string GamepadUsage = "UP:0001_U:0005";  // HID usage: Generic Desktop / Game Pad
 
         // Cached searcher for the 2-second polling loop — created once, .Get() runs the query each time.
-        // TODO: dispose _searcher on app shutdown to release WMI handle (implement IDisposable or call Dispose in a cleanup method)
+        // Call Shutdown() when the app exits to release the underlying WMI handle.
         private static ManagementObjectSearcher _searcher;
 
         private static ManagementObjectSearcher GetSearcher()
@@ -39,6 +39,12 @@ namespace SteamTV
                     new EnumerationOptions { Timeout = TimeSpan.FromSeconds(5) });
             }
             return _searcher;
+        }
+
+        public static void Shutdown()
+        {
+            _searcher?.Dispose();
+            _searcher = null;
         }
 
         // Normalize any HID HardwareID string to "VID_XXXX&PID_YYYY" (upper-case, no revision suffix).

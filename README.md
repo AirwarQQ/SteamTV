@@ -76,11 +76,13 @@ To control this from the tray icon: right-click → **Autostart app** / **Auto-s
 
 All settings are stored in the registry at `HKCU\Software\SteamTV`.
 
-Advanced paths (`adb.exe`, `steam.exe`, Android component names, HDMI activity pattern) can be edited directly in the registry if the defaults don't match your setup.
+`adb.exe` / `steam.exe` paths and the TV-specific HDMI activity pattern / home component are editable on the **Advanced** tab (or directly in the registry, same effect).
 
 **Default paths:**
-- `adb.exe` — assumes `adb` is on your `PATH`; set the full path in the registry if needed (e.g. `C:\platform-tools\adb.exe`)
+- `adb.exe` — assumes `adb` is on your `PATH`; set the full path if needed (e.g. `C:\platform-tools\adb.exe`)
 - `steam.exe` — `C:\Program Files (x86)\Steam\steam.exe`
+
+**TV not a Xiaomi/MiTV?** The default `HdmiActivityPattern` and `TvHomeComponent` on the Advanced tab are Xiaomi/MiTV-specific — source-switch detection will just time out on other TVs until you set them to match your TV's own launcher (see the hint text under each field).
 
 ---
 

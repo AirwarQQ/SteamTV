@@ -175,6 +175,43 @@
                 </StackPanel>
                 </ScrollViewer>
             </TabItem>
+
+            <!-- Advanced tab -->
+            <TabItem Header="Advanced">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,12,0,0">
+
+                    <TextBlock Text="Paths" FontWeight="SemiBold" Margin="2,0,0,6" />
+                    <ui:Card Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="adb.exe path" Margin="0,0,0,4" />
+                            <TextBox x:Name="TxtAdbPath" />
+                            <TextBlock Text="Blank / just &quot;adb.exe&quot; uses whatever is on your PATH." Margin="0,4,0,0"
+                                       Foreground="Gray" TextWrapping="Wrap" />
+
+                            <TextBlock Text="steam.exe path" Margin="0,14,0,4" />
+                            <TextBox x:Name="TxtSteamPath" />
+                        </StackPanel>
+                    </ui:Card>
+
+                    <TextBlock Text="TV integration (only if your TV isn't Xiaomi/MiTV)" FontWeight="SemiBold"
+                               Margin="2,0,0,6" TextWrapping="Wrap" />
+                    <ui:Card>
+                        <StackPanel>
+                            <TextBlock Text="HDMI activity pattern" Margin="0,0,0,4" />
+                            <TextBox x:Name="TxtHdmiActivityPattern" FontFamily="Consolas" FontSize="12" />
+                            <TextBlock Margin="0,4,0,0" Foreground="Gray" TextWrapping="Wrap"
+                                       Text="Regex matched against 'adb shell dumpsys activity activities' to confirm the TV's HDMI-source screen actually opened. The default only matches the Xiaomi/MiTV player — on another TV, source-switch detection will always time out until you set this to whatever activity your TV's launcher shows." />
+
+                            <TextBlock Text="TV home component" Margin="0,14,0,4" />
+                            <TextBox x:Name="TxtTvHomeComponent" FontFamily="Consolas" FontSize="12" />
+                            <TextBlock Margin="0,4,0,0" Foreground="Gray" TextWrapping="Wrap"
+                                       Text="Android component (package/.Activity) launched via 'adb shell am start -n ...' to send the TV back to its home screen when Big Picture closes. The default targets the ProjengMenu launcher — set it to your TV's own launcher component if different." />
+                        </StackPanel>
+                    </ui:Card>
+                </StackPanel>
+                </ScrollViewer>
+            </TabItem>
         </TabControl>
 
         <!-- Status -->

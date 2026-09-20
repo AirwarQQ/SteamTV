@@ -175,6 +175,10 @@ namespace SteamTV
             ChkSourceSwitch.IsChecked = _settings.EnableSourceSwitch;
             ChkBigPicture.IsChecked = _settings.EnableBigPicture;
             ChkAutostart.IsChecked = IsAutostartEnabled();
+            TxtAdbPath.Text = _settings.AdbPath;
+            TxtSteamPath.Text = _settings.SteamPath;
+            TxtHdmiActivityPattern.Text = _settings.HdmiActivityPattern;
+            TxtTvHomeComponent.Text = _settings.TvHomeComponent;
             RefreshWatchedList();
         }
 
@@ -187,6 +191,10 @@ namespace SteamTV
             _settings.EnableWakeTV = ChkWakeTV.IsChecked == true;
             _settings.EnableSourceSwitch = ChkSourceSwitch.IsChecked == true;
             _settings.EnableBigPicture = ChkBigPicture.IsChecked == true;
+            _settings.AdbPath = string.IsNullOrWhiteSpace(TxtAdbPath.Text) ? "adb.exe" : TxtAdbPath.Text.Trim();
+            _settings.SteamPath = TxtSteamPath.Text.Trim();
+            _settings.HdmiActivityPattern = TxtHdmiActivityPattern.Text.Trim();
+            _settings.TvHomeComponent = TxtTvHomeComponent.Text.Trim();
             _settings.Save();
         }
 
@@ -547,6 +555,7 @@ namespace SteamTV
             _trayIconUnknown?.Dispose();
             _trayIconOk?.Dispose();
             _trayIconBad?.Dispose();
+            SteamHelper.Shutdown();
         }
 
         private void Tabs_SelectionChanged(object sender, SelectionChangedEventArgs e)

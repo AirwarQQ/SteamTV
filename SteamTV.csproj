@@ -12,6 +12,8 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- Shown in the title bar — bump this alongside each git release tag. -->
+    <Version>1.3.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

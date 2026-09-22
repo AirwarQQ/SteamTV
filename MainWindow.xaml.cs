@@ -46,6 +46,7 @@ namespace SteamTV
 
             var icon = LoadAppIcon();
             Icon = Imaging.CreateBitmapSourceFromHIcon(icon.Handle, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            Title = "SteamTV Monitor " + GetVersionString();
 
             _settings = AppSettings.Load();
             _monitor = new MonitorService(_settings);
@@ -75,6 +76,12 @@ namespace SteamTV
                 ShowInTaskbar = false;
                 Loaded += (s, e) => { HideToTray(); if (_settings.AutoMonitorOnStart) StartMonitor(); };
             }
+        }
+
+        private static string GetVersionString()
+        {
+            var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            return "v" + v.Major + "." + v.Minor + "." + v.Build;
         }
 
         // -------------------------------------------------------------------------

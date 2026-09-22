@@ -25,7 +25,8 @@
 
         <!-- Title bar: FluentWindow has no native chrome, so this is what makes the
              window draggable and provides minimize/close — plus the theme switcher. -->
-        <ui:TitleBar Grid.Row="0" Title="SteamTV Monitor" ShowMaximize="False" CanMaximize="False">
+        <ui:TitleBar Grid.Row="0" ShowMaximize="False" CanMaximize="False"
+                     Title="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}">
             <ui:TitleBar.TrailingContent>
                 <StackPanel Orientation="Horizontal" Margin="0,0,8,0" VerticalAlignment="Center">
                     <ui:Button x:Name="BtnThemeLight" Content="Light" Padding="10,4" FontSize="11" Margin="0,0,4,0"

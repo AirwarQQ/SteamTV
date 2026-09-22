@@ -63,7 +63,18 @@ namespace SteamTV
             _statusTimer.Start();
 
             if (autostart)
+            {
+                // App.xaml.cs always calls Show() once, unconditionally — Close()/Closing behave
+                // the same whether or not the window was ever visible, and relying on that keeps
+                // things simple. But Show() paints the window at its normal centered bounds first;
+                // HideToTray() used to run on Loaded, which only fires *after* that first paint,
+                // so on autostart the window would flash on screen — centered, and not even fully
+                // rendered yet — before vanishing into the tray. Starting minimized + out of the
+                // taskbar means Show() never paints a normal window at all, so there's nothing to see.
+                WindowState = WindowState.Minimized;
+                ShowInTaskbar = false;
                 Loaded += (s, e) => { HideToTray(); if (_settings.AutoMonitorOnStart) StartMonitor(); };
+            }
         }
 
         // -------------------------------------------------------------------------

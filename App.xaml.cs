@@ -30,6 +30,8 @@ namespace SteamTV
                 return;
             }
 
+            AdbBundle.EnsureExtracted();
+
             ApplicationThemeManager.ApplySystemTheme();
 
             var window = new MainWindow(autostart);

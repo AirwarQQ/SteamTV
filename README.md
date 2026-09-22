@@ -19,7 +19,7 @@ Originally a PowerShell script, rewritten in C# with a proper UI.
 |---|---|
 | **Windows 10 / 11** | — |
 | **.NET Framework 4.8** | Pre-installed on Windows 10 1903+ and all Windows 11. [Download](https://dotnet.microsoft.com/download/dotnet-framework/net48) if missing. |
-| **Android Debug Bridge (`adb.exe`)** | Part of [Android Platform Tools](https://developer.android.com/tools/releases/platform-tools). Only needed for TV wake / source switching. |
+| **Android Debug Bridge (`adb.exe`)** | Bundled — extracted next to `SteamTV.exe` on first run, nothing to install. Set a custom path on the Advanced tab if you'd rather use your own. |
 | **Steam** | Standard install at `C:\Program Files (x86)\Steam\steam.exe` or configure the path in settings. |
 | **TV with ADB over Wi-Fi** | Enable *Developer options → USB debugging* (or *Wireless debugging*) on your TV, then allow the ADB connection from your PC. |
 | **TV External Source app** | [com.liskovsoft.tvexternalsource](https://github.com/yuliskov/SmartTubeNext) — installed on the TV; used to switch HDMI inputs via `adb shell monkey`. |
@@ -33,19 +33,20 @@ Originally a PowerShell script, rewritten in C# with a proper UI.
 - In **Developer Options**, enable **USB Debugging** (ADB).
 - Find your TV's IP address under **Settings → Network**.
 
-### 2. Pair adb with the TV (first time only)
-```
-adb connect <TV_IP>
-```
-Accept the connection prompt on the TV.
-
-### 3. Build
+### 2. Build
 ```
 dotnet build -c Release
 ```
-Output: `bin\Release\net48\SteamTV.exe` — a single self-contained exe (WPF-UI is merged in at build time via Costura.Fody), nothing else to copy alongside it.
+Output: `bin\Release\net48\SteamTV.exe` — a single self-contained exe (WPF-UI and `adb.exe` are both merged in at build time), nothing else to copy alongside it. `adb.exe` is written back out next to `SteamTV.exe` the first time you run it.
 
 Or open in Visual Studio 2022+ and press **Build**.
+
+### 3. Pair adb with the TV (first time only)
+Run the app once so it extracts `adb.exe` next to itself, then from that folder:
+```
+adb connect <TV_IP>
+```
+Accept the connection prompt on the TV. (You can also just start monitoring in the app — it runs the same `connect` call itself and the TV will show the same prompt the first time.)
 
 ### 4. Configure in the app
 Open **SteamTV.exe** and fill in the **Monitor** tab:
@@ -79,10 +80,28 @@ All settings are stored in the registry at `HKCU\Software\SteamTV`.
 `adb.exe` / `steam.exe` paths and the TV-specific HDMI activity pattern / home component are editable on the **Advanced** tab (or directly in the registry, same effect).
 
 **Default paths:**
-- `adb.exe` — assumes `adb` is on your `PATH`; set the full path if needed (e.g. `C:\platform-tools\adb.exe`)
+- `adb.exe` — the copy extracted next to `SteamTV.exe` on first run; set a full path on the Advanced tab if you'd rather use your own install (e.g. `C:\platform-tools\adb.exe`)
 - `steam.exe` — `C:\Program Files (x86)\Steam\steam.exe`
 
-**TV not a Xiaomi/MiTV?** The default `HdmiActivityPattern` and `TvHomeComponent` on the Advanced tab are Xiaomi/MiTV-specific — source-switch detection will just time out on other TVs until you set them to match your TV's own launcher (see the hint text under each field).
+**TV integration:** the default `HdmiActivityPattern` and `TvHomeComponent` on the Advanced tab match Xiaomi/MiTV's launcher. On any other TV, source-switch detection will just time out until you set both to match your own TV — see below.
+
+### Finding your TV's values for another TV
+
+Both values come from the same adb command, run at two different moments. With the TV connected (`adb connect <TV_IP>`):
+
+1. **HDMI activity pattern** — on the TV, manually switch the input to the PC's HDMI port (however you'd normally do it with the remote), then run:
+   ```
+   adb shell dumpsys activity activities | findstr ResumedActivity
+   ```
+   The line looks like `... ResumedActivity{... com.example.tvplayer/.ExternalSourceActivity ...}`. Take the `package/.Activity` part and escape the dots for regex: `com\.example\.tvplayer/\.ExternalSourceActivity`. Paste that into **HDMI activity pattern**.
+
+2. **TV home component** — put the TV back on its home screen by hand, then run the same command again:
+   ```
+   adb shell dumpsys activity activities | findstr ResumedActivity
+   ```
+   This time take the `package/.Activity` shown as-is (no escaping) — e.g. `com.example.launcher/.MainActivity` — and paste it into **TV home component**.
+
+If `findstr` finds nothing, drop it and scroll the raw `adb shell dumpsys activity activities` output for the line containing `ResumedActivity` yourself.
 
 ---
 
@@ -112,8 +131,10 @@ SteamTV/
 ├─ Services/
 │  ├─ Displaymanager.cs    — enable/disable/restore monitors via SetDisplayConfig
 │  ├─ Adb.cs               — adb.exe wrapper (wake, source switch, reachability check)
+│  ├─ AdbBundle.cs         — extracts the embedded adb.exe next to SteamTV.exe on first run
 │  ├─ Steamhelper.cs       — gamepad detection (WMI/HID), Big Picture, Steam
 │  └─ Monitorservice.cs    — background loop: reacts to gamepad + Big Picture state
+├─ Vendor/adb.exe          — bundled Android Platform Tools binary, embedded into the exe at build time
 └─ Displaytest.cs          — standalone CLI tool for testing display switching
 ```
 

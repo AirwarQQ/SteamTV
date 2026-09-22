@@ -32,9 +32,7 @@ namespace SteamTV
 
         public string AdbPath = @"adb.exe";
         public string SteamPath = @"C:\Program Files (x86)\Steam\steam.exe";
-        // TODO: make HdmiActivityPattern user-configurable in UI (Advanced tab) — currently hardcoded to Xiaomi/MITV, breaks on other OEM firmwares
         public string HdmiActivityPattern = @"com\.xiaomi\.mitv\.tvplayer/\.ExternalSourceActivity";
-        // TODO: make TvHomeComponent user-configurable in UI (Advanced tab) — currently hardcoded to one OEM launcher
         public string TvHomeComponent = "com.spocky.projengmenu/.ui.home.MainActivity";
 
         public List<GamepadEntry> WatchedGamepads = new List<GamepadEntry>();

@@ -13,7 +13,7 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <!-- Shown in the title bar — bump this alongside each git release tag. -->
-    <Version>1.3.0</Version>
+    <Version>1.4.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -41,6 +41,15 @@
   <!-- Exclude Displaytest.cs from the main project (it has its own Main entry point) -->
   <ItemGroup>
     <Compile Remove="Displaytest.cs" />
+  </ItemGroup>
+
+  <!--
+    adb.exe (Google Android Platform Tools, Apache 2.0 — see Vendor/adb-NOTICE.txt) is embedded
+    as a resource so the app is self-contained; AdbBundle extracts it next to SteamTV.exe on first
+    run. No separate platform-tools install required for the wireless-ADB workflow this app uses.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="Vendor\adb.exe" LogicalName="SteamTV.adb.exe" />
   </ItemGroup>
 
 </Project>

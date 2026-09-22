@@ -86,13 +86,19 @@ namespace SteamTV
             var adb = new Adb(_s.AdbPath, _s.TvIp);
 
             bool prevController = false;
-            bool prevBp = false;
+            // Big Picture may already be running if the monitor was stopped and restarted (or the app
+            // restarted) mid-session — start in sync with reality so a later BP close still runs cleanup
+            // instead of being skipped because _displayEnabled was reset to false by Start().
+            bool prevBp = SteamHelper.IsBigPictureRunning();
+            _displayEnabled = prevBp;
+            if (prevBp)
+                L("Big Picture already running — resuming as active.");
 
             while (!ct.IsCancellationRequested)
             {
                 try
                 {
-                    bool curController = SteamHelper.IsWatchedControllerConnected(_s.WatchedGamepads);
+                    bool curController = SteamHelper.IsWatchedControllerConnected(_s.WatchedGamepads, L);
                     bool curBp = SteamHelper.IsBigPictureRunning();
 
                     // --- ACTIVATION: watched gamepad just connected, Big Picture not yet running ---
@@ -175,7 +181,9 @@ namespace SteamTV
                                 if (_s.EnableBigPicture)
                                 {
                                     L("Starting Big Picture.");
-                                    SteamHelper.StartBigPicture(_s.SteamPath);
+                                    string bpErr;
+                                    if (!SteamHelper.StartBigPicture(_s.SteamPath, out bpErr))
+                                        L("Start Big Picture FAILED: " + bpErr);
                                 }
                             }
                             else
@@ -190,7 +198,9 @@ namespace SteamTV
                         else if (_s.EnableBigPicture)
                         {
                             L("Starting Big Picture (source switch disabled).");
-                            SteamHelper.StartBigPicture(_s.SteamPath);
+                            string bpErr;
+                            if (!SteamHelper.StartBigPicture(_s.SteamPath, out bpErr))
+                                L("Start Big Picture FAILED: " + bpErr);
                         }
                     }
 

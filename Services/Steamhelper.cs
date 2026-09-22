@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Management;
 using System.Text.RegularExpressions;
@@ -61,7 +62,7 @@ namespace SteamTV
         // Enumerate all HID game controllers visible to Windows right now.
         // Uses a fresh searcher so callers get an accurate snapshot (not cached).
         // Called on user demand (Refresh button), not in the hot 2-second polling loop.
-        public static List<ConnectedGamepad> EnumerateGamepads()
+        public static List<ConnectedGamepad> EnumerateGamepads(Action<string> log = null)
         {
             var result = new List<ConnectedGamepad>();
             try
@@ -92,13 +93,17 @@ namespace SteamTV
                     }
                 }
             }
-            catch (Exception ex) { Console.WriteLine("[SteamHelper] EnumerateGamepads: " + ex.Message); }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[SteamHelper] EnumerateGamepads: " + ex.Message);
+                log?.Invoke("Gamepad scan failed: " + ex.Message);
+            }
             return result;
         }
 
         // Hot-path controller check used by the monitor loop every 2 s.
         // Reuses the cached searcher to avoid repeated ManagementObjectSearcher creation.
-        public static bool IsWatchedControllerConnected(IReadOnlyList<GamepadEntry> watched)
+        public static bool IsWatchedControllerConnected(IReadOnlyList<GamepadEntry> watched, Action<string> log = null)
         {
             if (watched == null || watched.Count == 0) return false;
             try
@@ -120,7 +125,12 @@ namespace SteamTV
                     }
                 }
             }
-            catch (Exception ex) { Console.WriteLine("[SteamHelper] IsWatchedControllerConnected: " + ex.Message); return false; }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[SteamHelper] IsWatchedControllerConnected: " + ex.Message);
+                log?.Invoke("Gamepad check failed: " + ex.Message);
+                return false;
+            }
             return false;
         }
 
@@ -155,19 +165,29 @@ namespace SteamTV
             }
         }
 
-        public static void StartBigPicture(string steamPath)
+        public static bool StartBigPicture(string steamPath, out string error)
         {
+            if (string.IsNullOrWhiteSpace(steamPath) || !File.Exists(steamPath))
+            {
+                error = "steam.exe not found at '" + steamPath + "' — check the path on the Advanced tab.";
+                return false;
+            }
             try
             {
-                // TODO: validate steamPath exists before Process.Start — if path is wrong, failure is completely silent
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = steamPath,
                     Arguments = "-start steam://open/bigpicture",
                     UseShellExecute = true
                 });
+                error = null;
+                return true;
             }
-            catch (Exception ex) { Console.WriteLine("[SteamHelper] StartBigPicture: " + ex.Message); }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
         }
     }
 

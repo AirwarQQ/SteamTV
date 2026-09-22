@@ -112,8 +112,8 @@ namespace SteamTV
 
             TestButtonsPanel.Children.Add(TestBtn("Start Big Picture", () =>
             {
-                SteamHelper.StartBigPicture(_settings.SteamPath);
-                return "launched";
+                string err;
+                return SteamHelper.StartBigPicture(_settings.SteamPath, out err) ? "launched" : "FAILED: " + err;
             }));
             TestButtonsPanel.Children.Add(TestBtn("List Displays", () =>
             {
@@ -253,7 +253,7 @@ namespace SteamTV
             LstConnected.Items.Add("Scanning...");
             Task.Run(() =>
             {
-                var pads = SteamHelper.EnumerateGamepads();
+                var pads = SteamHelper.EnumerateGamepads(AppendLog);
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     LstConnected.Items.Clear();

@@ -1,6 +1,7 @@
 // Main window: tab-based UI — Monitor settings, Gamepad management, Test actions.
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.Text;
 using System.Threading.Tasks;
@@ -36,6 +37,8 @@ namespace SteamTV
         private DateTime _lastAdbCheck = DateTime.MinValue;
         private bool _adbCheckPending;
         private bool? _lastAdbReachable;
+        private int _adbFailStreak;
+        private bool _adbFailNotified;
 
         private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private const string RunValueName = "SteamTV_Controller";
@@ -52,12 +55,15 @@ namespace SteamTV
             _monitor = new MonitorService(_settings);
             _monitor.Log += AppendLog;
             _monitor.RunningChanged += OnRunningChanged;
+            _monitor.Notify += ShowTrayBalloon;
 
             LoadSettingsToUi();
             BuildTestButtons();
             BuildTray();
             UpdateStatusLabel();
             SetThemeButtons(system: true);
+
+            _ = CheckForUpdatesAsync();
 
             _statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _statusTimer.Tick += (s, e) => OnStatusTick();
@@ -82,6 +88,27 @@ namespace SteamTV
         {
             var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
             return "v" + v.Major + "." + v.Minor + "." + v.Build;
+        }
+
+        // -------------------------------------------------------------------------
+        // Update check — one-shot on startup, silent unless a newer release exists.
+        // -------------------------------------------------------------------------
+
+        private bool _updateAvailable;
+
+        private async Task CheckForUpdatesAsync()
+        {
+            string tag = await UpdateChecker.GetLatestTagAsync();
+            var current = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            if (!UpdateChecker.IsNewer(tag, current)) return;
+
+            Dispatcher.Invoke(() =>
+            {
+                _updateAvailable = true;
+                AppendLog("Update available: " + tag + " (running v" + current.Major + "." + current.Minor + "." + current.Build + ") — " + UpdateChecker.ReleasesPageUrl);
+                _tray?.ShowBalloonTip(8000, "SteamTV update available",
+                    "Version " + tag + " is out — click to open the releases page.", Forms.ToolTipIcon.Info);
+            });
         }
 
         // -------------------------------------------------------------------------
@@ -216,21 +243,28 @@ namespace SteamTV
             _settings.Save();
         }
 
-        private void StartMonitor()
+        // Shared by Start and the manual Activate/Deactivate buttons — all of them need a valid IP.
+        private bool ValidateIpOrWarn()
         {
             if (string.IsNullOrWhiteSpace(TxtIp.Text))
             {
                 System.Windows.MessageBox.Show("Enter the TV IP address.", "SteamTV",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                return false;
             }
             System.Net.IPAddress addr;
             if (!System.Net.IPAddress.TryParse(TxtIp.Text.Trim(), out addr))
             {
                 System.Windows.MessageBox.Show("Invalid IP address format.", "SteamTV",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                return false;
             }
+            return true;
+        }
+
+        private void StartMonitor()
+        {
+            if (!ValidateIpOrWarn()) return;
             SaveUiToSettings();
             _monitor.Start();
         }
@@ -366,6 +400,18 @@ namespace SteamTV
                             LblAdb.Text = "● ADB  ↺15s";
                             LblAdb.Foreground = ok ? System.Windows.Media.Brushes.Green : System.Windows.Media.Brushes.OrangeRed;
                             SetAdbReachable(ok);
+
+                            // Only nag while actively monitoring — ADB being unreachable while
+                            // stopped just means the TV is off, not a problem worth a toast.
+                            // TVs sometimes turn Wireless debugging back off on their own (e.g. after
+                            // a reboot), so after ~45s of failures, point at the actual fix.
+                            if (ok || !_monitor.IsRunning) { _adbFailStreak = 0; _adbFailNotified = false; return; }
+                            _adbFailStreak++;
+                            if (_adbFailStreak >= 3 && !_adbFailNotified)
+                            {
+                                _adbFailNotified = true;
+                                ShowTrayBalloon("SteamTV", "TV unreachable via ADB for a while — check that Wireless debugging is still on in the TV's Developer Options (some TVs disable it again after a reboot).");
+                            }
                         }));
                     });
                 }
@@ -375,10 +421,12 @@ namespace SteamTV
         private void UpdateStatusLabel()
         {
             bool running = _monitor.IsRunning;
-            LblStatus.Text = running ? "● Running" : "● Stopped";
+            bool active = _monitor.IsDisplayActive;
+            LblStatus.Text = (running ? "● Running" : "● Stopped") + (active ? " — TV active" : "");
             LblStatus.Foreground = running ? System.Windows.Media.Brushes.Green : System.Windows.Media.Brushes.OrangeRed;
             if (_tray != null)
                 _tray.Text = BuildTrayTooltip(running);
+            BtnActivateNow.IsEnabled = !active;
         }
 
         private string BuildTrayTooltip(bool running)
@@ -409,6 +457,14 @@ namespace SteamTV
             if (TxtLog.Text.Length > 20000)
                 TxtLog.Text = TxtLog.Text.Substring(TxtLog.Text.Length - 12000);
             TxtLog.ScrollToEnd();
+        }
+
+        // Surfaces failures worth interrupting the user for, even when the window is hidden in
+        // the tray and nobody is looking at the log.
+        private void ShowTrayBalloon(string title, string message)
+        {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => ShowTrayBalloon(title, message))); return; }
+            _tray?.ShowBalloonTip(6000, title, message, Forms.ToolTipIcon.Warning);
         }
 
         // -------------------------------------------------------------------------
@@ -531,6 +587,11 @@ namespace SteamTV
                 ContextMenuStrip = menu
             };
             _tray.DoubleClick += (s, e) => RestoreFromTray();
+            _tray.BalloonTipClicked += (s, e) =>
+            {
+                if (_updateAvailable)
+                    Process.Start(new ProcessStartInfo(UpdateChecker.ReleasesPageUrl) { UseShellExecute = true });
+            };
         }
 
         private void HideToTray()
@@ -568,6 +629,7 @@ namespace SteamTV
             _statusTimer?.Stop();
             _monitor.Log -= AppendLog;
             _monitor.RunningChanged -= OnRunningChanged;
+            _monitor.Notify -= ShowTrayBalloon;
             _monitor.Stop();
             if (_tray != null) _tray.Visible = false;
             _trayIconUnknown?.Dispose();
@@ -586,6 +648,20 @@ namespace SteamTV
         private void BtnStart_Click(object sender, RoutedEventArgs e) => StartMonitor();
         private void BtnStop_Click(object sender, RoutedEventArgs e) => _monitor.Stop();
         private void BtnExit_Click(object sender, RoutedEventArgs e) { _reallyExit = true; Close(); }
+
+        private void BtnActivateNow_Click(object sender, RoutedEventArgs e)
+        {
+            if (!ValidateIpOrWarn()) return;
+            SaveUiToSettings();
+            _monitor.ActivateNow();
+        }
+
+        private void BtnDeactivateNow_Click(object sender, RoutedEventArgs e)
+        {
+            if (!ValidateIpOrWarn()) return;
+            SaveUiToSettings();
+            _monitor.DeactivateNow();
+        }
         private void BtnDisplays_Click(object sender, RoutedEventArgs e) => ShowDisplaysList();
         private void BtnRemove_Click(object sender, RoutedEventArgs e) => RemoveWatchedGamepad();
         private void BtnRefresh_Click(object sender, RoutedEventArgs e) => RefreshConnectedList();

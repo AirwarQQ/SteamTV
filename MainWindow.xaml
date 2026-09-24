@@ -44,6 +44,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -219,14 +220,24 @@
         <TextBlock Grid.Row="1" x:Name="LblStatus" Margin="0,12,0,10" FontWeight="Bold" FontSize="13" />
 
         <!-- Buttons -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,12">
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
             <ui:Button x:Name="BtnStart" Content="Start" Width="100" Appearance="Primary" Click="BtnStart_Click" />
             <Button x:Name="BtnStop" Content="Stop" Width="100" Margin="8,0,0,0" Click="BtnStop_Click" />
             <Button x:Name="BtnExit" Content="Exit" Width="110" Margin="150,0,0,0" Click="BtnExit_Click" />
         </StackPanel>
 
+        <!-- Manual override — force TV on/off regardless of gamepad/Big Picture state -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,12">
+            <ui:Button x:Name="BtnActivateNow" Content="Activate now" Width="150" Appearance="Secondary"
+                       ToolTip="Manually run the full activation sequence (wake TV, switch HDMI, launch Big Picture) without waiting for a gamepad."
+                       Click="BtnActivateNow_Click" />
+            <Button x:Name="BtnDeactivateNow" Content="Deactivate / Restore" Width="150" Margin="8,0,0,0"
+                    ToolTip="Manually restore monitors and send the TV back to its home screen — also works as a recovery button if state gets out of sync."
+                    Click="BtnDeactivateNow_Click" />
+        </StackPanel>
+
         <!-- Log -->
-        <Grid Grid.Row="3">
+        <Grid Grid.Row="4">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />

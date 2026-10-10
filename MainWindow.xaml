@@ -3,7 +3,7 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  Title="SteamTV Monitor"
-                 Width="520" Height="760"
+                 Width="600" Height="900"
                  ResizeMode="CanMinimize"
                  WindowStartupLocation="CenterScreen"
                  Closing="OnClosing"
@@ -14,6 +14,21 @@
              inside it measure against infinite width and overflow past the window edge. -->
         <Style TargetType="ui:Card">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+        <!-- Read-only so text cells never enter edit mode; the CheckBox template stays clickable. -->
+        <Style x:Key="DeviceGrid" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="CanUserReorderColumns" Value="False" />
+            <Setter Property="CanUserResizeRows" Value="False" />
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="GridLinesVisibility" Value="None" />
+            <!-- Star column already fits the width; a selected row's few px of indent would otherwise
+                 summon a horizontal scrollbar that eats a row's worth of height. -->
+            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
         </Style>
     </ui:FluentWindow.Resources>
 
@@ -49,7 +64,7 @@
         </Grid.RowDefinitions>
 
         <!-- Tabs -->
-        <TabControl Grid.Row="0" Height="440" x:Name="Tabs" SelectionChanged="Tabs_SelectionChanged"
+        <TabControl Grid.Row="0" Height="580" x:Name="Tabs" SelectionChanged="Tabs_SelectionChanged"
                     HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
 
             <!-- Monitor tab -->
@@ -120,44 +135,103 @@
                 </ScrollViewer>
             </TabItem>
 
-            <!-- Gamepads tab -->
-            <TabItem Header="Gamepads">
+            <!-- Devices tab -->
+            <TabItem Header="Devices">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="0,12,0,0">
 
-                    <TextBlock Text="Watched — trigger SteamTV when any of these connects"
+                    <TextBlock Text="Trigger devices — activate the TV when a ticked one connects"
                                FontWeight="SemiBold" Margin="2,0,0,6" TextWrapping="Wrap" />
                     <ui:Card Margin="0,0,0,12">
                         <StackPanel>
-                            <Grid>
+                            <!-- Header (~35) + 4 rows of WPF-UI's 36 — room for a few trigger devices without scrolling. -->
+                            <DataGrid x:Name="GridWatched" Height="184" Style="{StaticResource DeviceGrid}">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="On" Width="44" SortMemberPath="Enabled">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}"
+                                                          MinWidth="0" Padding="0"
+                                                          HorizontalAlignment="Center"
+                                                          ToolTip="Only ticked devices trigger the TV" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Device" Binding="{Binding Name}" Width="*" />
+                                    <DataGridTextColumn Header="Category" Binding="{Binding Category}"
+                                                        SortMemberPath="CategoryRank" Width="140" />
+                                    <DataGridTemplateColumn Header="Status" SortMemberPath="IsConnected" Width="108">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Status}" Foreground="{Binding StatusBrush}"
+                                                           VerticalAlignment="Center" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <Grid Margin="0,8,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <ListBox Grid.Column="0" x:Name="LstWatched" Height="150" />
-                                <Button Grid.Column="1" x:Name="BtnRemove" Content="Remove" Margin="8,0,0,0"
-                                        VerticalAlignment="Top" Click="BtnRemove_Click" />
+                                <TextBlock Grid.Column="0" x:Name="LblNoDevices" VerticalAlignment="Center"
+                                           Text="⚠  No ticked devices — add one from the list below."
+                                           Foreground="OrangeRed" TextWrapping="Wrap" />
+                                <Button Grid.Column="1" x:Name="BtnRemove" Content="Remove" Click="BtnRemove_Click" />
                             </Grid>
-                            <TextBlock x:Name="LblNoGamepads"
-                                       Text="⚠  No gamepads configured — add at least one to enable the trigger."
-                                       Foreground="OrangeRed" TextWrapping="Wrap" Margin="0,8,0,0" />
                         </StackPanel>
                     </ui:Card>
 
-                    <TextBlock Text="Connected right now" FontWeight="SemiBold" Margin="2,0,0,6" />
+                    <Grid Margin="2,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Devices on this PC" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1" x:Name="CmbCategory" MinWidth="170"
+                                  SelectionChanged="CmbCategory_SelectionChanged" />
+                    </Grid>
                     <ui:Card>
                         <StackPanel>
-                            <Grid>
+                            <DataGrid x:Name="GridConnected" Height="170" Style="{StaticResource DeviceGrid}"
+                                      MouseDoubleClick="GridConnected_MouseDoubleClick">
+                                <DataGrid.RowStyle>
+                                    <!-- Must extend WPF-UI's row style, not the stock one, or rows render white in dark mode. -->
+                                    <Style TargetType="DataGridRow" BasedOn="{StaticResource DefaultDataGridRowStyle}">
+                                        <Setter Property="ToolTip" Value="{Binding Key}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsWatched}" Value="True">
+                                                <Setter Property="Opacity" Value="0.45" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGrid.RowStyle>
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Device" Binding="{Binding Name}" Width="*" />
+                                    <DataGridTextColumn Header="Category" Binding="{Binding Category}"
+                                                        SortMemberPath="CategoryRank" Width="140" />
+                                    <DataGridTextColumn Header="Bus" Binding="{Binding Bus}" Width="86" />
+                                    <DataGridTemplateColumn Header="Status" SortMemberPath="IsConnected" Width="108">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Status}" Foreground="{Binding StatusBrush}"
+                                                           VerticalAlignment="Center" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <Grid Margin="0,8,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <ListBox Grid.Column="0" x:Name="LstConnected" Height="130" />
-                                <Button Grid.Column="1" x:Name="BtnRefresh" Content="Refresh" Margin="8,0,0,0"
-                                        VerticalAlignment="Top" Click="BtnRefresh_Click" />
+                                <TextBlock Grid.Column="0" Foreground="Gray" TextWrapping="Wrap" VerticalAlignment="Center"
+                                           Text="Updates live. Click a header to sort; double-click a row to add it." />
+                                <Button Grid.Column="1" x:Name="BtnAdd" Content="↑ Add" Margin="8,0,0,0"
+                                        Click="BtnAdd_Click" />
                             </Grid>
-                            <Button x:Name="BtnAdd" Content="↑ Add to Watched" Margin="0,8,0,0"
-                                    HorizontalAlignment="Left" Click="BtnAdd_Click" />
                         </StackPanel>
                     </ui:Card>
                 </StackPanel>

@@ -1,6 +1,8 @@
 // Main window: tab-based UI — Monitor settings, Gamepad management, Test actions.
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Diagnostics;
 using System.Drawing;
 using System.Text;
@@ -58,6 +60,7 @@ namespace SteamTV
             _monitor.Notify += ShowTrayBalloon;
 
             LoadSettingsToUi();
+            InitDevicesTab();
             BuildTestButtons();
             BuildTray();
             UpdateStatusLabel();
@@ -224,7 +227,6 @@ namespace SteamTV
             TxtSteamPath.Text = _settings.SteamPath;
             TxtHdmiActivityPattern.Text = _settings.HdmiActivityPattern;
             TxtTvHomeComponent.Text = _settings.TvHomeComponent;
-            RefreshWatchedList();
         }
 
         private void SaveUiToSettings()
@@ -270,64 +272,206 @@ namespace SteamTV
         }
 
         // -------------------------------------------------------------------------
-        // Gamepad management
+        // Devices tab
         // -------------------------------------------------------------------------
 
-        private void RefreshWatchedList()
+        public sealed class DeviceRow : INotifyPropertyChanged
         {
-            LstWatched.Items.Clear();
-            foreach (var g in _settings.WatchedGamepads)
-                LstWatched.Items.Add(g);
-            LblNoGamepads.Visibility = _settings.WatchedGamepads.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            private static readonly System.Windows.Media.Brush ConnectedBrush = System.Windows.Media.Brushes.LimeGreen;
+            private static readonly System.Windows.Media.Brush DisconnectedBrush = System.Windows.Media.Brushes.Gray;
+
+            private string _name, _category, _bus;
+            private bool _enabled, _connected, _watched;
+
+            public string Key { get; set; }
+            internal WatchedDevice Watched { get; set; }   // set only on rows of the trigger list
+
+            public string Name { get => _name; set => Set(ref _name, value, nameof(Name)); }
+            public string Bus { get => _bus; set => Set(ref _bus, value, nameof(Bus)); }
+            public string Category
+            {
+                get => _category;
+                set { if (Set(ref _category, value, nameof(Category))) Raise(nameof(CategoryRank)); }
+            }
+            public int CategoryRank
+            {
+                get { int i = Array.IndexOf(DeviceScanner.CategoryOrder, _category); return i < 0 ? 99 : i; }
+            }
+            public bool Enabled { get => _enabled; set => Set(ref _enabled, value, nameof(Enabled)); }
+            public bool IsWatched { get => _watched; set => Set(ref _watched, value, nameof(IsWatched)); }
+            public bool IsConnected
+            {
+                get => _connected;
+                set { if (Set(ref _connected, value, nameof(IsConnected))) { Raise(nameof(Status)); Raise(nameof(StatusBrush)); } }
+            }
+            public string Status => _connected ? "● Connected" : "○ Offline";
+            public System.Windows.Media.Brush StatusBrush => _connected ? ConnectedBrush : DisconnectedBrush;
+
+            public event PropertyChangedEventHandler PropertyChanged;
+            private void Raise(string p) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(p));
+            private bool Set<T>(ref T field, T value, string p)
+            {
+                if (Equals(field, value)) return false;
+                field = value;
+                Raise(p);
+                return true;
+            }
         }
 
-        private void RefreshConnectedList()
+        private const string AllCategories = "All categories";
+        private readonly System.Collections.ObjectModel.ObservableCollection<DeviceRow> _watchedRows =
+            new System.Collections.ObjectModel.ObservableCollection<DeviceRow>();
+        private readonly System.Collections.ObjectModel.ObservableCollection<DeviceRow> _deviceRows =
+            new System.Collections.ObjectModel.ObservableCollection<DeviceRow>();
+        private List<ExternalDevice> _lastScan = new List<ExternalDevice>();
+        private bool _scanPending;
+        private int _scanTick;
+
+        private void InitDevicesTab()
         {
-            LstConnected.Items.Clear();
-            LstConnected.Items.Add("Scanning...");
+            GridWatched.ItemsSource = _watchedRows;
+            GridConnected.ItemsSource = _deviceRows;
+
+            var view = System.Windows.Data.CollectionViewSource.GetDefaultView(_deviceRows);
+            view.SortDescriptions.Add(new SortDescription(nameof(DeviceRow.CategoryRank), ListSortDirection.Ascending));
+            view.SortDescriptions.Add(new SortDescription(nameof(DeviceRow.Name), ListSortDirection.Ascending));
+            view.Filter = o =>
+            {
+                string cat = CmbCategory.SelectedItem as string;
+                return cat == null || cat == AllCategories || ((DeviceRow)o).Category == cat;
+            };
+
+            CmbCategory.Items.Add(AllCategories);
+            foreach (var c in DeviceScanner.CategoryOrder) CmbCategory.Items.Add(c);
+            CmbCategory.SelectedIndex = 0;
+
+            RebuildWatchedRows();
+        }
+
+        private void RebuildWatchedRows()
+        {
+            _watchedRows.Clear();
+            foreach (var w in _settings.WatchedDevices)
+            {
+                var row = new DeviceRow { Key = w.Key, Watched = w, Name = w.Name, Category = w.Category, Enabled = w.Enabled };
+                // Hooked after the initial values so building the list doesn't trigger saves.
+                row.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(DeviceRow.Enabled)) OnWatchedEnabledChanged((DeviceRow)s); };
+                _watchedRows.Add(row);
+            }
+            ApplyScanToRows();
+        }
+
+        // Rescans in the background; skips if a scan is already running.
+        private void ScanDevices()
+        {
+            if (_scanPending) return;
+            _scanPending = true;
             Task.Run(() =>
             {
-                var pads = SteamHelper.EnumerateGamepads(AppendLog);
+                List<ExternalDevice> devices = null;
+                string error = null;
+                try { devices = DeviceScanner.Scan(); }
+                catch (Exception ex) { error = ex.Message; }
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    LstConnected.Items.Clear();
-                    if (pads.Count == 0)
-                        LstConnected.Items.Add("(no gamepad-class HID devices detected)");
-                    else
-                        foreach (var g in pads)
-                            LstConnected.Items.Add(g);
+                    _scanPending = false;
+                    if (error != null) { AppendLog("Device scan failed: " + error); return; }
+                    _lastScan = devices;
+                    ApplyScanToRows();
                 }));
             });
         }
 
-        private void AddToWatched()
+        // Merges the latest scan into both grids in place, so selection and sort order survive live updates.
+        private void ApplyScanToRows()
         {
-            if (LstConnected.SelectedItem is ConnectedGamepad pad)
+            var byKey = _lastScan.ToDictionary(d => d.Key, StringComparer.OrdinalIgnoreCase);
+            var watchedKeys = new HashSet<string>(_settings.WatchedDevices.Select(w => w.Key), StringComparer.OrdinalIgnoreCase);
+
+            bool dirty = false;
+            foreach (var row in _watchedRows)
             {
-                if (_settings.WatchedGamepads.Exists(w =>
-                    string.Equals(w.HardwareId, pad.HardwareId, StringComparison.OrdinalIgnoreCase)))
+                ExternalDevice d;
+                bool found = byKey.TryGetValue(row.Key, out d);
+                row.IsConnected = found && d.IsConnected;
+                // Entries saved by older versions carry WMI's generic names ("HID-compliant game
+                // controller") — pick up the real product name the first time the device is seen.
+                if (found && row.Watched != null && (row.Watched.Name != d.Name || row.Watched.Category != d.Category))
                 {
-                    System.Windows.MessageBox.Show("This gamepad is already in the watched list.", "SteamTV");
-                    return;
+                    row.Watched.Name = row.Name = d.Name;
+                    row.Watched.Category = row.Category = d.Category;
+                    dirty = true;
                 }
-                _settings.WatchedGamepads.Add(new GamepadEntry
-                {
-                    HardwareId = pad.HardwareId,
-                    FriendlyName = pad.FriendlyName
-                });
-                _settings.Save();
-                RefreshWatchedList();
             }
+            if (dirty) _settings.Save();
+
+            var existing = _deviceRows.ToDictionary(r => r.Key, StringComparer.OrdinalIgnoreCase);
+            foreach (var row in existing.Values.Where(r => !byKey.ContainsKey(r.Key)).ToList())
+                _deviceRows.Remove(row);
+            foreach (var d in _lastScan)
+            {
+                DeviceRow row;
+                if (!existing.TryGetValue(d.Key, out row))
+                    _deviceRows.Add(row = new DeviceRow { Key = d.Key });
+                row.Name = d.Name;
+                row.Category = d.Category;
+                row.Bus = d.Bus;
+                row.IsConnected = d.IsConnected;
+                row.IsWatched = watchedKeys.Contains(d.Key);
+            }
+
+            LblNoDevices.Visibility = _settings.WatchedDevices.Any(w => w.Enabled) ? Visibility.Collapsed : Visibility.Visible;
         }
 
-        private void RemoveWatchedGamepad()
+        private void AddSelectedDevice()
         {
-            if (LstWatched.SelectedItem is GamepadEntry entry)
+            var row = GridConnected.SelectedItem as DeviceRow;
+            if (row == null) return;
+            if (_settings.WatchedDevices.Any(w => string.Equals(w.Key, row.Key, StringComparison.OrdinalIgnoreCase)))
             {
-                _settings.WatchedGamepads.Remove(entry);
-                _settings.Save();
-                RefreshWatchedList();
+                GridWatched.SelectedItem = _watchedRows.FirstOrDefault(r => string.Equals(r.Key, row.Key, StringComparison.OrdinalIgnoreCase));
+                return;
             }
+            // Copy-on-write: the monitor thread reads this list without a lock.
+            _settings.WatchedDevices = new List<WatchedDevice>(_settings.WatchedDevices)
+            {
+                new WatchedDevice { Key = row.Key, Name = row.Name, Category = row.Category, Enabled = true }
+            };
+            _settings.Save();
+            RebuildWatchedRows();
+        }
+
+        private void RemoveSelectedDevice()
+        {
+            var row = GridWatched.SelectedItem as DeviceRow;
+            if (row == null) return;
+            _settings.WatchedDevices = _settings.WatchedDevices.Where(w => w != row.Watched).ToList();
+            _settings.Save();
+            RebuildWatchedRows();
+        }
+
+        private void OnWatchedEnabledChanged(DeviceRow row)
+        {
+            row.Watched.Enabled = row.Enabled;
+            _settings.Save();
+            LblNoDevices.Visibility = _settings.WatchedDevices.Any(w => w.Enabled) ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private void CmbCategory_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+            System.Windows.Data.CollectionViewSource.GetDefaultView(_deviceRows)?.Refresh();
+
+        private void GridConnected_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (IsOnRow(e)) AddSelectedDevice();
+        }
+
+        // Ignore double-clicks on headers / empty space under the last row.
+        private static bool IsOnRow(System.Windows.Input.MouseButtonEventArgs e)
+        {
+            var d = e.OriginalSource as DependencyObject;
+            while (d != null && !(d is DataGridRow) && !(d is System.Windows.Controls.Primitives.DataGridColumnHeader))
+                d = System.Windows.Media.VisualTreeHelper.GetParent(d);
+            return d is DataGridRow;
         }
 
         // -------------------------------------------------------------------------
@@ -373,6 +517,10 @@ namespace SteamTV
         private void OnStatusTick()
         {
             UpdateStatusLabel();
+
+            // Live device status — only while someone can actually see the Devices tab.
+            if (IsVisible && Tabs.SelectedIndex == 1 && ++_scanTick % 2 == 0)
+                ScanDevices();
 
             // ADB check: run every 15 s in a background task
             if (!_adbCheckPending && (DateTime.Now - _lastAdbCheck).TotalSeconds >= 15)
@@ -635,12 +783,11 @@ namespace SteamTV
             _trayIconUnknown?.Dispose();
             _trayIconOk?.Dispose();
             _trayIconBad?.Dispose();
-            SteamHelper.Shutdown();
         }
 
         private void Tabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (Tabs.SelectedIndex == 1) RefreshConnectedList();
+            if (e.OriginalSource == Tabs && Tabs.SelectedIndex == 1) ScanDevices();
         }
 
         private void ChkAutostart_CheckedChanged(object sender, RoutedEventArgs e) => SetAutostart(ChkAutostart.IsChecked == true);
@@ -663,9 +810,8 @@ namespace SteamTV
             _monitor.DeactivateNow();
         }
         private void BtnDisplays_Click(object sender, RoutedEventArgs e) => ShowDisplaysList();
-        private void BtnRemove_Click(object sender, RoutedEventArgs e) => RemoveWatchedGamepad();
-        private void BtnRefresh_Click(object sender, RoutedEventArgs e) => RefreshConnectedList();
-        private void BtnAdd_Click(object sender, RoutedEventArgs e) => AddToWatched();
+        private void BtnRemove_Click(object sender, RoutedEventArgs e) => RemoveSelectedDevice();
+        private void BtnAdd_Click(object sender, RoutedEventArgs e) => AddSelectedDevice();
 
         // -------------------------------------------------------------------------
         // Theme switcher

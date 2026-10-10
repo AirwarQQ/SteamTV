@@ -1,5 +1,7 @@
-// Background loop — core logic: reacts to gamepad and Big Picture.
+// Background loop — core logic: reacts to trigger devices connecting and to Big Picture.
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -50,8 +52,8 @@ namespace SteamTV
             RunningChanged?.Invoke(true);
             L("Monitor started. IP=" + _s.TvIp + ", display #" + _s.TargetDisplay +
               (_s.DisableOthers ? ", other monitors will be disabled." : "."));
-            if (_s.WatchedGamepads.Count == 0)
-                L("WARNING: no gamepads configured — add at least one in the Gamepads tab.");
+            if (!_s.WatchedDevices.Any(d => d.Enabled))
+                L("WARNING: no enabled trigger devices — add one (and tick it) on the Devices tab.");
         }
 
         public void Stop()
@@ -260,7 +262,9 @@ namespace SteamTV
         {
             var adb = new Adb(_s.AdbPath, _s.TvIp);
 
-            bool prevController = false;
+            // Empty at start, so an enabled device that's already plugged in when monitoring starts
+            // triggers right away — same as the old single-gamepad behaviour.
+            var prevConnected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             // Big Picture may already be running if the monitor was stopped and restarted (or the app
             // restarted) mid-session — start in sync with reality so a later BP close still runs cleanup
             // instead of being skipped because _displayEnabled was reset to false by Start().
@@ -273,13 +277,20 @@ namespace SteamTV
             {
                 try
                 {
-                    bool curController = SteamHelper.IsWatchedControllerConnected(_s.WatchedGamepads, L);
+                    var curConnected = new HashSet<string>(
+                        DeviceScanner.Scan().Where(d => d.IsConnected).Select(d => d.Key),
+                        StringComparer.OrdinalIgnoreCase);
                     bool curBp = SteamHelper.IsBigPictureRunning();
 
-                    // --- ACTIVATION: watched gamepad just connected, Big Picture not yet running ---
-                    if (curController && !prevController && !curBp)
+                    // Per-device edge, not "any watched device connected": otherwise an always-plugged
+                    // keyboard on the list would keep that flag true forever and nothing could trigger.
+                    var trigger = _s.WatchedDevices.FirstOrDefault(d =>
+                        d.Enabled && curConnected.Contains(d.Key) && !prevConnected.Contains(d.Key));
+
+                    // --- ACTIVATION: enabled trigger device just connected, Big Picture not yet running ---
+                    if (trigger != null && !curBp)
                     {
-                        L("Gamepad connected -> activating TV.");
+                        L(trigger.Name + " connected -> activating TV.");
                         lock (_actionLock)
                         {
                             Activate(adb, ct);
@@ -297,7 +308,7 @@ namespace SteamTV
                         SteamHelper.MinimizeSteamWindow();
                     }
 
-                    prevController = curController;
+                    prevConnected = curConnected;
                     prevBp = curBp;
                 }
                 catch (Exception ex)

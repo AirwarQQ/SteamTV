@@ -1,6 +1,6 @@
 # SteamTV
 
-Windows utility that watches for a gamepad connection and automatically switches your TV to PC input, enables the TV display in Windows, and launches Steam Big Picture. When Big Picture is closed, it restores your monitor layout and switches the TV back to its home screen.
+Windows utility that watches for a gamepad (or any other device you choose — keyboard, mouse, headset…) to connect and automatically switches your TV to PC input, enables the TV display in Windows, and launches Steam Big Picture. When Big Picture is closed, it restores your monitor layout and switches the TV back to its home screen.
 
 Originally a PowerShell script, rewritten in C# with a proper UI.
 
@@ -8,7 +8,7 @@ Originally a PowerShell script, rewritten in C# with a proper UI.
 
 ## How it works
 
-1. **Gamepad connects** → wake TV via ADB, enable TV display in Windows, disable other monitors (optional), switch TV HDMI input to PC, launch Steam Big Picture.
+1. **A ticked trigger device connects** (USB or Bluetooth) → wake TV via ADB, enable TV display in Windows, disable other monitors (optional), switch TV HDMI input to PC, launch Steam Big Picture.
 2. **Big Picture closes** → restore monitor layout, switch TV back to home screen, minimize Steam.
 
 ---
@@ -61,10 +61,12 @@ Click **Start** to begin monitoring. The ADB indicator under the TV IP field sho
 
 Light / Dark / Auto theme switcher is in the title bar (top-right); Auto follows the Windows theme and updates live if you change it.
 
-### 5. Add your gamepad
-Go to the **Gamepads** tab → click **Refresh** → select your gamepad from the "Connected right now" list → click **↑ Add to Watched**.
+### 5. Pick your trigger devices
+Go to the **Devices** tab. The bottom list shows every external USB and Bluetooth device Windows knows about — with its real product name, a category (Gamepad, Keyboard, Mouse, Audio, Camera, Storage, Other) and live connection status. Click a column header to sort, or use the category filter. Select a device and click **↑ Add** (or double-click it).
 
-The monitoring loop triggers when any watched gamepad connects.
+Added devices appear in the top list with their live status and an **On** checkbox. Only ticked devices trigger activation — untick one to keep it on the list without it doing anything.
+
+Activation fires when a ticked device *connects* (goes from offline to connected), so a keyboard that's always plugged in won't block a gamepad from triggering. Paired Bluetooth devices stay listed while switched off and show as **Offline**, so you can add a controller even when it isn't on.
 
 ### 6. Autostart (optional)
 On the **Monitor** tab, check **Run at Windows startup (hidden in tray)**. The app will start minimised to tray and begin monitoring automatically.
@@ -123,8 +125,8 @@ All toggles are on the **Monitor** tab under **Features**:
 ```
 SteamTV/
 ├─ App.xaml / App.xaml.cs  — entry point (single-instance mutex, -autostart flag, WPF-UI theme)
-├─ MainWindow.xaml / .cs   — tab UI: Monitor, Gamepads, Test; tray icon
-├─ Appsettings.cs          — registry-backed settings + GamepadEntry model
+├─ MainWindow.xaml / .cs   — tab UI: Monitor, Devices, Test, Advanced; tray icon
+├─ Appsettings.cs          — registry-backed settings + WatchedDevice model
 ├─ app.manifest            — PerMonitorV2 DPI awareness (crisp on HiDPI displays, handled natively by WPF)
 ├─ Interop/
 │  └─ Native.cs            — P/Invoke: user32 CCD display API, dwmapi
@@ -132,8 +134,9 @@ SteamTV/
 │  ├─ Displaymanager.cs    — enable/disable/restore monitors via SetDisplayConfig
 │  ├─ Adb.cs               — adb.exe wrapper (wake, source switch, reachability check)
 │  ├─ AdbBundle.cs         — extracts the embedded adb.exe next to SteamTV.exe on first run
-│  ├─ Steamhelper.cs       — gamepad detection (WMI/HID), Big Picture, Steam
-│  └─ Monitorservice.cs    — background loop: reacts to gamepad + Big Picture state
+│  ├─ DeviceScanner.cs     — external USB/Bluetooth device enumeration via cfgmgr32 (names, categories, BT connection state)
+│  ├─ Steamhelper.cs       — Big Picture detection, launching/minimizing Steam
+│  └─ Monitorservice.cs    — background loop: reacts to trigger devices + Big Picture state
 ├─ Vendor/adb.exe          — bundled Android Platform Tools binary, embedded into the exe at build time
 └─ Displaytest.cs          — standalone CLI tool for testing display switching
 ```
@@ -165,6 +168,7 @@ DisplayTest off 3      # disable display #3
 - Use the **Displays…** button to see which number is your TV.
 - The number matches `\\.\DISPLAYn` in Windows Display Settings.
 
-**Gamepad not detected**
-- The app looks for HID devices with *Generic Desktop / Game Pad* usage (`UP:0001_U:0005`).
-- Some controllers register as joysticks (different HID usage) and won't appear. Try the **Gamepads → Refresh** list to confirm.
+**Device not in the list**
+- Only external devices are listed — anything Windows reports as built into the PC (internal webcam, laptop keyboard, Bluetooth radio) and USB hubs are filtered out.
+- Bluetooth devices must be paired in Windows first; once paired they stay listed (as Offline) even while switched off.
+- Gamepads are recognized by HID game pad / joystick usage, plus Xbox controllers by their XUSB/GIP interface. Anything else still shows up, just under **Other**.

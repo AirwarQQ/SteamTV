@@ -7,14 +7,12 @@ using Microsoft.Win32;
 namespace SteamTV
 {
 
-    internal sealed class GamepadEntry
+    internal sealed class WatchedDevice
     {
-        public string HardwareId;    // canonical "VID_XXXX&PID_YYYY" — stable across reboots
-        public string FriendlyName;  // display label (name at time of adding)
-
-        public override string ToString() =>
-            string.IsNullOrEmpty(FriendlyName) ? HardwareId
-                : FriendlyName + "  (" + HardwareId + ")";
+        public string Key;        // DeviceScanner key: "VID_XXXX&PID_YYYY" or "BT_<MAC>" — stable across reboots
+        public string Name;       // display label captured when the device was added
+        public string Category;
+        public bool Enabled = true;   // only enabled devices trigger activation
     }
 
     internal sealed class AppSettings
@@ -35,7 +33,8 @@ namespace SteamTV
         public string HdmiActivityPattern = @"com\.xiaomi\.mitv\.tvplayer/\.ExternalSourceActivity";
         public string TvHomeComponent = "com.spocky.projengmenu/.ui.home.MainActivity";
 
-        public List<GamepadEntry> WatchedGamepads = new List<GamepadEntry>();
+        // Replaced wholesale (never mutated in place) so the monitor thread can read it without locking.
+        public List<WatchedDevice> WatchedDevices = new List<WatchedDevice>();
 
         // Derived from HdmiPort — no manual override needed for the standard liskovsoft app.
         public string HdmiSourcePackage => "com.liskovsoft.tvexternalsource.hdmi" + HdmiPort;
@@ -61,18 +60,30 @@ namespace SteamTV
                     s.HdmiActivityPattern = (string)(k.GetValue("HdmiActivityPattern") ?? s.HdmiActivityPattern);
                     s.TvHomeComponent = (string)(k.GetValue("TvHomeComponent") ?? s.TvHomeComponent);
 
-                    // Watched gamepads stored as REG_MULTI_SZ; each entry: "HWID|FriendlyName"
-                    string[] raw = k.GetValue("WatchedGamepads") as string[];
+                    // REG_MULTI_SZ, one "Key|Enabled|Category|Name" per device (Name last: it may contain '|').
+                    string[] raw = k.GetValue("WatchedDevices") as string[];
                     if (raw != null)
                     {
                         foreach (string line in raw)
                         {
+                            var p = line.Split(new[] { '|' }, 4);
+                            if (p.Length == 4 && p[0].Length > 0)
+                                s.WatchedDevices.Add(new WatchedDevice
+                                {
+                                    Key = p[0], Enabled = p[1] != "0", Category = p[2], Name = p[3]
+                                });
+                        }
+                    }
+                    else if ((raw = k.GetValue("WatchedGamepads") as string[]) != null)
+                    {
+                        // Pre-1.6 format: "VID_XXXX&PID_YYYY|FriendlyName", gamepads only.
+                        foreach (string line in raw)
+                        {
                             int pipe = line.IndexOf('|');
                             if (pipe > 0)
-                                s.WatchedGamepads.Add(new GamepadEntry
+                                s.WatchedDevices.Add(new WatchedDevice
                                 {
-                                    HardwareId = line.Substring(0, pipe),
-                                    FriendlyName = line.Substring(pipe + 1)
+                                    Key = line.Substring(0, pipe), Name = line.Substring(pipe + 1), Category = "Gamepad"
                                 });
                         }
                     }
@@ -101,10 +112,11 @@ namespace SteamTV
                     k.SetValue("HdmiActivityPattern", HdmiActivityPattern ?? "");
                     k.SetValue("TvHomeComponent", TvHomeComponent ?? "");
 
-                    string[] raw = WatchedGamepads
-                        .Select(e => (e.HardwareId ?? "") + "|" + (e.FriendlyName ?? ""))
+                    string[] raw = WatchedDevices
+                        .Select(e => e.Key + "|" + (e.Enabled ? "1" : "0") + "|" + (e.Category ?? "") + "|" + (e.Name ?? ""))
                         .ToArray();
-                    k.SetValue("WatchedGamepads", raw, RegistryValueKind.MultiString);
+                    k.SetValue("WatchedDevices", raw, RegistryValueKind.MultiString);
+                    k.DeleteValue("WatchedGamepads", false);
                 }
             }
             catch (Exception ex) { Console.WriteLine("[AppSettings] Save error: " + ex.Message); }

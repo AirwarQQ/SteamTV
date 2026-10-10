@@ -19,6 +19,13 @@ namespace SteamTV
         // by the automatic loop or a manual Activate/Deactivate button.
         private readonly object _actionLock = new object();
 
+        // Set from the UI thread on WM_DEVICECHANGE so the loop reacts immediately instead of on its next 2 s tick.
+        private readonly AutoResetEvent _devicesChanged = new AutoResetEvent(false);
+
+        // Bluetooth controllers drop for a moment now and then (sleep, interference); don't tear the
+        // whole TV session down over a blip.
+        private static readonly TimeSpan RestoreGrace = TimeSpan.FromSeconds(10);
+
         private DisplayConfigSnapshot _preActivateSnapshot;
         private PhysicalDisplayId? _targetPhysicalId;
         private bool _displayEnabled;
@@ -33,6 +40,8 @@ namespace SteamTV
         public bool IsDisplayActive => _displayEnabled;
 
         public MonitorService(AppSettings s) { _s = s; }
+
+        public void NotifyDevicesChanged() => _devicesChanged.Set();
 
         private void L(string msg)
         {
@@ -82,7 +91,7 @@ namespace SteamTV
                         return;
                     }
                     L("Manual activate requested.");
-                    Activate(new Adb(_s.AdbPath, _s.TvIp), CancellationToken.None);
+                    Activate(new Adb(_s.AdbPath, _s.TvIp), CancellationToken.None, _s.EnableBigPicture);
                 }
             });
         }
@@ -131,9 +140,10 @@ namespace SteamTV
             }
         }
 
-        // Full activation sequence: wake TV, enable/arrange displays, switch HDMI source, launch
-        // Big Picture. Used both by the automatic gamepad-connect trigger and ActivateNow().
-        private void Activate(Adb adb, CancellationToken ct)
+        // Full activation sequence: wake TV, enable/arrange displays, switch HDMI source, and (unless
+        // launchBigPicture is false — a "TV only" trigger, or the global toggle off) launch Big Picture.
+        // Used both by the automatic device-connect trigger and ActivateNow().
+        private void Activate(Adb adb, CancellationToken ct, bool launchBigPicture)
         {
             L("Activating TV.");
 
@@ -209,7 +219,7 @@ namespace SteamTV
                 {
                     if (Sleep(ct, 1000)) return;
                     L("HDMI source active.");
-                    if (_s.EnableBigPicture)
+                    if (launchBigPicture)
                     {
                         L("Starting Big Picture.");
                         string bpErr;
@@ -230,7 +240,7 @@ namespace SteamTV
                     _displayEnabled = false;
                 }
             }
-            else if (_s.EnableBigPicture)
+            else if (launchBigPicture)
             {
                 L("Starting Big Picture (source switch disabled).");
                 string bpErr;
@@ -273,10 +283,16 @@ namespace SteamTV
             if (prevBp)
                 L("Big Picture already running — resuming as active.");
 
+            // "Restore on disconnect" devices seen connected during the current active session, and
+            // when the last of them went away (null while at least one is still around).
+            var armed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            DateTime? goneSince = null;
+
             while (!ct.IsCancellationRequested)
             {
                 try
                 {
+                    var watched = _s.WatchedDevices;   // copy-on-write list: read the reference once per tick
                     var curConnected = new HashSet<string>(
                         DeviceScanner.Scan().Where(d => d.IsConnected).Select(d => d.Key),
                         StringComparer.OrdinalIgnoreCase);
@@ -284,17 +300,73 @@ namespace SteamTV
 
                     // Per-device edge, not "any watched device connected": otherwise an always-plugged
                     // keyboard on the list would keep that flag true forever and nothing could trigger.
-                    var trigger = _s.WatchedDevices.FirstOrDefault(d =>
+                    var trigger = watched.FirstOrDefault(d =>
                         d.Enabled && curConnected.Contains(d.Key) && !prevConnected.Contains(d.Key));
 
-                    // --- ACTIVATION: enabled trigger device just connected, Big Picture not yet running ---
-                    if (trigger != null && !curBp)
+                    // --- ACTIVATION: enabled trigger device just connected, TV not already active ---
+                    // _displayEnabled matters now that "TV only" triggers don't start Big Picture: a second
+                    // device connecting mid-session must not re-run Activate, which would re-snapshot the
+                    // already-modified monitor layout and lose the real one to restore.
+                    if (trigger != null && !curBp && !_displayEnabled)
                     {
-                        L(trigger.Name + " connected -> activating TV.");
+                        bool tvOnly = trigger.Action == TriggerAction.TvOnly;
+                        L(trigger.DisplayName + " connected -> activating TV" + (tvOnly ? " (TV only)." : "."));
                         lock (_actionLock)
                         {
-                            Activate(adb, ct);
+                            Activate(adb, ct, launchBigPicture: !tvOnly && _s.EnableBigPicture);
                         }
+                    }
+
+                    // --- RESTORE ON DISCONNECT: every flagged device from this session gone for a while ---
+                    if (_displayEnabled)
+                    {
+                        foreach (var d in watched)
+                            if (d.Enabled && d.RestoreOnDisconnect && curConnected.Contains(d.Key))
+                                armed.Add(d.Key);
+
+                        if (armed.Count > 0 && !armed.Any(curConnected.Contains))
+                        {
+                            if (goneSince == null)
+                            {
+                                goneSince = DateTime.UtcNow;
+                                L(NamesOf(watched, armed) + " disconnected — restoring in " + RestoreGrace.TotalSeconds + " s unless it comes back.");
+                            }
+                            else if (DateTime.UtcNow - goneSince.Value >= RestoreGrace)
+                            {
+                                L(NamesOf(watched, armed) + " still gone -> deactivating TV.");
+                                lock (_actionLock)
+                                {
+                                    // Close Big Picture first — otherwise once the TV display is switched off it
+                                    // reopens full-screen on the main monitor.
+                                    if (curBp)
+                                    {
+                                        string how;
+                                        if (SteamHelper.CloseBigPicture(ct, out how))
+                                            L("Big Picture closed (" + how + ").");
+                                        else
+                                        {
+                                            L("Big Picture " + how + ".");
+                                            N("SteamTV", "Couldn't close Big Picture after the device disconnected.");
+                                        }
+                                    }
+                                    Deactivate(adb, ct);
+                                }
+                                SteamHelper.MinimizeSteamWindow();
+                                curBp = SteamHelper.IsBigPictureRunning();
+                                armed.Clear();
+                                goneSince = null;
+                            }
+                        }
+                        else if (goneSince != null)
+                        {
+                            L("Device back — restore cancelled.");
+                            goneSince = null;
+                        }
+                    }
+                    else
+                    {
+                        armed.Clear();
+                        goneSince = null;
                     }
 
                     // --- DEACTIVATION: Big Picture was running, now closed ---
@@ -316,9 +388,17 @@ namespace SteamTV
                     L("Loop error: " + ex.Message);
                 }
 
-                if (Sleep(ct, 2000)) return;
+                // Poll every 2 s, or right away when Windows reports a device change.
+                int woke = WaitHandle.WaitAny(new[] { ct.WaitHandle, _devicesChanged }, 2000);
+                if (woke == 0) return;
+                // A plug-in is a burst of devnode changes (and Bluetooth flips IsConnected a moment
+                // later) — give the rest of it time to land so one scan sees the finished state.
+                if (woke == 1 && Sleep(ct, 400)) return;
             }
         }
+
+        private static string NamesOf(List<WatchedDevice> watched, HashSet<string> keys) =>
+            string.Join(", ", watched.Where(d => keys.Contains(d.Key)).Select(d => d.DisplayName));
     }
 
 }

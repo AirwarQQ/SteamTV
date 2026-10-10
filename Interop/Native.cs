@@ -12,6 +12,47 @@ namespace SteamTV
         public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
         public const int SW_MINIMIZE = 6;
 
+        [DllImport("user32.dll")]
+        public static extern bool PostMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+        public const int WM_CLOSE = 0x0010;
+
+        // --- Device-change notifications ---
+        public const int WM_DEVICECHANGE = 0x0219;
+        public const int DBT_DEVNODES_CHANGED = 0x0007;
+        public const int DBT_DEVICEARRIVAL = 0x8000;
+        public const int DBT_DEVICEREMOVECOMPLETE = 0x8004;
+        private const int DBT_DEVTYP_DEVICEINTERFACE = 5;
+        private const int DEVICE_NOTIFY_WINDOW_HANDLE = 0;
+        private const int DEVICE_NOTIFY_ALL_INTERFACE_CLASSES = 4;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DEV_BROADCAST_DEVICEINTERFACE
+        {
+            public int dbcc_size;
+            public int dbcc_devicetype;
+            public int dbcc_reserved;
+            public Guid dbcc_classguid;
+            public short dbcc_name;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr RegisterDeviceNotification(IntPtr hRecipient, ref DEV_BROADCAST_DEVICEINTERFACE filter, int flags);
+
+        [DllImport("user32.dll")]
+        public static extern bool UnregisterDeviceNotification(IntPtr handle);
+
+        // DBT_DEVNODES_CHANGED is broadcast to every top-level window anyway, but arrival/removal of
+        // device interfaces (what HID/USB/Bluetooth devices expose) only arrives after registering.
+        public static IntPtr RegisterForAllDeviceInterfaces(IntPtr hwnd)
+        {
+            var filter = new DEV_BROADCAST_DEVICEINTERFACE
+            {
+                dbcc_size = Marshal.SizeOf(typeof(DEV_BROADCAST_DEVICEINTERFACE)),
+                dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE,
+            };
+            return RegisterDeviceNotification(hwnd, ref filter, DEVICE_NOTIFY_WINDOW_HANDLE | DEVICE_NOTIFY_ALL_INTERFACE_CLASSES);
+        }
+
         // --- CCD: flags ---
         public const uint QDC_ALL_PATHS = 0x00000001;
 

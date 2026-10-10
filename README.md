@@ -9,7 +9,7 @@ Originally a PowerShell script, rewritten in C# with a proper UI.
 ## How it works
 
 1. **A ticked trigger device connects** (USB or Bluetooth) → wake TV via ADB, enable TV display in Windows, disable other monitors (optional), switch TV HDMI input to PC, launch Steam Big Picture.
-2. **Big Picture closes** → restore monitor layout, switch TV back to home screen, minimize Steam.
+2. **Big Picture closes** (or, optionally, the trigger device disconnects) → restore monitor layout, switch TV back to home screen, minimize Steam.
 
 ---
 
@@ -66,7 +66,17 @@ Go to the **Devices** tab. The bottom list shows every external USB and Bluetoot
 
 Added devices appear in the top list with their live status and an **On** checkbox. Only ticked devices trigger activation — untick one to keep it on the list without it doing anything.
 
-Activation fires when a ticked device *connects* (goes from offline to connected), so a keyboard that's always plugged in won't block a gamepad from triggering. Paired Bluetooth devices stay listed while switched off and show as **Offline**, so you can add a controller even when it isn't on.
+Activation fires when a ticked device *connects* (goes from offline to connected), so a keyboard that's always plugged in won't block a gamepad from triggering. Paired Bluetooth devices stay listed while switched off and show as **Offline**, so you can add a controller even when it isn't on. Connections are picked up the moment Windows reports them (device-change notifications), with a 2 s poll as a fallback.
+
+Select a trigger device to change its settings:
+
+| Setting | Effect |
+|---|---|
+| **Name** | Your own name for it (e.g. "Living-room pad") — shown in the list and the log. Leave empty for the product name. |
+| **On connect** | **TV + Big Picture** — the full sequence. **TV only** — wake the TV, switch displays and HDMI input, but don't launch Big Picture (e.g. a keyboard for desktop use on the TV). |
+| **Restore monitors when it disconnects** | Once this device has been gone for 10 s: close Big Picture if it's open, restore the monitor layout and send the TV home. The 10 s grace stops a Bluetooth controller's momentary dropout from tearing the session down. Pairs naturally with **TV only**, which has no Big Picture to close. |
+
+While the TV is already active, another trigger device connecting doesn't re-run activation.
 
 ### 6. Autostart (optional)
 On the **Monitor** tab, check **Run at Windows startup (hidden in tray)**. The app will start minimised to tray and begin monitoring automatically.

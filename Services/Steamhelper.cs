@@ -24,6 +24,43 @@ namespace SteamTV
             return false;
         }
 
+        // Leaves Big Picture: Steam's own URL first, then WM_CLOSE on the Big Picture window as a
+        // fallback (closing that window exits BP mode). Returns true once BP is confirmed gone.
+        public static bool CloseBigPicture(System.Threading.CancellationToken ct, out string how)
+        {
+            if (!IsBigPictureRunning()) { how = "not running"; return true; }
+
+            try { Process.Start(new ProcessStartInfo { FileName = "steam://close/bigpicture", UseShellExecute = true }); }
+            catch { }
+            if (WaitUntilBigPictureGone(ct, 4000)) { how = "steam://close/bigpicture"; return true; }
+
+            foreach (var p in Process.GetProcessesByName("steamwebhelper"))
+            {
+                try
+                {
+                    if (p.MainWindowHandle != IntPtr.Zero &&
+                        p.MainWindowTitle.IndexOf("Big Picture", StringComparison.OrdinalIgnoreCase) >= 0)
+                        Native.PostMessage(p.MainWindowHandle, Native.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+                }
+                catch { }
+                finally { p.Dispose(); }
+            }
+            if (WaitUntilBigPictureGone(ct, 4000)) { how = "closed its window"; return true; }
+
+            how = "still open after steam://close/bigpicture and WM_CLOSE";
+            return false;
+        }
+
+        private static bool WaitUntilBigPictureGone(System.Threading.CancellationToken ct, int timeoutMs)
+        {
+            for (int waited = 0; waited < timeoutMs; waited += 250)
+            {
+                if (!IsBigPictureRunning()) return true;
+                if (ct.WaitHandle.WaitOne(250)) return false;
+            }
+            return !IsBigPictureRunning();
+        }
+
         public static void MinimizeSteamWindow()
         {
             foreach (var p in Process.GetProcessesByName("steamwebhelper"))

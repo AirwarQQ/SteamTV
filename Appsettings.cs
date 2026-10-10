@@ -7,12 +7,23 @@ using Microsoft.Win32;
 namespace SteamTV
 {
 
+    internal enum TriggerAction
+    {
+        TvAndBigPicture = 0,   // full sequence (Big Picture still subject to the global toggle)
+        TvOnly = 1,            // wake + displays + HDMI source, but no Big Picture
+    }
+
     internal sealed class WatchedDevice
     {
         public string Key;        // DeviceScanner key: "VID_XXXX&PID_YYYY" or "BT_<MAC>" — stable across reboots
-        public string Name;       // display label captured when the device was added
+        public string Name;       // product name; refreshed from live scans
+        public string Alias;      // user's own name; never overwritten by scans
         public string Category;
         public bool Enabled = true;   // only enabled devices trigger activation
+        public TriggerAction Action = TriggerAction.TvAndBigPicture;
+        public bool RestoreOnDisconnect;   // deactivate once this device goes away
+
+        public string DisplayName => string.IsNullOrWhiteSpace(Alias) ? Name : Alias;
     }
 
     internal sealed class AppSettings
@@ -60,18 +71,35 @@ namespace SteamTV
                     s.HdmiActivityPattern = (string)(k.GetValue("HdmiActivityPattern") ?? s.HdmiActivityPattern);
                     s.TvHomeComponent = (string)(k.GetValue("TvHomeComponent") ?? s.TvHomeComponent);
 
-                    // REG_MULTI_SZ, one "Key|Enabled|Category|Name" per device (Name last: it may contain '|').
+                    // REG_MULTI_SZ, one device per line:
+                    //   v2: "v2|Key|Enabled|Category|Action|RestoreOnDisconnect|Alias|Name" (Alias/Name URI-escaped)
+                    //   v1 (1.6.0): "Key|Enabled|Category|Name" (Name last, unescaped — may contain '|')
                     string[] raw = k.GetValue("WatchedDevices") as string[];
                     if (raw != null)
                     {
                         foreach (string line in raw)
                         {
-                            var p = line.Split(new[] { '|' }, 4);
-                            if (p.Length == 4 && p[0].Length > 0)
-                                s.WatchedDevices.Add(new WatchedDevice
-                                {
-                                    Key = p[0], Enabled = p[1] != "0", Category = p[2], Name = p[3]
-                                });
+                            if (line.StartsWith("v2|", StringComparison.Ordinal))
+                            {
+                                var p = line.Split('|');
+                                if (p.Length == 8 && p[1].Length > 0)
+                                    s.WatchedDevices.Add(new WatchedDevice
+                                    {
+                                        Key = p[1], Enabled = p[2] != "0", Category = p[3],
+                                        Action = p[4] == "1" ? TriggerAction.TvOnly : TriggerAction.TvAndBigPicture,
+                                        RestoreOnDisconnect = p[5] == "1",
+                                        Alias = Uri.UnescapeDataString(p[6]), Name = Uri.UnescapeDataString(p[7])
+                                    });
+                            }
+                            else
+                            {
+                                var p = line.Split(new[] { '|' }, 4);
+                                if (p.Length == 4 && p[0].Length > 0)
+                                    s.WatchedDevices.Add(new WatchedDevice
+                                    {
+                                        Key = p[0], Enabled = p[1] != "0", Category = p[2], Name = p[3]
+                                    });
+                            }
                         }
                     }
                     else if ((raw = k.GetValue("WatchedGamepads") as string[]) != null)
@@ -113,7 +141,10 @@ namespace SteamTV
                     k.SetValue("TvHomeComponent", TvHomeComponent ?? "");
 
                     string[] raw = WatchedDevices
-                        .Select(e => e.Key + "|" + (e.Enabled ? "1" : "0") + "|" + (e.Category ?? "") + "|" + (e.Name ?? ""))
+                        .Select(e => string.Join("|",
+                            "v2", e.Key, e.Enabled ? "1" : "0", e.Category ?? "",
+                            e.Action == TriggerAction.TvOnly ? "1" : "0", e.RestoreOnDisconnect ? "1" : "0",
+                            Esc(e.Alias), Esc(e.Name)))
                         .ToArray();
                     k.SetValue("WatchedDevices", raw, RegistryValueKind.MultiString);
                     k.DeleteValue("WatchedGamepads", false);
@@ -121,6 +152,10 @@ namespace SteamTV
             }
             catch (Exception ex) { Console.WriteLine("[AppSettings] Save error: " + ex.Message); }
         }
+
+        // Only the separator and the escape char itself — keeps names readable in regedit
+        // (full URI escaping turned "Пульт" into %D0%9F...). Uri.UnescapeDataString reverses it.
+        private static string Esc(string s) => (s ?? "").Replace("%", "%25").Replace("|", "%7C");
 
         private static int ToInt(object v, int def)
         {

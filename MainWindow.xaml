@@ -3,7 +3,7 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  Title="SteamTV Monitor"
-                 Width="600" Height="900"
+                 Width="600" Height="930"
                  ResizeMode="CanMinimize"
                  WindowStartupLocation="CenterScreen"
                  Closing="OnClosing"
@@ -64,7 +64,7 @@
         </Grid.RowDefinitions>
 
         <!-- Tabs -->
-        <TabControl Grid.Row="0" Height="580" x:Name="Tabs" SelectionChanged="Tabs_SelectionChanged"
+        <TabControl Grid.Row="0" Height="610" x:Name="Tabs" SelectionChanged="Tabs_SelectionChanged"
                     HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
 
             <!-- Monitor tab -->
@@ -145,7 +145,13 @@
                     <ui:Card Margin="0,0,0,12">
                         <StackPanel>
                             <!-- Header (~35) + 4 rows of WPF-UI's 36 — room for a few trigger devices without scrolling. -->
-                            <DataGrid x:Name="GridWatched" Height="184" Style="{StaticResource DeviceGrid}">
+                            <DataGrid x:Name="GridWatched" Height="184" Style="{StaticResource DeviceGrid}"
+                                      SelectionChanged="GridWatched_SelectionChanged">
+                                <DataGrid.RowStyle>
+                                    <Style TargetType="DataGridRow" BasedOn="{StaticResource DefaultDataGridRowStyle}">
+                                        <Setter Property="ToolTip" Value="{Binding Detail}" />
+                                    </Style>
+                                </DataGrid.RowStyle>
                                 <DataGrid.Columns>
                                     <DataGridTemplateColumn Header="On" Width="44" SortMemberPath="Enabled">
                                         <DataGridTemplateColumn.CellTemplate>
@@ -170,15 +176,45 @@
                                     </DataGridTemplateColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <Grid Margin="0,8,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" x:Name="LblNoDevices" VerticalAlignment="Center"
+                            <!-- Nothing selected: hint (+ warning when nothing is ticked). -->
+                            <StackPanel x:Name="PnlNoSelection" Margin="0,8,0,0">
+                                <TextBlock x:Name="LblNoDevices" Margin="0,0,0,4"
                                            Text="⚠  No ticked devices — add one from the list below."
                                            Foreground="OrangeRed" TextWrapping="Wrap" />
-                                <Button Grid.Column="1" x:Name="BtnRemove" Content="Remove" Click="BtnRemove_Click" />
+                                <TextBlock Foreground="Gray" TextWrapping="Wrap"
+                                           Text="Select a device above to rename it or choose what it does." />
+                            </StackPanel>
+
+                            <!-- Settings of the selected trigger device. -->
+                            <Grid x:Name="PnlDevice" Margin="0,8,0,0" Visibility="Collapsed">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <ui:TextBox Grid.Row="0" Grid.Column="1" x:Name="TxtAlias" ClearButtonEnabled="False"
+                                            ToolTip="Your own name for this device — leave empty to use the product name"
+                                            LostKeyboardFocus="TxtAlias_LostKeyboardFocus" KeyDown="TxtAlias_KeyDown" />
+                                <TextBlock Grid.Row="0" Grid.Column="2" Text="On connect:" VerticalAlignment="Center" Margin="12,0,8,0" />
+                                <ComboBox Grid.Row="0" Grid.Column="3" x:Name="CmbAction" Width="168"
+                                          SelectionChanged="CmbAction_SelectionChanged">
+                                    <ComboBoxItem Content="TV + Big Picture"
+                                                  ToolTip="Full sequence: wake TV, switch displays and HDMI input, launch Big Picture" />
+                                    <ComboBoxItem Content="TV only"
+                                                  ToolTip="Wake TV and switch displays/HDMI input, but don't launch Big Picture" />
+                                </ComboBox>
+                                <CheckBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" x:Name="ChkRestoreOnDisconnect"
+                                          Margin="0,8,0,0" Checked="ChkRestoreOnDisconnect_Changed" Unchecked="ChkRestoreOnDisconnect_Changed"
+                                          Content="Restore monitors when it disconnects (after 10 s)"
+                                          ToolTip="Once this device has been gone for 10 seconds: close Big Picture, restore the monitor layout and send the TV home. Handy with 'TV only', which has no Big Picture to close." />
+                                <Button Grid.Row="1" Grid.Column="3" x:Name="BtnRemove" Content="Remove" Margin="0,8,0,0"
+                                        HorizontalAlignment="Right" Click="BtnRemove_Click" />
                             </Grid>
                         </StackPanel>
                     </ui:Card>
@@ -199,7 +235,7 @@
                                 <DataGrid.RowStyle>
                                     <!-- Must extend WPF-UI's row style, not the stock one, or rows render white in dark mode. -->
                                     <Style TargetType="DataGridRow" BasedOn="{StaticResource DefaultDataGridRowStyle}">
-                                        <Setter Property="ToolTip" Value="{Binding Key}" />
+                                        <Setter Property="ToolTip" Value="{Binding Detail}" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsWatched}" Value="True">
                                                 <Setter Property="Opacity" Value="0.45" />

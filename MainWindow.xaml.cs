@@ -286,6 +286,9 @@ namespace SteamTV
             public string Key { get; set; }
             internal WatchedDevice Watched { get; set; }   // set only on rows of the trigger list
 
+            private string _detail;
+            public string Detail { get => _detail; set => Set(ref _detail, value, nameof(Detail)); }   // row tooltip
+
             public string Name { get => _name; set => Set(ref _name, value, nameof(Name)); }
             public string Bus { get => _bus; set => Set(ref _bus, value, nameof(Bus)); }
             public string Category
@@ -327,8 +330,46 @@ namespace SteamTV
         private bool _scanPending;
         private int _scanTick;
 
+        // -------------------------------------------------------------------------
+        // Device-change notifications — instant reaction instead of waiting for the next poll
+        // -------------------------------------------------------------------------
+
+        private IntPtr _devNotifyHandle;
+        private DispatcherTimer _devChangeDebounce;
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            var hwnd = new WindowInteropHelper(this).Handle;
+            HwndSource.FromHwnd(hwnd)?.AddHook(WndProc);
+            _devNotifyHandle = Native.RegisterForAllDeviceInterfaces(hwnd);
+        }
+
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == Native.WM_DEVICECHANGE)
+            {
+                long ev = wParam.ToInt64();
+                if (ev == Native.DBT_DEVNODES_CHANGED || ev == Native.DBT_DEVICEARRIVAL || ev == Native.DBT_DEVICEREMOVECOMPLETE)
+                {
+                    _monitor.NotifyDevicesChanged();
+                    // One plug-in fires a burst of these; refresh the grids once it settles.
+                    _devChangeDebounce.Stop();
+                    _devChangeDebounce.Start();
+                }
+            }
+            return IntPtr.Zero;
+        }
+
         private void InitDevicesTab()
         {
+            _devChangeDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _devChangeDebounce.Tick += (s, e) =>
+            {
+                _devChangeDebounce.Stop();
+                if (IsVisible && Tabs.SelectedIndex == 1) ScanDevices();
+            };
+
             GridWatched.ItemsSource = _watchedRows;
             GridConnected.ItemsSource = _deviceRows;
 
@@ -353,12 +394,23 @@ namespace SteamTV
             _watchedRows.Clear();
             foreach (var w in _settings.WatchedDevices)
             {
-                var row = new DeviceRow { Key = w.Key, Watched = w, Name = w.Name, Category = w.Category, Enabled = w.Enabled };
+                var row = new DeviceRow
+                {
+                    Key = w.Key, Watched = w, Name = w.DisplayName, Category = w.Category, Enabled = w.Enabled,
+                    Detail = WatchedDetail(w),
+                };
                 // Hooked after the initial values so building the list doesn't trigger saves.
                 row.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(DeviceRow.Enabled)) OnWatchedEnabledChanged((DeviceRow)s); };
                 _watchedRows.Add(row);
             }
             ApplyScanToRows();
+        }
+
+        private static string WatchedDetail(WatchedDevice w)
+        {
+            string what = w.Action == TriggerAction.TvOnly ? "On connect: TV only" : "On connect: TV + Big Picture";
+            if (w.RestoreOnDisconnect) what += " · restores on disconnect";
+            return (string.IsNullOrWhiteSpace(w.Alias) ? "" : w.Name + " · ") + w.Key + "\n" + what;
         }
 
         // Rescans in the background; skips if a scan is already running.
@@ -396,10 +448,14 @@ namespace SteamTV
                 row.IsConnected = found && d.IsConnected;
                 // Entries saved by older versions carry WMI's generic names ("HID-compliant game
                 // controller") — pick up the real product name the first time the device is seen.
+                // The user's own alias is never touched — only the product name underneath it.
                 if (found && row.Watched != null && (row.Watched.Name != d.Name || row.Watched.Category != d.Category))
                 {
-                    row.Watched.Name = row.Name = d.Name;
+                    row.Watched.Name = d.Name;
                     row.Watched.Category = row.Category = d.Category;
+                    row.Name = row.Watched.DisplayName;
+                    row.Detail = WatchedDetail(row.Watched);
+                    if (row == _panelRow) TxtAlias.PlaceholderText = d.Name;
                     dirty = true;
                 }
             }
@@ -414,6 +470,7 @@ namespace SteamTV
                 if (!existing.TryGetValue(d.Key, out row))
                     _deviceRows.Add(row = new DeviceRow { Key = d.Key });
                 row.Name = d.Name;
+                row.Detail = d.Key;
                 row.Category = d.Category;
                 row.Bus = d.Bus;
                 row.IsConnected = d.IsConnected;
@@ -455,6 +512,68 @@ namespace SteamTV
             row.Watched.Enabled = row.Enabled;
             _settings.Save();
             LblNoDevices.Visibility = _settings.WatchedDevices.Any(w => w.Enabled) ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        // --- Selected-device settings panel -------------------------------------
+
+        // The device the panel is currently showing. Tracked separately from GridWatched.SelectedItem
+        // because clicking another row can change the selection *before* the name box loses focus —
+        // committing against SelectedItem then would save the typed name onto the wrong device.
+        private DeviceRow _panelRow;
+        private bool _fillingPanel;
+
+        private void GridWatched_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            CommitAlias();   // whatever was typed belongs to the previously shown device
+            _panelRow = (GridWatched.SelectedItem as DeviceRow)?.Watched != null ? (DeviceRow)GridWatched.SelectedItem : null;
+            PnlDevice.Visibility = _panelRow != null ? Visibility.Visible : Visibility.Collapsed;
+            PnlNoSelection.Visibility = _panelRow != null ? Visibility.Collapsed : Visibility.Visible;
+            if (_panelRow == null) return;
+
+            var w = _panelRow.Watched;
+            _fillingPanel = true;
+            TxtAlias.Text = w.Alias ?? "";
+            TxtAlias.PlaceholderText = w.Name;
+            CmbAction.SelectedIndex = w.Action == TriggerAction.TvOnly ? 1 : 0;
+            ChkRestoreOnDisconnect.IsChecked = w.RestoreOnDisconnect;
+            _fillingPanel = false;
+        }
+
+        private void CommitAlias()
+        {
+            if (_panelRow == null || _fillingPanel) return;
+            var w = _panelRow.Watched;
+            string alias = TxtAlias.Text.Trim();
+            if (alias == (w.Alias ?? "")) return;
+            w.Alias = alias.Length == 0 ? null : alias;
+            _settings.Save();
+            _panelRow.Name = w.DisplayName;
+            _panelRow.Detail = WatchedDetail(w);
+        }
+
+        private void TxtAlias_LostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e) => CommitAlias();
+
+        private void TxtAlias_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.Enter) CommitAlias();
+            else if (e.Key == System.Windows.Input.Key.Escape && _panelRow != null) TxtAlias.Text = _panelRow.Watched.Alias ?? "";
+        }
+
+        private void CmbAction_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            e.Handled = true;
+            if (_panelRow == null || _fillingPanel) return;
+            _panelRow.Watched.Action = CmbAction.SelectedIndex == 1 ? TriggerAction.TvOnly : TriggerAction.TvAndBigPicture;
+            _settings.Save();
+            _panelRow.Detail = WatchedDetail(_panelRow.Watched);
+        }
+
+        private void ChkRestoreOnDisconnect_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_panelRow == null || _fillingPanel) return;
+            _panelRow.Watched.RestoreOnDisconnect = ChkRestoreOnDisconnect.IsChecked == true;
+            _settings.Save();
+            _panelRow.Detail = WatchedDetail(_panelRow.Watched);
         }
 
         private void CmbCategory_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
@@ -783,6 +902,7 @@ namespace SteamTV
             _trayIconUnknown?.Dispose();
             _trayIconOk?.Dispose();
             _trayIconBad?.Dispose();
+            if (_devNotifyHandle != IntPtr.Zero) Native.UnregisterDeviceNotification(_devNotifyHandle);
         }
 
         private void Tabs_SelectionChanged(object sender, SelectionChangedEventArgs e)

@@ -124,7 +124,7 @@
                     <ui:Card>
                         <StackPanel>
                             <CheckBox x:Name="ChkDisableOthers" Content="Disable other monitors when TV is active" Margin="0,0,0,8" />
-                            <CheckBox x:Name="ChkWakeTV" Content="Wake TV via ADB on gamepad connect" Margin="0,0,0,8" />
+                            <CheckBox x:Name="ChkWakeTV" Content="Wake TV via ADB when a device connects" Margin="0,0,0,8" />
                             <CheckBox x:Name="ChkSourceSwitch" Content="Switch HDMI source on TV" Margin="0,0,0,8" />
                             <CheckBox x:Name="ChkBigPicture" Content="Launch Steam Big Picture" Margin="0,0,0,8" />
                             <CheckBox x:Name="ChkAutostart" Content="Run at Windows startup (hidden in tray)"

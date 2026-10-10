@@ -1,184 +1,161 @@
 # SteamTV
 
-Windows utility that watches for a gamepad (or any other device you choose — keyboard, mouse, headset…) to connect and automatically switches your TV to PC input, enables the TV display in Windows, and launches Steam Big Picture. When Big Picture is closed, it restores your monitor layout and switches the TV back to its home screen.
+Turn on the controller — the TV wakes up, switches to the PC, and Steam Big Picture opens on it. Close Big Picture — your monitors come back and the TV returns to its home screen.
 
-Originally a PowerShell script, rewritten in C# with a proper UI.
+A small Windows tray app that watches for a gamepad (or any USB/Bluetooth device you pick) and drives the whole "couch gaming" switch for you: TV power and HDMI input over ADB, Windows display layout, and Steam Big Picture.
 
 ---
 
 ## How it works
 
-1. **A ticked trigger device connects** (USB or Bluetooth) → wake TV via ADB, enable TV display in Windows, disable other monitors (optional), switch TV HDMI input to PC, launch Steam Big Picture.
-2. **Big Picture closes** (or, optionally, the trigger device disconnects) → restore monitor layout, switch TV back to home screen, minimize Steam.
+1. **A trigger device connects** (USB or Bluetooth) → wake the TV over ADB, turn on the TV display in Windows (optionally turning the other monitors off), switch the TV's HDMI input to the PC, launch Steam Big Picture.
+2. **Big Picture closes** — or, if you choose, **the device disconnects** → restore the monitor layout, send the TV back to its home screen, minimize Steam.
 
 ---
 
 ## Requirements
 
-| Requirement | Notes |
+| | |
 |---|---|
-| **Windows 10 / 11** | — |
-| **.NET Framework 4.8** | Pre-installed on Windows 10 1903+ and all Windows 11. [Download](https://dotnet.microsoft.com/download/dotnet-framework/net48) if missing. |
-| **Android Debug Bridge (`adb.exe`)** | Bundled — extracted next to `SteamTV.exe` on first run, nothing to install. Set a custom path on the Advanced tab if you'd rather use your own. |
-| **Steam** | Standard install at `C:\Program Files (x86)\Steam\steam.exe` or configure the path in settings. |
-| **TV with ADB over Wi-Fi** | Enable *Developer options → USB debugging* (or *Wireless debugging*) on your TV, then allow the ADB connection from your PC. |
-| **TV External Source app** | [com.liskovsoft.tvexternalsource](https://github.com/yuliskov/SmartTubeNext) — installed on the TV; used to switch HDMI inputs via `adb shell monkey`. |
+| **Windows 10 / 11** | .NET Framework 4.8 is already built in (Windows 10 1903+). |
+| **Android TV with ADB** | *Developer options → USB debugging* (or *Wireless debugging*) enabled — see [Setup](#2-enable-adb-on-the-tv). `adb.exe` itself is bundled, nothing to install on the PC. |
+| **TV External Source app** | [com.liskovsoft.tvexternalsource](https://github.com/yuliskov/SmartTubeNext), installed on the TV — used to switch HDMI inputs. |
+| **Steam** | Default install path, or set yours on the Advanced tab. |
 
 ---
 
 ## Setup
 
-### 1. Enable ADB on your TV
-- Go to **Settings → Device Preferences → About → Build number** — tap 7 times to unlock Developer Options.
-- In **Developer Options**, enable **USB Debugging** (ADB).
-- Find your TV's IP address under **Settings → Network**.
+### 1. Download
+Grab `SteamTV-vX.Y.Z-win.zip` from the [latest release](https://github.com/AirwarQQ/SteamTV/releases/latest), extract it anywhere and run `SteamTV.exe`. It's a single file — on first run it unpacks `adb.exe` next to itself.
 
-### 2. Build
-```
-dotnet build -c Release
-```
-Output: `bin\Release\net48\SteamTV.exe` — a single self-contained exe (WPF-UI and `adb.exe` are both merged in at build time), nothing else to copy alongside it. `adb.exe` is written back out next to `SteamTV.exe` the first time you run it.
+### 2. Enable ADB on the TV
+- **Settings → Device Preferences → About → Build number** — tap it 7 times to unlock Developer options.
+- In **Developer options**, turn on **USB debugging** (ADB).
+- Note the TV's IP address from **Settings → Network**.
 
-Or open in Visual Studio 2022+ and press **Build**.
+### 3. Set up the Monitor tab
 
-### 3. Pair adb with the TV (first time only)
-Run the app once so it extracts `adb.exe` next to itself, then from that folder:
-```
-adb connect <TV_IP>
-```
-Accept the connection prompt on the TV. (You can also just start monitoring in the app — it runs the same `connect` call itself and the TV will show the same prompt the first time.)
-
-### 4. Configure in the app
-Open **SteamTV.exe** and fill in the **Monitor** tab:
-
-| Field | Description |
+| Field | What to enter |
 |---|---|
-| **TV IP** | IP address of your TV on the local network |
-| **HDMI port** | Port number your PC is connected to (1–4); used by the TV External Source app |
-| **Target display #** | Windows display number for the TV — click **Displays…** to find it |
+| **TV IP** | The TV's IP address. The indicator under it turns green once ADB reaches the TV (checked every 15 s). |
+| **HDMI port** | Which HDMI input (1–4) the PC is plugged into. |
+| **Target display #** | The TV's display number in Windows — **Displays…** lists them. |
 
-Click **Start** to begin monitoring. The ADB indicator under the TV IP field shows reachability, refreshed every 15 s.
+Click **Start**. The first time, the TV shows an "Allow USB debugging?" prompt — accept it (tick *Always allow*).
 
-Light / Dark / Auto theme switcher is in the title bar (top-right); Auto follows the Windows theme and updates live if you change it.
+### 4. Pick your trigger devices
+On the **Devices** tab, find your controller in the bottom list, select it and click **↑ Add** (or double-click it). Make sure its **On** box is ticked. That's it — switch the controller on and the TV should follow. More on this tab [below](#devices).
 
-### 5. Pick your trigger devices
-Go to the **Devices** tab. The bottom list shows every external USB and Bluetooth device Windows knows about — with its real product name, a category (Gamepad, Keyboard, Mouse, Audio, Camera, Storage, Other) and live connection status. Click a column header to sort, or use the category filter. Select a device and click **↑ Add** (or double-click it).
-
-Added devices appear in the top list with their live status and an **On** checkbox. Only ticked devices trigger activation — untick one to keep it on the list without it doing anything.
-
-Activation fires when a ticked device *connects* (goes from offline to connected), so a keyboard that's always plugged in won't block a gamepad from triggering. Paired Bluetooth devices stay listed while switched off and show as **Offline**, so you can add a controller even when it isn't on. Connections are picked up the moment Windows reports them (device-change notifications), with a 2 s poll as a fallback.
-
-Select a trigger device to change its settings:
-
-| Setting | Effect |
-|---|---|
-| **Name** | Your own name for it (e.g. "Living-room pad") — shown in the list and the log. Leave empty for the product name. |
-| **On connect** | **TV + Big Picture** — the full sequence. **TV only** — wake the TV, switch displays and HDMI input, but don't launch Big Picture (e.g. a keyboard for desktop use on the TV). |
-| **Restore monitors when it disconnects** | Once this device has been gone for 10 s: close Big Picture if it's open, restore the monitor layout and send the TV home. The 10 s grace stops a Bluetooth controller's momentary dropout from tearing the session down. Pairs naturally with **TV only**, which has no Big Picture to close. |
-
-While the TV is already active, another trigger device connecting doesn't re-run activation.
-
-### 6. Autostart (optional)
-On the **Monitor** tab, check **Run at Windows startup (hidden in tray)**. The app will start minimised to tray and begin monitoring automatically.
-
-To control this from the tray icon: right-click → **Autostart app** / **Auto-start monitoring on launch**. The tray icon itself turns red when ADB can't reach the TV (green when it can), and the right-click menu shows current ADB and monitoring status at the top.
+### 5. Autostart (optional)
+Tick **Run at Windows startup (hidden in tray)** on the Monitor tab. SteamTV then starts silently in the tray at login and begins monitoring on its own.
 
 ---
 
-## Settings
+## Devices
 
-All settings are stored in the registry at `HKCU\Software\SteamTV`.
+**Bottom list — devices on this PC.** Every external USB and Bluetooth device Windows knows about, with its real product name, a category (Gamepad, Keyboard, Mouse, Audio, Camera, Storage, Other), bus and live status. Click a header to sort, or filter by category. Paired Bluetooth devices stay listed while switched off (**Offline**), so a controller can be added even when it isn't on. Built-in hardware and USB hubs are hidden.
 
-`adb.exe` / `steam.exe` paths and the TV-specific HDMI activity pattern / home component are editable on the **Advanced** tab (or directly in the registry, same effect).
+**Top list — trigger devices.** Only devices with **On** ticked trigger anything. Select one to change its settings:
 
-**Default paths:**
-- `adb.exe` — the copy extracted next to `SteamTV.exe` on first run; set a full path on the Advanced tab if you'd rather use your own install (e.g. `C:\platform-tools\adb.exe`)
-- `steam.exe` — `C:\Program Files (x86)\Steam\steam.exe`
+| Setting | What it does |
+|---|---|
+| **Name** | Your own name for it (e.g. *Living-room pad*), used in the list and the log. Empty = product name. |
+| **On connect** | **TV + Big Picture** — the full sequence. **TV only** — wake the TV and switch displays/input, but don't open Big Picture (e.g. a keyboard for using the desktop on the TV). |
+| **Restore monitors when it disconnects** | When the device has been gone for 10 s: close Big Picture if open, restore the monitors, send the TV home. The 10 s grace rides out brief Bluetooth dropouts — reconnecting in time cancels it. A natural pair for **TV only**, which has no Big Picture to close. |
 
-**TV integration:** the default `HdmiActivityPattern` and `TvHomeComponent` on the Advanced tab match Xiaomi/MiTV's launcher. On any other TV, source-switch detection will just time out until you set both to match your own TV — see below.
-
-### Finding your TV's values for another TV
-
-Both values come from the same adb command, run at two different moments. With the TV connected (`adb connect <TV_IP>`):
-
-1. **HDMI activity pattern** — on the TV, manually switch the input to the PC's HDMI port (however you'd normally do it with the remote), then run:
-   ```
-   adb shell dumpsys activity activities | findstr ResumedActivity
-   ```
-   The line looks like `... ResumedActivity{... com.example.tvplayer/.ExternalSourceActivity ...}`. Take the `package/.Activity` part and escape the dots for regex: `com\.example\.tvplayer/\.ExternalSourceActivity`. Paste that into **HDMI activity pattern**.
-
-2. **TV home component** — put the TV back on its home screen by hand, then run the same command again:
-   ```
-   adb shell dumpsys activity activities | findstr ResumedActivity
-   ```
-   This time take the `package/.Activity` shown as-is (no escaping) — e.g. `com.example.launcher/.MainActivity` — and paste it into **TV home component**.
-
-If `findstr` finds nothing, drop it and scroll the raw `adb shell dumpsys activity activities` output for the line containing `ResumedActivity` yourself.
+A few details worth knowing:
+- Activation happens when a ticked device **connects**, not while it stays connected — so a keyboard that's always plugged in never blocks a gamepad from triggering.
+- While the TV is already active, another trigger device connecting doesn't start a second activation.
+- Devices are picked up the moment Windows reports them, with a 2-second poll as a backup.
 
 ---
 
-## Feature toggles
+## Monitor tab
 
-All toggles are on the **Monitor** tab under **Features**:
+**Features** — switch off any step you don't want:
 
 | Toggle | Effect |
 |---|---|
-| Disable other monitors when TV is active | Keeps only the TV display active while Big Picture is running; restores the full layout on exit |
-| Wake TV via ADB on gamepad connect | Sends a power keyevent if the TV screen is off |
-| Switch HDMI source on TV | Launches the TV External Source app to switch to the PC's HDMI port |
-| Launch Steam Big Picture | Starts Steam in Big Picture mode after the source switches |
+| Disable other monitors when TV is active | Only the TV stays on while it's in use; the full layout comes back afterwards. |
+| Wake TV via ADB when a device connects | Sends a power key press if the TV screen is off. |
+| Switch HDMI source on TV | Switches the TV to the PC's HDMI input through the TV External Source app. |
+| Launch Steam Big Picture | Opens Big Picture once the TV is on the right input. |
+
+**Activate now** / **Deactivate / Restore** run the same sequences by hand — useful for testing, and as a one-click way back if something got out of sync. The **Test** tab has buttons for each individual step (wake TV, switch input, list/enable/disable displays, …).
+
+### Tray
+Closing or minimizing the window keeps SteamTV running in the tray. The icon is **green** when ADB reaches the TV and **red** when it doesn't; right-click shows the current ADB and monitoring status. A tray notification pops up when something needs your attention — the TV didn't switch input, Big Picture failed to start, monitors couldn't be restored, ADB unreachable for a while during monitoring — and when a new version is out.
+
+The light / dark / auto theme switch sits in the title bar.
 
 ---
 
-## Project structure
+## Advanced tab
+
+| Setting | Default |
+|---|---|
+| **adb.exe path** | The bundled copy next to `SteamTV.exe`. Point it at your own `platform-tools` install if you prefer. |
+| **steam.exe path** | `C:\Program Files (x86)\Steam\steam.exe` |
+| **HDMI activity pattern** / **TV home component** | Xiaomi / MiTV values. **On other TVs, change both** — see below. |
+
+### Values for a non-Xiaomi TV
+Both come from the same command, run at two moments, with the TV connected (`adb connect <TV_IP>` from the folder with `adb.exe`):
 
 ```
-SteamTV/
-├─ App.xaml / App.xaml.cs  — entry point (single-instance mutex, -autostart flag, WPF-UI theme)
-├─ MainWindow.xaml / .cs   — tab UI: Monitor, Devices, Test, Advanced; tray icon
-├─ Appsettings.cs          — registry-backed settings + WatchedDevice model
-├─ app.manifest            — PerMonitorV2 DPI awareness (crisp on HiDPI displays, handled natively by WPF)
-├─ Interop/
-│  └─ Native.cs            — P/Invoke: user32 CCD display API, dwmapi
-├─ Services/
-│  ├─ Displaymanager.cs    — enable/disable/restore monitors via SetDisplayConfig
-│  ├─ Adb.cs               — adb.exe wrapper (wake, source switch, reachability check)
-│  ├─ AdbBundle.cs         — extracts the embedded adb.exe next to SteamTV.exe on first run
-│  ├─ DeviceScanner.cs     — external USB/Bluetooth device enumeration via cfgmgr32 (names, categories, BT connection state)
-│  ├─ Steamhelper.cs       — Big Picture detection, launching/minimizing Steam
-│  └─ Monitorservice.cs    — background loop: reacts to trigger devices + Big Picture state
-├─ Vendor/adb.exe          — bundled Android Platform Tools binary, embedded into the exe at build time
-└─ Displaytest.cs          — standalone CLI tool for testing display switching
+adb shell dumpsys activity activities | findstr ResumedActivity
 ```
 
-UI is built with [WPF-UI](https://github.com/lepoco/wpfui) (Fluent design, follows the Windows light/dark theme automatically).
+1. **HDMI activity pattern** — switch the TV to the PC's input with the remote, run the command, take the `package/.Activity` part (e.g. `com.example.tvplayer/.ExternalSourceActivity`) and escape the dots: `com\.example\.tvplayer/\.ExternalSourceActivity`.
+2. **TV home component** — go back to the TV's home screen, run it again, and paste the `package/.Activity` as-is (e.g. `com.example.launcher/.MainActivity`).
 
----
-
-## DisplayTest (debug tool)
-
-A separate console app that exercises the same `DisplayManager` functions — excluded from the main build (it has its own `Main`), build it with `build-displaytest.bat` (no SDK required, just the .NET Framework compiler already on Windows):
-
-```
-DisplayTest list       # list displays + CCD path table
-DisplayTest on 3       # enable display #3
-DisplayTest off 3      # disable display #3
-```
+All settings live in the registry under `HKCU\Software\SteamTV`.
 
 ---
 
 ## Troubleshooting
 
-**ADB shows orange / not reachable**
-- Confirm `adb connect <TV_IP>` works in a terminal.
-- Check the ADB path in registry (`HKCU\Software\SteamTV\AdbPath`).
-- Make sure the TV accepted the ADB authorisation popup.
+**ADB indicator / tray icon is red**
+- Check the TV IP and that the TV is on the same network.
+- Make sure the TV accepted the debugging prompt. Missed or declined it? Use **Revoke USB debugging authorisations** in Developer options, then click **Start** again to get a fresh prompt.
+- Many Android TVs **switch Wireless debugging off by themselves** after a reboot or update. Nothing on the PC side can turn it back on — re-enable it on the TV, or install [adb-auto-enable](https://github.com/mouldybread/adb-auto-enable) **on the TV** to have it re-enabled at every boot.
 
-**Wrong display enabled**
-- Use the **Displays…** button to see which number is your TV.
-- The number matches `\\.\DISPLAYn` in Windows Display Settings.
+**TV didn't switch to the PC ("rolled back")**
+- Usually the HDMI activity pattern doesn't match your TV — see [Values for a non-Xiaomi TV](#values-for-a-non-xiaomi-tv).
+
+**Wrong display turned on**
+- Use **Displays…** to find the TV's number; it matches `\\.\DISPLAYn` in Windows display settings.
 
 **Device not in the list**
-- Only external devices are listed — anything Windows reports as built into the PC (internal webcam, laptop keyboard, Bluetooth radio) and USB hubs are filtered out.
-- Bluetooth devices must be paired in Windows first; once paired they stay listed (as Offline) even while switched off.
-- Gamepads are recognized by HID game pad / joystick usage, plus Xbox controllers by their XUSB/GIP interface. Anything else still shows up, just under **Other**.
+- Bluetooth devices have to be paired in Windows first.
+- Built-in devices (laptop keyboard, internal webcam, Bluetooth radio) and USB hubs are deliberately hidden.
+- Gamepads are recognized by their HID gamepad/joystick type, Xbox controllers by their own interface. Anything unrecognized still appears — under **Other** — and works as a trigger all the same.
+
+---
+
+## Building from source
+
+```
+dotnet build -c Release
+```
+
+Produces a single self-contained `bin\Release\net48\SteamTV.exe` — WPF-UI is merged in by Costura.Fody and `adb.exe` is embedded as a resource. Visual Studio 2022+ works too.
+
+```
+SteamTV/
+├─ App.xaml(.cs)            entry point: single instance, -autostart flag, theme
+├─ MainWindow.xaml(.cs)     UI: Monitor / Devices / Test / Advanced tabs, tray icon
+├─ Appsettings.cs           registry-backed settings, WatchedDevice model
+├─ app.manifest             per-monitor DPI awareness
+├─ Interop/Native.cs        P/Invoke: CCD display API, device-change notifications
+├─ Services/
+│  ├─ Monitorservice.cs     the main loop: trigger devices + Big Picture → activate / restore
+│  ├─ DeviceScanner.cs      external USB/Bluetooth devices via cfgmgr32
+│  ├─ Displaymanager.cs     enable / disable / restore monitors (SetDisplayConfig)
+│  ├─ Adb.cs, AdbBundle.cs  adb wrapper; unpacking the bundled adb.exe
+│  ├─ Steamhelper.cs        Big Picture: detect, launch, close; minimize Steam
+│  └─ UpdateChecker.cs      new-release check on startup
+└─ Vendor/adb.exe           Android Platform Tools (Apache 2.0, see adb-NOTICE.txt)
+```
+
+UI built with [WPF-UI](https://github.com/lepoco/wpfui). Licensed under MIT — see [LICENSE](LICENSE).

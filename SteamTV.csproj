@@ -38,11 +38,6 @@
     <PackageReference Include="Costura.Fody" Version="6.2.0" PrivateAssets="all" />
   </ItemGroup>
 
-  <!-- Exclude Displaytest.cs from the main project (it has its own Main entry point) -->
-  <ItemGroup>
-    <Compile Remove="Displaytest.cs" />
-  </ItemGroup>
-
   <!--
     adb.exe (Google Android Platform Tools, Apache 2.0 — see Vendor/adb-NOTICE.txt) is embedded
     as a resource so the app is self-contained; AdbBundle extracts it next to SteamTV.exe on first

@@ -13,7 +13,7 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <!-- Shown in the title bar — bump this alongside each git release tag. -->
-    <Version>1.7.0</Version>
+    <Version>1.8.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

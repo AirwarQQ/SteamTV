@@ -54,7 +54,7 @@ Tick **Run at Windows startup (hidden in tray)** on the Monitor tab. SteamTV the
 
 ## Devices
 
-**Bottom list — devices on this PC.** Every external USB and Bluetooth device Windows knows about, with its real product name, a category (Gamepad, Keyboard, Mouse, Audio, Camera, Storage, Other), bus and live status. Click a header to sort, or filter by category. Paired Bluetooth devices stay listed while switched off (**Offline**), so a controller can be added even when it isn't on. Built-in hardware and USB hubs are hidden.
+**Bottom list — devices on this PC.** Every external USB and Bluetooth device Windows knows about (plus virtual gamepads created by bridge apps), with its real product name, a category (Gamepad, Keyboard, Mouse, Audio, Camera, Storage, Other), bus and live status. Click a header to sort, or filter by category. Paired Bluetooth devices stay listed while switched off (**Offline**), so a controller can be added even when it isn't on. Built-in hardware and USB hubs are hidden.
 
 **Top list — trigger devices.** Only devices with **On** ticked trigger anything. Select one to change its settings:
 
@@ -130,6 +130,10 @@ All settings live in the registry under `HKCU\Software\SteamTV`.
 - Bluetooth devices have to be paired in Windows first.
 - Built-in devices (laptop keyboard, internal webcam, Bluetooth radio) and USB hubs are deliberately hidden.
 - Gamepads are recognized by their HID gamepad/joystick type, Xbox controllers by their own interface. Anything unrecognized still appears — under **Other** — and works as a trigger all the same.
+
+**Controller connected through a bridge app (Switch2Connect, DS4Windows…)**
+- Such apps hand Windows a *virtual* gamepad that only exists while the real controller is connected. It shows up as **Virtual gamepad (…)** with bus **Virtual** — add that one, not the USB adapter (an ESP32 or other dongle is powered all the time and always reads as connected).
+- The virtual pad's identity depends on the app's emulation mode (Xbox, PS4, PS5…). After switching modes, add it again.
 
 ---
 

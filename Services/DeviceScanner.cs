@@ -12,10 +12,11 @@ namespace SteamTV
 
     internal sealed class ExternalDevice
     {
-        public string Key;        // "VID_XXXX&PID_YYYY", or "BT_<MAC>" for Bluetooth devices without a VID/PID
+        public string Key;        // "VID_XXXX&PID_YYYY", "BT_<MAC>" for Bluetooth devices without a VID/PID,
+                                  // or "VIRT_VID_XXXX&PID_YYYY" for software-created gamepads
         public string Name;
         public string Category;
-        public string Bus;        // "USB" or "Bluetooth"
+        public string Bus;        // "USB", "Bluetooth" or "Virtual"
         public bool IsConnected;  // false only for paired-but-not-connected Bluetooth devices
     }
 
@@ -56,13 +57,19 @@ namespace SteamTV
         public static List<ExternalDevice> Scan()
         {
             var nodes = new List<Node>();
+            var virtualPads = new Dictionary<string, ExternalDevice>(StringComparer.OrdinalIgnoreCase);
             foreach (string id in GetPresentDeviceIds())
             {
                 int devInst;
                 if (CM_Locate_DevNodeW(out devInst, id, 0) != CR_SUCCESS) continue;
 
                 Guid container = GetGuid(devInst, ContainerIdKey);
-                if (container == Guid.Empty || container == LocalMachineContainer) continue;
+                if (container == Guid.Empty || container == LocalMachineContainer)
+                {
+                    var pad = DescribeVirtualGamepad(id, devInst);
+                    if (pad != null && !virtualPads.ContainsKey(pad.Key)) virtualPads.Add(pad.Key, pad);
+                    continue;
+                }
 
                 var n = new Node
                 {
@@ -79,7 +86,48 @@ namespace SteamTV
                     n.BtConnected = GetBool(devInst, BtIsConnectedKey) ?? false;
                 nodes.Add(n);
             }
-            return Group(nodes);
+            var result = Group(nodes);
+            result.AddRange(virtualPads.Values);
+            return result;
+        }
+
+        // Bridges like Switch2Connect (Switch 2 controllers through an ESP32) or DS4Windows feed the real pad
+        // into a software HID gamepad that exists only while the controller is connected. Windows files those
+        // under the local-machine container, so they'd be dropped as built-in — pick them out here: a HID
+        // game pad / joystick whose devnode chain leads up to a root-enumerated (software) bus.
+        private static ExternalDevice DescribeVirtualGamepad(string id, int devInst)
+        {
+            if (!id.StartsWith(@"HID\", StringComparison.OrdinalIgnoreCase)) return null;
+            var hw = GetStringList(devInst, HardwareIdsKey);
+            if (!hw.Any(h => h.IndexOf("UP:0001_U:0005", StringComparison.OrdinalIgnoreCase) >= 0
+                          || h.IndexOf("UP:0001_U:0004", StringComparison.OrdinalIgnoreCase) >= 0))
+                return null;
+            string vidPid = NormalizeVidPid(id) ?? hw.Select(NormalizeVidPid).FirstOrDefault(v => v != null);
+            if (vidPid == null) return null;
+
+            // A genuinely built-in pad (handheld PC) hangs off USB/I2C, never off a ROOT\ bus.
+            string enumerator = null;
+            int cur = devInst;
+            for (int depth = 0; depth < 8 && enumerator == null; depth++)
+            {
+                int parent;
+                if (CM_Get_Parent(out parent, cur, 0) != CR_SUCCESS) break;
+                string parentId = GetDeviceId(parent);
+                if (parentId == null || parentId.StartsWith(@"HTREE\", StringComparison.OrdinalIgnoreCase)) break;
+                if (parentId.StartsWith(@"ROOT\", StringComparison.OrdinalIgnoreCase))
+                    enumerator = GetString(parent, FriendlyNameKey) ?? GetString(parent, DeviceDescKey) ?? parentId;
+                cur = parent;
+            }
+            if (enumerator == null) return null;
+
+            return new ExternalDevice
+            {
+                Key = "VIRT_" + vidPid,
+                Name = "Virtual gamepad (" + enumerator.Trim() + ")",
+                Category = "Gamepad",
+                Bus = "Virtual",
+                IsConnected = true,
+            };
         }
 
         private static List<ExternalDevice> Group(List<Node> nodes)
@@ -226,6 +274,12 @@ namespace SteamTV
         [DllImport("cfgmgr32.dll", CharSet = CharSet.Unicode)]
         private static extern int CM_Locate_DevNodeW(out int pdnDevInst, string pDeviceID, int ulFlags);
 
+        [DllImport("cfgmgr32.dll")]
+        private static extern int CM_Get_Parent(out int pdnDevInst, int dnDevInst, int ulFlags);
+
+        [DllImport("cfgmgr32.dll", CharSet = CharSet.Unicode)]
+        private static extern int CM_Get_Device_IDW(int dnDevInst, StringBuilder buffer, int bufferLen, int ulFlags);
+
         [DllImport("cfgmgr32.dll", CharSet = CharSet.Unicode)]
         private static extern int CM_Get_DevNode_PropertyW(int dnDevInst, ref DEVPROPKEY propertyKey,
             out int propertyType, byte[] propertyBuffer, ref int propertyBufferSize, int ulFlags);
@@ -245,6 +299,12 @@ namespace SteamTV
                 return SplitMultiSz(buf, buf.Length);
             }
             throw new InvalidOperationException("Device list kept changing while reading it.");
+        }
+
+        private static string GetDeviceId(int devInst)
+        {
+            var sb = new StringBuilder(201);   // MAX_DEVICE_ID_LEN + terminator
+            return CM_Get_Device_IDW(devInst, sb, sb.Capacity, 0) == CR_SUCCESS ? sb.ToString() : null;
         }
 
         private static byte[] GetRaw(int devInst, DEVPROPKEY key, out int type)

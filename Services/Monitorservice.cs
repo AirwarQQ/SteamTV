@@ -108,6 +108,8 @@ namespace SteamTV
 
         // Manual override — restores displays/TV source regardless of whether the app thinks
         // it's currently "active", so it also works as a recovery button if state ever desyncs.
+        // Closes Big Picture first, same as restore-on-disconnect — also when it was started by hand
+        // and the TV was never "active".
         public void DeactivateNow()
         {
             Task.Run(() =>
@@ -115,10 +117,26 @@ namespace SteamTV
                 lock (_actionLock)
                 {
                     L("Manual deactivate requested.");
+                    CloseBigPictureBeforeDeactivate(CancellationToken.None);
                     Deactivate(new Adb(_s.AdbPath, _s.TvIp), CancellationToken.None);
                     SteamHelper.MinimizeSteamWindow();
                 }
             });
+        }
+
+        // Big Picture has to go before the TV display is switched off — otherwise it reopens full-screen
+        // on the main monitor. A failure is reported but doesn't stop the deactivation.
+        private void CloseBigPictureBeforeDeactivate(CancellationToken ct)
+        {
+            if (!SteamHelper.IsBigPictureRunning()) return;
+            string how;
+            if (SteamHelper.CloseBigPicture(ct, out how))
+                L("Big Picture closed (" + how + ").");
+            else
+            {
+                L("Big Picture " + how + " — deactivating anyway.");
+                N("SteamTV", "Couldn't close Big Picture before restoring the monitors.");
+            }
         }
 
         private bool Sleep(CancellationToken ct, int ms) => ct.WaitHandle.WaitOne(ms);
@@ -320,10 +338,15 @@ namespace SteamTV
                     if (trigger != null && !curBp && !_displayEnabled)
                     {
                         bool tvOnly = trigger.Action == TriggerAction.TvOnly;
-                        L(trigger.DisplayName + " connected -> activating TV" + (tvOnly ? " (TV only)." : "."));
                         lock (_actionLock)
                         {
-                            Activate(adb, ct, launchBigPicture: !tvOnly && _s.EnableBigPicture);
+                            // Re-checked under the lock: a manual Activate (button / Home Assistant) may
+                            // have just run, and a second pass would snapshot the already-changed layout.
+                            if (!_displayEnabled)
+                            {
+                                L(trigger.DisplayName + " connected -> activating TV" + (tvOnly ? " (TV only)." : "."));
+                                Activate(adb, ct, launchBigPicture: !tvOnly && _s.EnableBigPicture);
+                            }
                         }
                     }
 
@@ -343,25 +366,17 @@ namespace SteamTV
                             }
                             else if (DateTime.UtcNow - goneSince.Value >= RestoreGrace)
                             {
-                                L(NamesOf(watched, armed) + " still gone -> deactivating TV.");
                                 lock (_actionLock)
                                 {
-                                    // Close Big Picture first — otherwise once the TV display is switched off it
-                                    // reopens full-screen on the main monitor.
-                                    if (curBp)
+                                    // Re-checked under the lock: a manual Deactivate may have finished meanwhile.
+                                    if (_displayEnabled)
                                     {
-                                        string how;
-                                        if (SteamHelper.CloseBigPicture(ct, out how))
-                                            L("Big Picture closed (" + how + ").");
-                                        else
-                                        {
-                                            L("Big Picture " + how + ".");
-                                            N("SteamTV", "Couldn't close Big Picture after the device disconnected.");
-                                        }
+                                        L(NamesOf(watched, armed) + " still gone -> deactivating TV.");
+                                        CloseBigPictureBeforeDeactivate(ct);
+                                        Deactivate(adb, ct);
+                                        SteamHelper.MinimizeSteamWindow();
                                     }
-                                    Deactivate(adb, ct);
                                 }
-                                SteamHelper.MinimizeSteamWindow();
                                 curBp = SteamHelper.IsBigPictureRunning();
                                 armed.Clear();
                                 goneSince = null;
@@ -380,14 +395,21 @@ namespace SteamTV
                     }
 
                     // --- DEACTIVATION: Big Picture was running, now closed ---
+                    // The check above runs outside the lock, so it also fires right after DeactivateNow()
+                    // closed Big Picture itself while still restoring — re-check under the lock, or the
+                    // restore would run twice (and the second pass, with no snapshot left, switches the
+                    // TV display off even if it was on before activation).
                     if (_displayEnabled && prevBp && !curBp)
                     {
-                        L("Big Picture closed -> deactivating TV.");
                         lock (_actionLock)
                         {
-                            Deactivate(adb, ct);
+                            if (_displayEnabled)
+                            {
+                                L("Big Picture closed -> deactivating TV.");
+                                Deactivate(adb, ct);
+                                SteamHelper.MinimizeSteamWindow();
+                            }
                         }
-                        SteamHelper.MinimizeSteamWindow();
                     }
 
                     prevConnected = curConnected;

@@ -23,6 +23,7 @@ namespace SteamTV
     {
         private readonly AppSettings _settings;
         private readonly MonitorService _monitor;
+        private readonly HomeAssistantMqtt _ha;
 
         private Forms.NotifyIcon _tray;
         private Forms.ToolStripMenuItem _miTrayAutostart;
@@ -58,6 +59,11 @@ namespace SteamTV
             _monitor.Log += AppendLog;
             _monitor.RunningChanged += OnRunningChanged;
             _monitor.Notify += ShowTrayBalloon;
+            _monitor.DisplayActiveChanged += _ => Dispatcher.BeginInvoke(new Action(UpdateStatusLabel));
+            _ha = new HomeAssistantMqtt(_monitor, GetVersionString());
+            _ha.Log += AppendLog;
+            _ha.StatusChanged += OnMqttStatus;
+            _ha.Command += OnHaCommand;
 
             LoadSettingsToUi();
             InitDevicesTab();
@@ -65,6 +71,7 @@ namespace SteamTV
             BuildTray();
             UpdateStatusLabel();
             SetThemeButtons(system: true);
+            if (_settings.MqttEnabled) StartMqtt();
 
             _ = CheckForUpdatesAsync();
 
@@ -213,6 +220,8 @@ namespace SteamTV
         // Settings sync
         // -------------------------------------------------------------------------
 
+        private bool _loadingUi;
+
         private void LoadSettingsToUi()
         {
             TxtIp.Text = _settings.TvIp;
@@ -227,6 +236,13 @@ namespace SteamTV
             TxtSteamPath.Text = _settings.SteamPath;
             TxtHdmiActivityPattern.Text = _settings.HdmiActivityPattern;
             TxtTvHomeComponent.Text = _settings.TvHomeComponent;
+            _loadingUi = true;
+            ChkMqttEnabled.IsChecked = _settings.MqttEnabled;
+            _loadingUi = false;
+            TxtMqttHost.Text = _settings.MqttHost;
+            NumMqttPort.Value = _settings.MqttPort;
+            TxtMqttUser.Text = _settings.MqttUser;
+            PwdMqtt.Password = _settings.MqttPassword;
         }
 
         private void SaveUiToSettings()
@@ -246,29 +262,129 @@ namespace SteamTV
         }
 
         // Shared by Start and the manual Activate/Deactivate buttons — all of them need a valid IP.
-        private bool ValidateIpOrWarn()
+        // Remote (Home Assistant) commands pass interactive: false — nobody may be at the PC to
+        // dismiss a message box, so the problem goes to the log and a tray balloon instead.
+        private bool ValidateIpOrWarn(bool interactive = true)
         {
-            if (string.IsNullOrWhiteSpace(TxtIp.Text))
-            {
-                System.Windows.MessageBox.Show("Enter the TV IP address.", "SteamTV",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                return false;
-            }
+            string problem = null;
             System.Net.IPAddress addr;
-            if (!System.Net.IPAddress.TryParse(TxtIp.Text.Trim(), out addr))
+            if (string.IsNullOrWhiteSpace(TxtIp.Text))
+                problem = "Enter the TV IP address.";
+            else if (!System.Net.IPAddress.TryParse(TxtIp.Text.Trim(), out addr))
+                problem = "Invalid IP address format.";
+            if (problem == null) return true;
+
+            if (interactive)
+                System.Windows.MessageBox.Show(problem, "SteamTV", MessageBoxButton.OK, MessageBoxImage.Warning);
+            else
             {
-                System.Windows.MessageBox.Show("Invalid IP address format.", "SteamTV",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                return false;
+                AppendLog("Command ignored: " + problem);
+                ShowTrayBalloon("SteamTV", "Home Assistant command ignored: " + problem);
             }
-            return true;
+            return false;
         }
 
-        private void StartMonitor()
+        private void StartMonitor(bool interactive = true)
         {
-            if (!ValidateIpOrWarn()) return;
+            if (!ValidateIpOrWarn(interactive)) return;
             SaveUiToSettings();
             _monitor.Start();
+        }
+
+        private void ActivateNow(bool interactive = true)
+        {
+            if (!ValidateIpOrWarn(interactive)) return;
+            SaveUiToSettings();
+            _monitor.ActivateNow();
+        }
+
+        private void DeactivateNow(bool interactive = true)
+        {
+            if (!ValidateIpOrWarn(interactive)) return;
+            SaveUiToSettings();
+            _monitor.DeactivateNow();
+        }
+
+        // -------------------------------------------------------------------------
+        // Home Assistant (MQTT)
+        // -------------------------------------------------------------------------
+
+        // Runs exactly what the matching button does, on the UI thread, so Start/Stop and the
+        // status line update the same way as from a click.
+        private void OnHaCommand(HaSwitch sw, bool on)
+        {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnHaCommand(sw, on))); return; }
+            if (sw == HaSwitch.Monitoring)
+            {
+                if (on) StartMonitor(interactive: false);
+                else _monitor.Stop();
+            }
+            else
+            {
+                if (on) ActivateNow(interactive: false);
+                else DeactivateNow(interactive: false);
+            }
+            UpdateStatusLabel();
+        }
+
+        private void OnMqttStatus(string status)
+        {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnMqttStatus(status))); return; }
+            LblMqttStatus.Text = "● " + status;
+            LblMqttStatus.Foreground = status.StartsWith("Connected", StringComparison.Ordinal) ? System.Windows.Media.Brushes.Green
+                : status == "Off" ? System.Windows.Media.Brushes.Gray
+                : System.Windows.Media.Brushes.OrangeRed;
+        }
+
+        private void SaveMqttUiToSettings()
+        {
+            _settings.MqttEnabled = ChkMqttEnabled.IsChecked == true;
+            _settings.MqttHost = TxtMqttHost.Text.Trim();
+            _settings.MqttPort = (int)(NumMqttPort.Value ?? 1883);
+            _settings.MqttUser = TxtMqttUser.Text.Trim();
+            _settings.MqttPassword = PwdMqtt.Password;
+            _settings.Save();
+        }
+
+        private void StartMqtt()
+        {
+            if (string.IsNullOrWhiteSpace(_settings.MqttHost))
+            {
+                _ha.Stop();
+                OnMqttStatus("Not connected: enter the broker host");
+                return;
+            }
+            _ha.Start(MqttConfig.From(_settings));
+        }
+
+        private void ApplyMqtt()
+        {
+            SaveMqttUiToSettings();
+            if (_settings.MqttEnabled) StartMqtt();
+            else if (_ha.IsStarted) { _ha.Stop(); AppendLog("Home Assistant integration switched off."); }
+        }
+
+        private void ChkMqttEnabled_Changed(object sender, RoutedEventArgs e)
+        {
+            if (!_loadingUi) ApplyMqtt();
+        }
+
+        private void BtnMqttApply_Click(object sender, RoutedEventArgs e) => ApplyMqtt();
+
+        private async void BtnMqttTest_Click(object sender, RoutedEventArgs e)
+        {
+            var cfg = new MqttConfig
+            {
+                Host = TxtMqttHost.Text.Trim(), Port = (int)(NumMqttPort.Value ?? 1883),
+                User = TxtMqttUser.Text.Trim(), Password = PwdMqtt.Password, DeviceId = _settings.MqttDeviceId,
+            };
+            if (string.IsNullOrEmpty(cfg.Host)) { AppendLog("[Test] MQTT: enter the broker host first."); return; }
+
+            BtnMqttTest.IsEnabled = false;
+            AppendLog("[Test] MQTT: connecting to " + cfg.Host + ":" + cfg.Port + "...");
+            string err = await HomeAssistantMqtt.TestAsync(cfg);
+            AppendLog("[Test] MQTT → " + (err == null ? "connected and logged in ✓" : "FAILED: " + err));
+            BtnMqttTest.IsEnabled = true;
         }
 
         // -------------------------------------------------------------------------
@@ -897,6 +1013,7 @@ namespace SteamTV
             _monitor.Log -= AppendLog;
             _monitor.RunningChanged -= OnRunningChanged;
             _monitor.Notify -= ShowTrayBalloon;
+            _ha.Stop();
             _monitor.Stop();
             if (_tray != null) _tray.Visible = false;
             _trayIconUnknown?.Dispose();
@@ -916,19 +1033,8 @@ namespace SteamTV
         private void BtnStop_Click(object sender, RoutedEventArgs e) => _monitor.Stop();
         private void BtnExit_Click(object sender, RoutedEventArgs e) { _reallyExit = true; Close(); }
 
-        private void BtnActivateNow_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateIpOrWarn()) return;
-            SaveUiToSettings();
-            _monitor.ActivateNow();
-        }
-
-        private void BtnDeactivateNow_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateIpOrWarn()) return;
-            SaveUiToSettings();
-            _monitor.DeactivateNow();
-        }
+        private void BtnActivateNow_Click(object sender, RoutedEventArgs e) => ActivateNow();
+        private void BtnDeactivateNow_Click(object sender, RoutedEventArgs e) => DeactivateNow();
         private void BtnDisplays_Click(object sender, RoutedEventArgs e) => ShowDisplaysList();
         private void BtnRemove_Click(object sender, RoutedEventArgs e) => RemoveSelectedDevice();
         private void BtnAdd_Click(object sender, RoutedEventArgs e) => AddSelectedDevice();

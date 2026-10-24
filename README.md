@@ -113,6 +113,45 @@ All settings live in the registry under `HKCU\Software\SteamTV`.
 
 ---
 
+## Home Assistant
+
+Optional — SteamTV can show up in Home Assistant as a device you can see and switch from a dashboard, an automation or a voice assistant. It talks MQTT, so you need a broker (the **Mosquitto broker** add-on, or any other) and the **MQTT** integration set up in Home Assistant.
+
+1. On the **Advanced** tab, under **Home Assistant (MQTT)**, enter the broker's **Host**, **Port** (1883 by default), **Login** and **Password** (an HA user works with the Mosquitto add-on).
+2. **Test** checks that the broker accepts the connection and the login — it doesn't change anything.
+3. Tick **Connect to Home Assistant through an MQTT broker**. After editing the fields later, click **Save & reconnect**.
+
+A **SteamTV** device appears in Home Assistant by itself (MQTT discovery), with two switches:
+
+| Switch | On | Off |
+|---|---|---|
+| **Gamepad monitoring** | Same as **Start** | Same as **Stop** |
+| **Steam on TV** | Same as **Activate now** | Same as **Deactivate / Restore** |
+
+- Both report the real state, including changes SteamTV makes on its own — a gamepad switching the TV on, Big Picture closing.
+- When SteamTV exits, or the PC goes to sleep or drops off the network, the device shows as **unavailable**.
+- SteamTV reconnects by itself if the broker restarts or the network goes away for a while.
+- Every command from Home Assistant is written to the log (`Home Assistant command: …`).
+- The password is stored encrypted for your Windows account (DPAPI).
+- Unticked, SteamTV makes no network connections for this at all.
+
+<details>
+<summary>MQTT topics</summary>
+
+`<id>` is the PC's name, lowercased (e.g. `livingroom-pc`).
+
+| Topic | |
+|---|---|
+| `steamtv/<id>/availability` | `online` / `offline` (retained; `offline` is also the last will) |
+| `steamtv/<id>/monitoring/state`, `steamtv/<id>/steam_on_tv/state` | `ON` / `OFF` (retained) |
+| `steamtv/<id>/monitoring/set`, `steamtv/<id>/steam_on_tv/set` | send `ON` / `OFF` |
+| `homeassistant/switch/steamtv_<id>/<switch>/config` | discovery (retained) |
+
+Discovery and states are published again whenever Home Assistant restarts (`homeassistant/status` = `online`).
+</details>
+
+---
+
 ## Troubleshooting
 
 **ADB indicator / tray icon is red**

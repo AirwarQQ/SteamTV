@@ -28,10 +28,13 @@ namespace SteamTV
 
         private DisplayConfigSnapshot _preActivateSnapshot;
         private PhysicalDisplayId? _targetPhysicalId;
-        private bool _displayEnabled;
+        private volatile bool _displayEnabled;
 
         public event Action<string> Log;
         public event Action<bool> RunningChanged;
+        // Raised (on whatever thread changed it) whenever IsDisplayActive flips — automatic
+        // activation, Big Picture closing, restore-on-disconnect, rollback or the manual buttons.
+        public event Action<bool> DisplayActiveChanged;
         // Fired for failures worth interrupting the user for (tray balloon), separate from the
         // full step-by-step Log so routine activity doesn't spam a notification.
         public event Action<string, string> Notify;
@@ -50,6 +53,13 @@ namespace SteamTV
         }
 
         private void N(string title, string msg) => Notify?.Invoke(title, msg);
+
+        private void SetDisplayEnabled(bool value)
+        {
+            if (_displayEnabled == value) return;
+            _displayEnabled = value;
+            DisplayActiveChanged?.Invoke(value);
+        }
 
         public void Start()
         {
@@ -197,7 +207,7 @@ namespace SteamTV
                     L("Enable display: " + err);
             }
 
-            _displayEnabled = true;
+            SetDisplayEnabled(true);
 
             if (Sleep(ct, 500)) return;
             string rrErr;
@@ -237,7 +247,7 @@ namespace SteamTV
                     RestoreDisplayState();
                     adb.RestoreSourceBeforeShutdown(_s.TvHomeComponent, ct);
                     adb.Disconnect();
-                    _displayEnabled = false;
+                    SetDisplayEnabled(false);
                 }
             }
             else if (launchBigPicture)
@@ -265,7 +275,7 @@ namespace SteamTV
                 adb.RestoreSourceBeforeShutdown(_s.TvHomeComponent, ct);
 
             adb.Disconnect();
-            _displayEnabled = false;
+            SetDisplayEnabled(false);
         }
 
         private void RunLoop(CancellationToken ct)
@@ -279,7 +289,7 @@ namespace SteamTV
             // restarted) mid-session — start in sync with reality so a later BP close still runs cleanup
             // instead of being skipped because _displayEnabled was reset to false by Start().
             bool prevBp = SteamHelper.IsBigPictureRunning();
-            _displayEnabled = prevBp;
+            SetDisplayEnabled(prevBp);
             if (prevBp)
                 L("Big Picture already running — resuming as active.");
 

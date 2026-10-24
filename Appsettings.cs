@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Win32;
 
 namespace SteamTV
@@ -39,6 +41,14 @@ namespace SteamTV
         public bool EnableBigPicture = true;
         public bool AutoMonitorOnStart = true;   // start monitoring immediately on autostart
 
+        // Home Assistant over MQTT — off by default; when off nothing MQTT-related runs at all.
+        public bool MqttEnabled = false;
+        public string MqttHost = "";
+        public int MqttPort = 1883;
+        public string MqttUser = "";
+        public string MqttPassword = "";   // kept DPAPI-encrypted (current user) in the registry
+        public string MqttDeviceId = MakeDeviceId(Environment.MachineName);   // steamtv/<id>/... topics
+
         public string AdbPath = @"adb.exe";
         public string SteamPath = @"C:\Program Files (x86)\Steam\steam.exe";
         public string HdmiActivityPattern = @"com\.xiaomi\.mitv\.tvplayer/\.ExternalSourceActivity";
@@ -70,6 +80,12 @@ namespace SteamTV
                     s.SteamPath = (string)(k.GetValue("SteamPath") ?? s.SteamPath);
                     s.HdmiActivityPattern = (string)(k.GetValue("HdmiActivityPattern") ?? s.HdmiActivityPattern);
                     s.TvHomeComponent = (string)(k.GetValue("TvHomeComponent") ?? s.TvHomeComponent);
+                    s.MqttEnabled = ToInt(k.GetValue("MqttEnabled"), 0) != 0;
+                    s.MqttHost = (string)(k.GetValue("MqttHost") ?? s.MqttHost);
+                    s.MqttPort = ToInt(k.GetValue("MqttPort"), s.MqttPort);
+                    s.MqttUser = (string)(k.GetValue("MqttUser") ?? s.MqttUser);
+                    s.MqttPassword = Unprotect(k.GetValue("MqttPassword") as byte[]);
+                    s.MqttDeviceId = MakeDeviceId((string)k.GetValue("MqttDeviceId") ?? s.MqttDeviceId);
 
                     // REG_MULTI_SZ, one device per line:
                     //   v2: "v2|Key|Enabled|Category|Action|RestoreOnDisconnect|Alias|Name" (Alias/Name URI-escaped)
@@ -139,6 +155,12 @@ namespace SteamTV
                     k.SetValue("SteamPath", SteamPath ?? "");
                     k.SetValue("HdmiActivityPattern", HdmiActivityPattern ?? "");
                     k.SetValue("TvHomeComponent", TvHomeComponent ?? "");
+                    k.SetValue("MqttEnabled", MqttEnabled ? 1 : 0, RegistryValueKind.DWord);
+                    k.SetValue("MqttHost", MqttHost ?? "");
+                    k.SetValue("MqttPort", MqttPort, RegistryValueKind.DWord);
+                    k.SetValue("MqttUser", MqttUser ?? "");
+                    k.SetValue("MqttPassword", Protect(MqttPassword), RegistryValueKind.Binary);
+                    k.SetValue("MqttDeviceId", MqttDeviceId ?? "");
 
                     string[] raw = WatchedDevices
                         .Select(e => string.Join("|",
@@ -156,6 +178,27 @@ namespace SteamTV
         // Only the separator and the escape char itself — keeps names readable in regedit
         // (full URI escaping turned "Пульт" into %D0%9F...). Uri.UnescapeDataString reverses it.
         private static string Esc(string s) => (s ?? "").Replace("%", "%25").Replace("|", "%7C");
+
+        // MQTT topic segment: lowercase letters, digits, '_' and '-' only ('+', '#', '/' would break topics).
+        public static string MakeDeviceId(string raw)
+        {
+            var id = new string((raw ?? "").ToLowerInvariant()
+                .Select(c => (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' ? c : '_').ToArray()).Trim('_');
+            return id.Length > 0 ? id : "pc";
+        }
+
+        private static byte[] Protect(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return new byte[0];
+            return ProtectedData.Protect(Encoding.UTF8.GetBytes(s), null, DataProtectionScope.CurrentUser);
+        }
+
+        private static string Unprotect(byte[] b)
+        {
+            if (b == null || b.Length == 0) return "";
+            try { return Encoding.UTF8.GetString(ProtectedData.Unprotect(b, null, DataProtectionScope.CurrentUser)); }
+            catch { return ""; }   // copied from another user/PC — can't be decrypted, ask again
+        }
 
         private static int ToInt(object v, int def)
         {

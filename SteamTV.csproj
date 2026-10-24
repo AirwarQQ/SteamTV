@@ -18,6 +18,8 @@
 
   <ItemGroup>
     <Reference Include="System.Net.Http" />
+    <!-- ProtectedData (DPAPI) — keeps the MQTT password out of the registry in plain text. -->
+    <Reference Include="System.Security" />
   </ItemGroup>
 
   <!--
@@ -27,6 +29,7 @@
   -->
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="MQTTnet" Version="4.3.7.1207" />
     <PackageReference Include="WPF-UI" Version="4.3.0" />
   </ItemGroup>
 

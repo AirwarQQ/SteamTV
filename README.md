@@ -1,8 +1,37 @@
 # SteamTV
 
-Turn on the controller — the TV wakes up, switches to the PC, and Steam Big Picture opens on it. Close Big Picture — your monitors come back and the TV returns to its home screen.
+[![Latest release](https://img.shields.io/github/v/release/AirwarQQ/SteamTV)](https://github.com/AirwarQQ/SteamTV/releases/latest)
+![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6)
+![Android TV](https://img.shields.io/badge/TV-Android%20TV-3DDC84)
+[![License](https://img.shields.io/github/license/AirwarQQ/SteamTV)](LICENSE)
 
-A small Windows tray app that watches for a gamepad (or any USB/Bluetooth device you pick) and drives the whole "couch gaming" switch for you: TV power and HDMI input over ADB, Windows display layout, and Steam Big Picture.
+**Pick up the controller — the TV is already showing Steam.**
+
+Turn on your gamepad: the TV wakes up, switches to the PC's HDMI input, and Steam Big Picture opens on it. Close Big Picture: your desk monitors come back exactly as they were and the TV goes back to its home screen. No remote, no Win+P, no walking to the PC.
+
+<p align="center">
+  <img src="docs/screenshots/monitor.png" width="380" alt="Monitor tab">
+  &nbsp;
+  <img src="docs/screenshots/devices.png" width="380" alt="Devices tab">
+</p>
+
+## Features
+
+- 🎮 **Any controller is the "on" button** — Xbox, DualSense/DualShock, Switch Pro, 8BitDo, Flydigi… USB or Bluetooth. Even a keyboard or any other device can be a trigger.
+- 📺 **Takes over the TV** — wakes it and switches it to the PC's HDMI input over ADB (Wi-Fi), then checks the switch actually happened and rolls back if it didn't.
+- 🖥️ **Handles the monitors** — turns the TV display on in Windows, optionally switches every other monitor off, sets the highest refresh rate, and later restores the **exact** previous layout (positions, primary display, everything).
+- 🚀 **Steam Big Picture** opens on the TV, and closing it ends the session. Or end it when the controller switches off — with a 10 s grace period for Bluetooth hiccups.
+- ⚙️ **Per-device behaviour** — your own names, "TV + Big Picture" or "TV only" (e.g. a keyboard to use the desktop on the TV), restore on disconnect.
+- 🔌 **Bridge apps work too** — controllers connected through Switch2Connect (Switch 2 Pro Controller via an ESP32), DS4Windows and similar are picked up as virtual gamepads.
+- 🏠 **Home Assistant** (optional, over MQTT) — a SteamTV device with "Gamepad monitoring" and "Steam on TV" switches, for dashboards, automations and voice assistants.
+- 🪶 **Lives in the tray** — starts with Windows, reacts instantly to devices, notifies you only when something goes wrong, checks for updates. Light/dark theme.
+
+## Why SteamTV
+
+- **No HDMI-CEC needed.** Most PC GPUs don't do CEC at all; SteamTV talks to the TV over ADB instead, so it works with Android / Google TVs.
+- **Your desk setup survives.** Multi-monitor layouts are snapshotted before and restored after — not just "extend/duplicate" guesses.
+- **One file, nothing to install.** A single `SteamTV.exe`; `adb.exe` is bundled. Settings live in your user registry.
+- **Hands off by default.** Once set up, you never open it: controller on → play, Big Picture off → back to work.
 
 ---
 
@@ -120,6 +149,8 @@ Optional — SteamTV can show up in Home Assistant as a device you can see and s
 1. On the **Advanced** tab, under **Home Assistant (MQTT)**, enter the broker's **Host**, **Port** (1883 by default), **Login** and **Password** (an HA user works with the Mosquitto add-on).
 2. **Test** checks that the broker accepts the connection and the login — it doesn't change anything.
 3. Tick **Connect to Home Assistant through an MQTT broker**. After editing the fields later, click **Save & reconnect**.
+
+<p align="center"><img src="docs/screenshots/home-assistant.png" width="560" alt="Home Assistant settings on the Advanced tab"></p>
 
 A **SteamTV** device appears in Home Assistant by itself (MQTT discovery), with two switches:
 

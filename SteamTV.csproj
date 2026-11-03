@@ -13,7 +13,7 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <!-- Shown in the title bar — bump this alongside each git release tag. -->
-    <Version>1.9.0</Version>
+    <Version>1.10.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -48,6 +48,9 @@
   -->
   <ItemGroup>
     <EmbeddedResource Include="Vendor\adb.exe" LogicalName="SteamTV.adb.exe" />
+    <EmbeddedResource Include="hdmi1.apk" LogicalName="SteamTV.hdmi1.apk" />
+    <EmbeddedResource Include="hdmi2.apk" LogicalName="SteamTV.hdmi2.apk" />
+    <EmbeddedResource Include="hdmi3.apk" LogicalName="SteamTV.hdmi3.apk" />
   </ItemGroup>
 
 </Project>

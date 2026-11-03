@@ -98,6 +98,8 @@
                             </Grid>
                             <TextBlock Text="1–4, used by the TV External Source app" Margin="0,6,0,0"
                                        Foreground="Gray" TextWrapping="Wrap" />
+                            <Button x:Name="BtnInstallHdmi" Content="Install HDMI1 / HDMI2 / HDMI3 on TV" Click="InstallHdmi_Click" HorizontalAlignment="Left" Margin="0,8,0,0" />
+                            <TextBlock x:Name="LblHdmiInstall" TextWrapping="Wrap" Margin="0,6,0,0" />
                         </StackPanel>
                     </ui:Card>
 
@@ -330,6 +332,18 @@
                         </StackPanel>
                     </ui:Card>
 
+                    <TextBlock Text="Global keyboard shortcuts" FontWeight="SemiBold" Margin="2,0,0,6" />
+                    <ui:Card Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Activate now" />
+                            <TextBox x:Name="TxtActivateHotkey" IsReadOnly="True" PreviewKeyDown="Hotkey_PreviewKeyDown" Margin="0,4,0,10" />
+                            <TextBlock Text="Deactivate / Restore" />
+                            <TextBox x:Name="TxtDeactivateHotkey" IsReadOnly="True" PreviewKeyDown="Hotkey_PreviewKeyDown" Margin="0,4,0,10" />
+                            <TextBlock Text="Click a field and press Ctrl, Alt or Win with a key. Escape clears it. Works while SteamTV is in the tray." TextWrapping="Wrap" Foreground="Gray" />
+                            <Button Content="Save shortcuts" Click="SaveHotkeys_Click" HorizontalAlignment="Left" Margin="0,10,0,0" />
+                            <TextBlock x:Name="LblHotkeys" TextWrapping="Wrap" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </ui:Card>
                     <TextBlock Text="Paths" FontWeight="SemiBold" Margin="2,0,0,6" />
                     <ui:Card Margin="0,0,0,12">
                         <StackPanel>
@@ -354,8 +368,10 @@
 
                             <TextBlock Text="TV home component" Margin="0,14,0,4" />
                             <TextBox x:Name="TxtTvHomeComponent" FontFamily="Consolas" FontSize="12" />
+                            <Button x:Name="BtnDetectLauncher" Content="Find TV launcher" Click="DetectLauncher_Click" HorizontalAlignment="Left" Margin="0,8,0,0" />
+                            <TextBlock x:Name="LblTvSetup" TextWrapping="Wrap" Margin="0,8,0,0" />
                             <TextBlock Margin="0,4,0,0" Foreground="Gray" TextWrapping="Wrap"
-                                       Text="Android component (package/.Activity) launched via 'adb shell am start -n ...' to send the TV back to its home screen when Big Picture closes. The default targets the ProjengMenu launcher — to find yours, go back to the TV's home screen by hand, then run 'adb shell dumpsys activity activities' again and copy the package/.Activity from the 'ResumedActivity' line." />
+                                       Text="Click Find TV launcher to detect and save the TV's default Home app. If Android has no default launcher, choose one on the TV and retry. You can also enter its package/.Activity manually." />
                         </StackPanel>
                     </ui:Card>
                 </StackPanel>

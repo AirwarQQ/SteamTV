@@ -236,6 +236,8 @@ namespace SteamTV
             TxtSteamPath.Text = _settings.SteamPath;
             TxtHdmiActivityPattern.Text = _settings.HdmiActivityPattern;
             TxtTvHomeComponent.Text = _settings.TvHomeComponent;
+            TxtActivateHotkey.Text = _settings.ActivateHotkey;
+            TxtDeactivateHotkey.Text = _settings.DeactivateHotkey;
             _loadingUi = true;
             ChkMqttEnabled.IsChecked = _settings.MqttEnabled;
             _loadingUi = false;
@@ -279,7 +281,7 @@ namespace SteamTV
             else
             {
                 AppendLog("Command ignored: " + problem);
-                ShowTrayBalloon("SteamTV", "Home Assistant command ignored: " + problem);
+                ShowTrayBalloon("SteamTV", "Command ignored: " + problem);
             }
             return false;
         }
@@ -459,10 +461,24 @@ namespace SteamTV
             var hwnd = new WindowInteropHelper(this).Handle;
             HwndSource.FromHwnd(hwnd)?.AddHook(WndProc);
             _devNotifyHandle = Native.RegisterForAllDeviceInterfaces(hwnd);
+            _hotkeys = new GlobalHotkeys(hwnd);
+            try { _hotkeys.Apply(_settings.ActivateHotkey, _settings.DeactivateHotkey); }
+            catch (Exception ex) { LblHotkeys.Text = ex.Message; AppendLog(ex.Message); }
         }
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
+            if (msg == 0x0312 && (wParam.ToInt32() == GlobalHotkeys.ActivateId || wParam.ToInt32() == GlobalHotkeys.DeactivateId))
+            {
+                handled = true;
+                bool activate = wParam.ToInt32() == GlobalHotkeys.ActivateId;
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (TxtActivateHotkey.IsKeyboardFocused || TxtDeactivateHotkey.IsKeyboardFocused) return;
+                    AppendLog("Hotkey: " + (activate ? "Activate now" : "Deactivate / Restore"));
+                    if (activate) ActivateNow(false); else DeactivateNow(false);
+                }));
+            }
             if (msg == Native.WM_DEVICECHANGE)
             {
                 long ev = wParam.ToInt64();
@@ -1010,6 +1026,7 @@ namespace SteamTV
                 return;
             }
             _statusTimer?.Stop();
+            _hotkeys?.Dispose();
             _monitor.Log -= AppendLog;
             _monitor.RunningChanged -= OnRunningChanged;
             _monitor.Notify -= ShowTrayBalloon;

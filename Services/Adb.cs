@@ -13,7 +13,14 @@ namespace SteamTV
         private readonly string _adb;
         private readonly string _ip;
 
-        public Adb(string adbPath, string ip) { _adb = adbPath; _ip = ip; }
+        public Adb(string adbPath, string ip)
+        {
+            _adb = adbPath;
+            System.Net.IPAddress address;
+            if (!System.Net.IPAddress.TryParse(ip, out address))
+                throw new ArgumentException("Invalid TV IP address.");
+            _ip = (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? "[" + address + "]" : address.ToString()) + ":5555";
+        }
 
         // run without reading output
         private void Run(string args, int timeoutMs = 8000)
@@ -31,7 +38,7 @@ namespace SteamTV
                 var psi = new ProcessStartInfo
                 {
                     FileName = _adb,
-                    Arguments = args,
+                    Arguments = (args.StartsWith("connect ") || args.StartsWith("disconnect ") ? "" : "-s \"" + _ip + "\" ") + args,
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -41,16 +48,16 @@ namespace SteamTV
                 using (var p = Process.Start(psi))
                 {
                     if (p == null) return false;
-                    string outStr = p.StandardOutput.ReadToEnd();
-                    p.StandardError.ReadToEnd();
+                    var stdout = p.StandardOutput.ReadToEndAsync();
+                    var stderr = p.StandardError.ReadToEndAsync();
                     if (!p.WaitForExit(timeoutMs))
                     {
                         try { p.Kill(); } catch { }
-                        output = outStr;
+                        output = "ADB timed out.";
                         return false;
                     }
-                    output = outStr;
-                    return true;
+                    output = stdout.GetAwaiter().GetResult() + stderr.GetAwaiter().GetResult();
+                    return p.ExitCode == 0;
                 }
             }
             catch (Exception ex)
@@ -62,6 +69,36 @@ namespace SteamTV
 
         public void Connect() => Run("connect " + _ip);
         public void Disconnect() => Run("disconnect " + _ip);
+
+        public string DetectHomeComponent()
+        {
+            Connect();
+            foreach (var resolver in new[] { "cmd package", "pm" })
+            {
+                string output;
+                if (!RunCapture("shell " + resolver + " resolve-activity --brief --user current -a android.intent.action.MAIN -c android.intent.category.HOME", out output)) continue;
+                var match = Regex.Match(output, @"(?m)^\s*([\w.]+/[\w.$]+)\s*$");
+                if (match.Success && !match.Groups[1].Value.Contains("ResolverActivity"))
+                    return match.Groups[1].Value;
+            }
+            throw new InvalidOperationException("No default TV launcher found. Select a default Home app on the TV, or enter its component manually.");
+        }
+
+        public bool IsPackageInstalled(string package)
+        {
+            string output;
+            if (!RunCapture("shell pm list packages " + package, out output))
+                throw new InvalidOperationException("Cannot check TV packages: " + output.Trim());
+            return Regex.IsMatch(output, @"(?m)^package:" + Regex.Escape(package) + @"\s*$");
+        }
+
+        public void InstallApk(string path)
+        {
+            string output;
+            if (!RunCapture("install -r \"" + path + "\"", out output, 120000) ||
+                !Regex.IsMatch(output, @"(?m)^Success\s*$"))
+                throw new InvalidOperationException("APK installation failed: " + output.Trim());
+        }
 
         // Analog of Send-WOL: wake TV if screen is sleeping
         public string WakeTv()

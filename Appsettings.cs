@@ -52,6 +52,7 @@ namespace SteamTV
         public string AdbPath = @"adb.exe";
         public string SteamPath = @"C:\Program Files (x86)\Steam\steam.exe";
         public string HdmiActivityPattern = @"com\.xiaomi\.mitv\.tvplayer/\.ExternalSourceActivity";
+        public string ActivateHotkey = "", DeactivateHotkey = "";
         public string TvHomeComponent = "com.spocky.projengmenu/.ui.home.MainActivity";
 
         // Replaced wholesale (never mutated in place) so the monitor thread can read it without locking.
@@ -80,6 +81,8 @@ namespace SteamTV
                     s.SteamPath = (string)(k.GetValue("SteamPath") ?? s.SteamPath);
                     s.HdmiActivityPattern = (string)(k.GetValue("HdmiActivityPattern") ?? s.HdmiActivityPattern);
                     s.TvHomeComponent = (string)(k.GetValue("TvHomeComponent") ?? s.TvHomeComponent);
+                    s.ActivateHotkey = (string)(k.GetValue("ActivateHotkey") ?? "");
+                    s.DeactivateHotkey = (string)(k.GetValue("DeactivateHotkey") ?? "");
                     s.MqttEnabled = ToInt(k.GetValue("MqttEnabled"), 0) != 0;
                     s.MqttHost = (string)(k.GetValue("MqttHost") ?? s.MqttHost);
                     s.MqttPort = ToInt(k.GetValue("MqttPort"), s.MqttPort);
@@ -155,6 +158,8 @@ namespace SteamTV
                     k.SetValue("SteamPath", SteamPath ?? "");
                     k.SetValue("HdmiActivityPattern", HdmiActivityPattern ?? "");
                     k.SetValue("TvHomeComponent", TvHomeComponent ?? "");
+                    k.SetValue("ActivateHotkey", ActivateHotkey ?? "");
+                    k.SetValue("DeactivateHotkey", DeactivateHotkey ?? "");
                     k.SetValue("MqttEnabled", MqttEnabled ? 1 : 0, RegistryValueKind.DWord);
                     k.SetValue("MqttHost", MqttHost ?? "");
                     k.SetValue("MqttPort", MqttPort, RegistryValueKind.DWord);

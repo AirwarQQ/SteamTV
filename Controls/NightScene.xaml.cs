@@ -23,25 +23,26 @@ namespace SteamTV.Controls
         // start on the main one so the joins hide. Drawn as filled, tapering outlines.
         private static readonly double[][] Limbs =
         {
-            new double[] { 716, -10, 12,   692, 4, 10,   666, 18, 8.4,   642, 33, 7,   619, 50, 5.6,   598, 68, 4.4,   580, 86, 3.3,   565, 104, 2.3,   553, 121, 1.2 },
-            new double[] { 666, 18, 4.2,   673, 31, 3.1,   677, 45, 2.1,   679, 57, 1.1 },
-            new double[] { 642, 33, 3.8,   644, 48, 2.7,   649, 62, 1.8,   656, 74, 1.0 },
-            new double[] { 619, 50, 3.4,   614, 38, 2.4,   619, 26, 1.6,   628, 16, 0.9 },
-            new double[] { 598, 68, 2.8,   586, 64, 2.0,   574, 62, 1.4,   562, 64, 0.8 },
-            new double[] { 692, 4, 4.0,    676, 0, 2.8,    661, 0, 1.8,    649, 4, 0.9 },
+            // Main limb: in from the right edge low down, zigzagging up and left across the moon.
+            new double[] { 724, 132, 13,   700, 122, 11,   682, 100, 9.6,   656, 92, 8.2,   638, 72, 6.9,   612, 66, 5.7,
+                           594, 48, 4.6,   570, 44, 3.6,   553, 30, 2.6,   533, 26, 1.7,   518, 15, 0.8 },
+            new double[] { 682, 100, 3.8,  690, 82, 2.8,   686, 66, 1.9,   692, 52, 1.0 },     // up from the first bend
+            new double[] { 656, 92, 3.4,   642, 106, 2.4,  626, 110, 1.6,  612, 121, 0.8 },    // drooping down-left
+            new double[] { 638, 72, 3.2,   642, 56, 2.3,   634, 42, 1.5,   640, 30, 0.8 },     // up past the moon's right
+            new double[] { 612, 66, 2.6,   598, 78, 1.9,   582, 82, 1.2,   572, 92, 0.7 },     // under the moon
+            new double[] { 570, 44, 2.0,   574, 32, 1.4,   568, 21, 0.9,   572, 12, 0.6 },     // over the top of the moon
         };
 
-        // Flower clusters at the twig tips (x, y, flowers, flower radius), so the bark stays visible.
+        // Flower clusters at the twig tips and a few nodes (x, y, flowers, flower radius).
         private static readonly double[,] Clusters =
         {
-            { 680, 61, 3, 7.2 }, { 657, 78, 3, 7.6 }, { 629, 13, 3, 6.8 }, { 560, 66, 2, 6.6 },
-            { 552, 125, 2, 6.0 }, { 646, 6, 2, 6.2 }, { 601, 80, 2, 5.6 },
+            { 692, 50, 3, 7.4 }, { 611, 123, 3, 7.0 }, { 640, 28, 3, 7.0 }, { 571, 94, 2, 6.4 },
+            { 572, 10, 2, 6.0 }, { 516, 13, 2, 6.0 }, { 706, 116, 2, 6.6 }, { 600, 52, 2, 5.6 },
         };
 
-        // The branch is drawn a size up from where it enters the frame.
-        private const double BranchScale = 1.3;
-        private static readonly Point BranchAnchor = new Point(716, -10);
-
+        // The branch is drawn a little larger, scaled from where it enters the frame.
+        private const double BranchScale = 1.12;
+        private static readonly Point BranchAnchor = new Point(724, 132);
         // Where the falling petals let go: the front flowers' centres, filled while building.
         private readonly List<Point> _blossomSpots = new List<Point>();
         public NightScene()

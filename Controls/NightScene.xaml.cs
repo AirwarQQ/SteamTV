@@ -1,4 +1,4 @@
-// Animates the Home banner: petals blowing off the branch and across the whole banner, the
+// Animates the Home banner: petals blowing off the branch (one of three pictures, taking turns) and across the whole banner, the
 // branch swaying with its blossoms breathing, clouds drifting, the moon floating, stars
 // twinkling, now and then a shooting star, lit windows flickering, the TV glow breathing.
 // Everything runs on one storyboard that's paused whenever the banner isn't on screen (window in
@@ -9,6 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 
 namespace SteamTV.Controls
@@ -19,32 +20,22 @@ namespace SteamTV.Controls
         private readonly Storyboard _story = new Storyboard();
         private bool _started;
 
-        // The branch, in scene units. Each limb is a run of (x, y, thickness) points; side limbs
-        // start on the main one so the joins hide. Drawn as filled, tapering outlines.
-        private static readonly double[][] Limbs =
+        // The sakura branch: three hand-drawn pictures (Assets/Branches) that take turns, cross-
+        // fading now and then. Each: file, width in scene units, and where its trunk meets the
+        // picture's right edge (0..1 from the top), which is pinned to BranchAnchor.
+        private static readonly (string File, double Width, double TrunkY)[] BranchArt =
         {
-            // Main limb: in from the right edge low down, zigzagging up and left across the moon.
-            new double[] { 724, 132, 13,   700, 122, 11,   682, 100, 9.6,   656, 92, 8.2,   638, 72, 6.9,   612, 66, 5.7,
-                           594, 48, 4.6,   570, 44, 3.6,   553, 30, 2.6,   533, 26, 1.7,   518, 15, 0.8 },
-            new double[] { 682, 100, 3.8,  690, 82, 2.8,   686, 66, 1.9,   692, 52, 1.0 },     // up from the first bend
-            new double[] { 656, 92, 3.4,   642, 106, 2.4,  626, 110, 1.6,  612, 121, 0.8 },    // drooping down-left
-            new double[] { 638, 72, 3.2,   642, 56, 2.3,   634, 42, 1.5,   640, 30, 0.8 },     // up past the moon's right
-            new double[] { 612, 66, 2.6,   598, 78, 1.9,   582, 82, 1.2,   572, 92, 0.7 },     // under the moon
-            new double[] { 570, 44, 2.0,   574, 32, 1.4,   568, 21, 0.9,   572, 12, 0.6 },     // over the top of the moon
+            ("branch_1.png", 285, 0.886), ("branch_2.png", 270, 0.898), ("branch_3.png", 255, 0.911),
         };
+        private static readonly Point BranchAnchor = new Point(700, 132);
+        private const double BranchSwitchSec = 40, BranchFadeSec = 2.5;
+        private readonly Image[] _branchImg = new Image[3];
+        private readonly List<Point>[] _branchSpots = new List<Point>[3];
+        private int _branchIdx;
+        private double _branchClock;
 
-        // Flower clusters at the twig tips and a few nodes (x, y, flowers, flower radius).
-        private static readonly double[,] Clusters =
-        {
-            { 692, 50, 3, 7.4 }, { 611, 123, 3, 7.0 }, { 640, 28, 3, 7.0 }, { 571, 94, 2, 6.4 },
-            { 572, 10, 2, 6.0 }, { 516, 13, 2, 6.0 }, { 706, 116, 2, 6.6 }, { 600, 52, 2, 5.6 },
-        };
-
-        // The branch is drawn a little larger, scaled from where it enters the frame.
-        private const double BranchScale = 1.12;
-        private static readonly Point BranchAnchor = new Point(724, 132);
-        // Where the falling petals let go: the front flowers' centres, filled while building.
-        private readonly List<Point> _blossomSpots = new List<Point>();
+        // Where the falling petals let go: blossoms of the branch on show.
+        private List<Point> _blossomSpots = new List<Point>();
         public NightScene()
         {
             InitializeComponent();
@@ -81,10 +72,8 @@ namespace SteamTV.Controls
             Add(new DoubleAnimation(-2.2, 1.8, Seconds(4.8)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = ease },
                 BranchSway, RotateTransform.AngleProperty);
 
-            // Bark, then the flower clusters (each sways a little on its twig).
-            BuildBark();
-            for (int i = 0; i < Clusters.GetLength(0); i++)
-                AddCluster(Clusters[i, 0], Clusters[i, 1], (int)Clusters[i, 2], Clusters[i, 3], rnd, ease);
+            BuildBranches();
+
             // Moon floats, its halo breathes.
             Add(new DoubleAnimation(-7, 7, Seconds(9)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = ease },
                 MoonDrift, TranslateTransform.YProperty);
@@ -134,158 +123,66 @@ namespace SteamTV.Controls
         }
 
         // ---------------------------------------------------------------------------------
-        // Branch: tapering bark with a moonlit upper edge;
-        // clusters of five-petalled flowers with stamens, some half-turned, some behind the twig.
+        // Branch pictures: all three loaded once, one shown at a time; the petals' starting points
+        // are found in each picture's own pink pixels, so they always fall from real blossoms.
         // ---------------------------------------------------------------------------------
 
-        private void BuildBark()
+        private void BuildBranches()
         {
-            Bark.CacheMode = new BitmapCache(4);
-            var bark = new SolidColorBrush(Color.FromRgb(0x27, 0x16, 0x2F));
-            var lit = new SolidColorBrush(Color.FromArgb(0xB0, 0x52, 0x37, 0x5C));
-            for (int l = 0; l < Limbs.Length; l++)
+            Branch.CacheMode = new BitmapCache(2.5);   // the sway then only turns a cached picture
+            _branchIdx = new Random().Next(BranchArt.Length);
+            for (int i = 0; i < BranchArt.Length; i++)
             {
-                var pts = Sample(Limbs[l]);
-                Bark.Children.Add(new Path { Data = Outline(pts, -0.5, 0.5), Fill = bark });
-                Bark.Children.Add(new Path { Data = Outline(pts, -0.46, -0.12), Fill = lit });   // the moonlit upper side
+                var art = BranchArt[i];
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.UriSource = new Uri("pack://application:,,,/Assets/Branches/" + art.File);
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.EndInit();
+                bmp.Freeze();
+
+                double w = art.Width, h = w * bmp.PixelHeight / bmp.PixelWidth;
+                double left = BranchAnchor.X - w, top = BranchAnchor.Y - art.TrunkY * h;
+                var img = new Image { Source = bmp, Width = w, Height = h, Stretch = Stretch.Fill, Opacity = i == _branchIdx ? 1 : 0 };
+                RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
+                Canvas.SetLeft(img, left);
+                Canvas.SetTop(img, top);
+                Branch.Children.Add(img);
+                _branchImg[i] = img;
+                _branchSpots[i] = FindBlossoms(bmp, left, top, w, h);
             }
+            _blossomSpots = _branchSpots[_branchIdx];
         }
 
-        // Smooth the limb's points (Catmull-Rom) into (x, y, thickness, normal x, normal y) samples.
-        private static List<(double x, double y, double w, double nx, double ny)> Sample(double[] limb)
+        private static List<Point> FindBlossoms(BitmapSource bmp, double left, double top, double w, double h)
         {
-            int n = limb.Length / 3;
-            var raw = new List<(double x, double y, double w)>();
-            for (int i = 0; i < n - 1; i++)
-            {
-                int i0 = Math.Max(0, i - 1), i2 = i + 1, i3 = Math.Min(n - 1, i + 2);
-                for (int k = 0; k < 8; k++)
+            var src = new FormatConvertedBitmap(bmp, PixelFormats.Bgra32, null, 0);
+            int pw = src.PixelWidth, ph = src.PixelHeight, stride = pw * 4;
+            var px = new byte[stride * ph];
+            src.CopyPixels(px, stride, 0);
+            var pink = new List<Point>();
+            for (int y = 0; y < ph; y += 3)
+                for (int x = 0; x < pw; x += 3)
                 {
-                    double t = k / 8.0, t2 = t * t, t3 = t2 * t;
-                    double Cr(int c) => 0.5 * (2 * limb[i * 3 + c] + (-limb[i0 * 3 + c] + limb[i2 * 3 + c]) * t
-                        + (2 * limb[i0 * 3 + c] - 5 * limb[i * 3 + c] + 4 * limb[i2 * 3 + c] - limb[i3 * 3 + c]) * t2
-                        + (-limb[i0 * 3 + c] + 3 * limb[i * 3 + c] - 3 * limb[i2 * 3 + c] + limb[i3 * 3 + c]) * t3);
-                    raw.Add((Cr(0), Cr(1), limb[i * 3 + 2] + (limb[i2 * 3 + 2] - limb[i * 3 + 2]) * t));
+                    int i = y * stride + x * 4;
+                    byte b = px[i], g = px[i + 1], r = px[i + 2], a = px[i + 3];
+                    if (a > 200 && r > 215 && r - g > 30 && b > g && b > 150)
+                        pink.Add(new Point(left + x * w / pw, top + y * h / ph));
                 }
-            }
-            raw.Add((limb[(n - 1) * 3], limb[(n - 1) * 3 + 1], limb[(n - 1) * 3 + 2]));
-
-            var result = new List<(double, double, double, double, double)>();
-            for (int i = 0; i < raw.Count; i++)
-            {
-                var a = raw[Math.Max(0, i - 1)]; var b = raw[Math.Min(raw.Count - 1, i + 1)];
-                double dx = b.x - a.x, dy = b.y - a.y, len = Math.Sqrt(dx * dx + dy * dy);
-                if (len < 1e-6) len = 1;
-                // Normal pointing to the upper side (towards the moon).
-                double nx = dy / len, ny = -dx / len;
-                if (ny > 0) { nx = -nx; ny = -ny; }
-                result.Add((raw[i].x, raw[i].y, raw[i].w, nx, ny));
-            }
-            return result;
+            var rnd = new Random(3);
+            var spots = new List<Point>();
+            for (int k = 0; k < 60 && pink.Count > 0; k++) spots.Add(pink[rnd.Next(pink.Count)]);
+            if (spots.Count == 0) spots.Add(new Point(left + w * 0.3, top + h * 0.3));
+            return spots;
         }
 
-        // A band along the limb between two offsets (fractions of the thickness, negative = upper
-        // side), closing to a point at the tip.
-        private static Geometry Outline(List<(double x, double y, double w, double nx, double ny)> pts, double from, double to)
+        private void NextBranch()
         {
-            var g = new StreamGeometry();
-            using (var c = g.Open())
-            {
-                Point P(int i, double f) => new Point(pts[i].x - pts[i].nx * pts[i].w * f, pts[i].y - pts[i].ny * pts[i].w * f);
-                c.BeginFigure(P(0, from), true, true);
-                var side = new List<Point>();
-                for (int i = 1; i < pts.Count; i++) side.Add(P(i, from));
-                for (int i = pts.Count - 1; i >= 0; i--) side.Add(P(i, to));
-                c.PolyLineTo(side, false, true);
-            }
-            g.Freeze();
-            return g;
-        }
-
-        // One petal pointing up from the origin, 10 units long, with the notch sakura petals have.
-        private static readonly Geometry FlowerPetal = Geometry.Parse(
-            "M0,0 C-2.6,-1.4 -5.3,-4.8 -4.7,-7.9 C-4.2,-10.3 -2.2,-10.9 -0.9,-10 L0,-8.7 L0.9,-10 C2.2,-10.9 4.2,-10.3 4.7,-7.9 C5.3,-4.8 2.6,-1.4 0,0 Z");
-
-        private void AddCluster(double cx, double cy, int count, double size, Random rnd, IEasingFunction ease)
-        {
-            // Cached as bitmaps: the sway then only moves a picture instead of redrawing every
-            // petal, gradient and stamen each frame. Rendered at the banner's on-screen scale.
-            var front = new Canvas { CacheMode = new BitmapCache(4) }; var back = new Canvas { CacheMode = new BitmapCache(4) };
-            var sway = new RotateTransform(0, cx, cy);
-            front.RenderTransform = sway; back.RenderTransform = sway;
-            Blossoms.Children.Add(front); BlossomsBack.Children.Add(back);
-
-            // A bud or two on short stems, then the flowers, the biggest first and facing us.
-            for (int b = 0; b < 1 + rnd.Next(2); b++)
-            {
-                double ang = rnd.NextDouble() * Math.PI * 2, d = size * (1.5 + rnd.NextDouble() * 0.5);
-                double bx = cx + Math.Cos(ang) * d, by = cy + Math.Sin(ang) * d;
-                back.Children.Add(new Line { X1 = cx, Y1 = cy, X2 = bx, Y2 = by, Stroke = new SolidColorBrush(Color.FromRgb(0x5A, 0x2E, 0x4A)), StrokeThickness = 0.6 });
-                var bud = new Ellipse { Width = size * 0.42, Height = size * 0.6, Fill = new SolidColorBrush(Color.FromRgb(0xF0, 0x7E, 0xAE)),
-                                        RenderTransform = new RotateTransform(ang * 180 / Math.PI + 90, size * 0.21, size * 0.3) };
-                Canvas.SetLeft(bud, bx - size * 0.21); Canvas.SetTop(bud, by - size * 0.3);
-                back.Children.Add(bud);
-            }
-            for (int i = 0; i < count; i++)
-            {
-                bool first = i == 0;
-                bool behind = !first && rnd.NextDouble() < 0.4;
-                double ang = rnd.NextDouble() * Math.PI * 2, d = first ? 0 : size * (0.9 + rnd.NextDouble() * 0.4);
-                double fx = cx + Math.Cos(ang) * d, fy = cy + Math.Sin(ang) * d;
-                double r = size * (first ? 1 : 0.75 + rnd.NextDouble() * 0.2) * (behind ? 0.85 : 1);
-                double facing = first ? 0.92 + rnd.NextDouble() * 0.08 : 0.6 + rnd.NextDouble() * 0.35;   // squash = half-turned
-                AddFlower(behind ? back : front, fx, fy, r, rnd.Next(72), facing, rnd.Next(180), behind);
-                if (!behind) _blossomSpots.Add(new Point(BranchAnchor.X + (fx - BranchAnchor.X) * BranchScale, BranchAnchor.Y + (fy - BranchAnchor.Y) * BranchScale));
-            }
-
-            Add(new DoubleAnimation(-4, 4, Seconds(3.6 + rnd.NextDouble() * 2.4))
-                { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, BeginTime = SecondsSpan(rnd.NextDouble() * 3), EasingFunction = ease },
-                sway, RotateTransform.AngleProperty);
-        }
-
-        private static void AddFlower(Canvas into, double cx, double cy, double radius, double spin, double facing, double facingAngle, bool behind)
-        {
-            double s = radius / 10.0;
-            var petals = new GeometryGroup();
-            for (int k = 0; k < 5; k++)
-            {
-                var p = FlowerPetal.Clone();
-                p.Transform = new TransformGroup { Children = { new ScaleTransform(s, s), new RotateTransform(spin + k * 72) } };
-                petals.Children.Add(p);
-            }
-            // Turn the whole flower a little away from us: squash along one direction.
-            var view = new TransformGroup
-            {
-                Children =
-                {
-                    new RotateTransform(-facingAngle), new ScaleTransform(1, facing), new RotateTransform(facingAngle),
-                    new TranslateTransform(cx, cy),
-                },
-            };
-            var fill = behind
-                ? new RadialGradientBrush { GradientStops = { new GradientStop(Color.FromRgb(0xC9, 0x5E, 0x93), 0), new GradientStop(Color.FromRgb(0xDF, 0x98, 0xBC), 0.4), new GradientStop(Color.FromRgb(0xEA, 0xB9, 0xD0), 1) } }
-                : new RadialGradientBrush { GradientStops = { new GradientStop(Color.FromRgb(0xF2, 0x86, 0xB3), 0), new GradientStop(Color.FromRgb(0xFF, 0xCF, 0xE2), 0.38), new GradientStop(Color.FromRgb(0xFF, 0xF5, 0xF9), 1) } };
-            fill.MappingMode = BrushMappingMode.Absolute;
-            fill.Center = fill.GradientOrigin = new Point(0, 0);
-            fill.RadiusX = fill.RadiusY = radius;
-            into.Children.Add(new Path
-            {
-                Data = petals, Fill = fill, RenderTransform = view,
-                Stroke = new SolidColorBrush(Color.FromArgb(0x50, 0xD2, 0x6E, 0x9E)), StrokeThickness = 0.3,
-            });
-
-            // Stamens: fine pink threads with pale yellow tips, a deep pink heart.
-            var threads = new GeometryGroup(); var tips = new GeometryGroup();
-            for (int k = 0; k < 7; k++)
-            {
-                double a = (spin + 18 + k * 360.0 / 7) * Math.PI / 180, len = radius * (0.34 + (k % 3) * 0.05);
-                var end = new Point(Math.Sin(a) * len, -Math.Cos(a) * len);
-                threads.Children.Add(new LineGeometry(new Point(0, 0), end));
-                tips.Children.Add(new EllipseGeometry(end, radius * 0.06, radius * 0.06));
-            }
-            into.Children.Add(new Path { Data = threads, Stroke = new SolidColorBrush(Color.FromRgb(0xD9, 0x4F, 0x8A)), StrokeThickness = Math.Max(0.25, radius * 0.035), RenderTransform = view });
-            into.Children.Add(new Path { Data = tips, Fill = new SolidColorBrush(behind ? Color.FromRgb(0xE8, 0xC9, 0x9A) : Color.FromRgb(0xFF, 0xE6, 0xA6)), RenderTransform = view });
-            into.Children.Add(new Path { Data = new EllipseGeometry(new Point(0, 0), radius * 0.12, radius * 0.12), Fill = new SolidColorBrush(Color.FromRgb(0xC9, 0x3F, 0x7C)), RenderTransform = view });
+            var fade = new Duration(TimeSpan.FromSeconds(BranchFadeSec));
+            _branchImg[_branchIdx].BeginAnimation(OpacityProperty, new DoubleAnimation(0, fade));
+            _branchIdx = (_branchIdx + 1) % BranchArt.Length;
+            _branchImg[_branchIdx].BeginAnimation(OpacityProperty, new DoubleAnimation(1, fade));
+            _blossomSpots = _branchSpots[_branchIdx];
         }
         // ---------------------------------------------------------------------------------
         // Petals and clouds: a small per-frame simulation rather than storyboards — each petal
@@ -416,6 +313,8 @@ namespace SteamTV.Controls
             _lastFrame = now;
             dt = Math.Min(dt, 0.1);             // after a hiccup, don't teleport
             foreach (var p in _petals) Advance(p, dt);
+            _branchClock += dt;
+            if (_branchClock >= BranchSwitchSec) { _branchClock = 0; NextBranch(); }
             // Clouds crawl a few pixels a second: 15 moves a second look the same and cost less.
             _cloudDt += dt;
             if (_cloudDt >= 1.0 / 15)

@@ -118,18 +118,12 @@
                     <Path Data="M42,22 L68,35 L42,48 Z" Fill="#7FD6FF" Opacity="0.9" />
                 </Canvas>
 
-                <!-- Sakura branch, swaying from where it enters the frame (right edge); blossoms added in code -->
+                <!-- Sakura branch: hand-drawn pictures (Assets/Branches) that take turns, added in code;
+                     the whole branch sways around where its trunk enters at the right edge. -->
                 <Canvas x:Name="Branch">
                     <Canvas.RenderTransform>
-                        <TransformGroup>
-                            <ScaleTransform ScaleX="1.12" ScaleY="1.12" CenterX="724" CenterY="132" />
-                            <RotateTransform x:Name="BranchSway" CenterX="724" CenterY="132" />
-                        </TransformGroup>
+                        <RotateTransform x:Name="BranchSway" CenterX="700" CenterY="132" />
                     </Canvas.RenderTransform>
-                    <!-- Built in code: flowers behind the bark, the bark itself, flowers in front -->
-                    <Canvas x:Name="BlossomsBack" />
-                    <Canvas x:Name="Bark" />
-                    <Canvas x:Name="Blossoms" />
                 </Canvas>
             </Canvas>
         </Viewbox>

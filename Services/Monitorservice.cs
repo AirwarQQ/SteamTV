@@ -488,14 +488,26 @@ namespace SteamTV
             var armed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             DateTime? goneSince = null;
 
+            // Enumerating every devnode is the expensive part of a tick. Windows announces plug-ins
+            // (WM_DEVICECHANGE wakes this loop), so scan right after one — and for a few seconds
+            // more, since Bluetooth flips "connected" a moment later — and otherwise only every 15 s
+            // as a safety net. The cheap Big Picture check still runs every 2 s.
+            var curConnected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            DateTime lastScan = DateTime.MinValue, scanBurstUntil = DateTime.UtcNow.AddSeconds(6);
+
             while (!ct.IsCancellationRequested)
             {
                 try
                 {
                     var watched = _s.WatchedDevices;   // copy-on-write list: read the reference once per tick
-                    var curConnected = new HashSet<string>(
-                        DeviceScanner.Scan().Where(d => d.IsConnected).Select(d => d.Key),
-                        StringComparer.OrdinalIgnoreCase);
+                    if (DateTime.UtcNow < scanBurstUntil || DateTime.UtcNow - lastScan > TimeSpan.FromSeconds(15)
+                        || (_displayEnabled && goneSince != null))   // a restore countdown needs fresh state
+                    {
+                        curConnected = new HashSet<string>(
+                            DeviceScanner.Scan().Where(d => d.IsConnected).Select(d => d.Key),
+                            StringComparer.OrdinalIgnoreCase);
+                        lastScan = DateTime.UtcNow;
+                    }
                     bool curBp = SteamHelper.IsBigPictureRunning();
 
                     // Per-device edge, not "any watched device connected": otherwise an always-plugged
@@ -597,7 +609,11 @@ namespace SteamTV
                 if (woke == 0) return;
                 // A plug-in is a burst of devnode changes (and Bluetooth flips IsConnected a moment
                 // later) — give the rest of it time to land so one scan sees the finished state.
-                if (woke == 1 && Sleep(ct, 400)) return;
+                if (woke == 1)
+                {
+                    scanBurstUntil = DateTime.UtcNow.AddSeconds(6);
+                    if (Sleep(ct, 400)) return;
+                }
             }
         }
 

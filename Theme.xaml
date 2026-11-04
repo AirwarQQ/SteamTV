@@ -305,6 +305,35 @@
         </Setter>
     </Style>
 
+    <!-- Tooltips: a small card in the palette. Display text formatting keeps the small text crisp
+         in the popup window (which renders without ClearType). -->
+    <Style TargetType="ToolTip">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="HasDropShadow" Value="False" />
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+        <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToolTip">
+                    <Border Background="#1E2340" BorderBrush="{StaticResource LineStrongBrush}" BorderThickness="1" CornerRadius="10"
+                            Padding="12,9" MaxWidth="340" Margin="0,4">
+                        <ContentPresenter>
+                            <ContentPresenter.Resources>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="TextWrapping" Value="Wrap" />
+                                    <Setter Property="LineHeight" Value="18" />
+                                </Style>
+                            </ContentPresenter.Resources>
+                        </ContentPresenter>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- WPF-UI's own brushes, re-pointed at the palette so its controls blend in. -->
     <SolidColorBrush x:Key="ApplicationBackgroundBrush" Color="{StaticResource BgColor}" />
     <SolidColorBrush x:Key="TextFillColorPrimaryBrush" Color="{StaticResource TextColor}" />

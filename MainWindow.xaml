@@ -534,6 +534,16 @@
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
                         <DockPanel>
+                            <Border Style="{StaticResource IconTile}" TextElement.Foreground="{StaticResource SakuraBrush}"><ui:SymbolIcon Symbol="WeatherMoon24" Style="{StaticResource TileIcon}" /></Border>
+                            <ToggleButton DockPanel.Dock="Right" x:Name="ChkAnimate" Style="{StaticResource Toggle}" />
+                            <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                <TextBlock Text="{l:Tr Set.Animate}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{l:Tr Set.Animate.Sub}" Style="{StaticResource Hint}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel>
                             <Border Style="{StaticResource IconTile}" VerticalAlignment="Top"><ui:SymbolIcon Symbol="Keyboard24" Style="{StaticResource TileIcon}" /></Border>
                             <Grid DockPanel.Dock="Right" Margin="16,0,0,0">
                                 <Grid.ColumnDefinitions>
@@ -576,6 +586,7 @@
                             <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
                                 <TextBlock x:Name="LblVersion" Style="{StaticResource RowTitle}" />
                                 <TextBlock Text="{l:Tr Set.Version.Sub}" Style="{StaticResource Hint}" />
+                                <TextBlock x:Name="LblUpdateStatus" Style="{StaticResource Hint}" Foreground="{StaticResource MintBrush}" Visibility="Collapsed" Margin="0,2,0,0" />
                             </StackPanel>
                         </DockPanel>
                     </Border>

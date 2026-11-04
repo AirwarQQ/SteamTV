@@ -112,8 +112,18 @@
                     <Canvas.RenderTransform>
                         <RotateTransform x:Name="BranchSway" CenterX="690" CenterY="4" />
                     </Canvas.RenderTransform>
-                    <Path Stroke="#1A1430" StrokeThickness="5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                          Data="M690,4 C620,30 600,40 560,100 M640,26 C630,50 640,70 650,84 M600,60 C580,66 566,80 556,96 M668,14 C676,30 678,44 672,58" />
+                    <!-- Bark: the main limb tapers from the corner in three strokes, then thin twigs. -->
+                    <Path Stroke="#24152C" StrokeThickness="8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          Data="M704,-4 C684,6 664,16 638,32" />
+                    <Path Stroke="#24152C" StrokeThickness="5.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          Data="M638,32 C618,44 602,56 588,70" />
+                    <Path Stroke="#24152C" StrokeThickness="3.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          Data="M588,70 C576,82 566,92 556,106" />
+                    <Path Stroke="#24152C" StrokeThickness="2.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          Data="M664,17 C672,28 676,38 678,50 M640,31 C644,46 646,58 652,72 M612,50 C614,40 618,32 626,24 M596,63 C586,60 578,58 568,60" />
+                    <!-- A faint highlight along the top of the limb -->
+                    <Path Stroke="#3D2747" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.8"
+                          Data="M700,-6 C682,4 662,14 637,29 C618,41 603,52 590,66" />
                     <Canvas x:Name="Blossoms" />
                 </Canvas>
             </Canvas>

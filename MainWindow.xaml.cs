@@ -124,16 +124,27 @@ namespace SteamTV
         // On start, then once a day (OnStatusTick) — SteamTV can sit in the tray for weeks.
         private DateTime _lastUpdateCheck = DateTime.MinValue;
 
-        private async Task CheckForUpdatesAsync(bool manual = false)
+        // manual: asked for from Settings → About (answer shown there) or the tray (answer as a
+        // notification, since the window may be hidden).
+        private async Task CheckForUpdatesAsync(bool manual = false, bool fromTray = false)
         {
             _lastUpdateCheck = DateTime.Now;
+            if (manual && !fromTray) { LblUpdateStatus.Text = Loc.T("Upd.Checking"); LblUpdateStatus.Visibility = Visibility.Visible; }
             string tag = await UpdateChecker.GetLatestTagAsync();
             var current = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
             if (!UpdateChecker.IsNewer(tag, current))
             {
                 if (manual)
-                    Dispatcher.Invoke(() => System.Windows.MessageBox.Show(Loc.T(tag == null ? "Upd.Failed" : "Upd.Latest"), "SteamTV",
-                        MessageBoxButton.OK, tag == null ? MessageBoxImage.Warning : MessageBoxImage.Information));
+                    Dispatcher.Invoke(() =>
+                    {
+                        string time = DateTime.Now.ToString("HH:mm");
+                        LblUpdateStatus.Text = Loc.T(tag == null ? "Upd.CheckedFail" : "Upd.Checked", time);
+                        LblUpdateStatus.Foreground = tag == null ? Rose : Mint;
+                        LblUpdateStatus.Visibility = Visibility.Visible;
+                        if (fromTray)
+                            _tray?.ShowBalloonTip(5000, "SteamTV", Loc.T(tag == null ? "Upd.Failed" : "Upd.Latest"),
+                                tag == null ? Forms.ToolTipIcon.Warning : Forms.ToolTipIcon.Info);
+                    });
                 return;
             }
 
@@ -302,6 +313,8 @@ namespace SteamTV
             FillDisplays(_settings.TargetDisplay);
             ChkAutoMonitor.IsChecked = _settings.AutoMonitorOnStart;
             ChkMinimizeSteam.IsChecked = _settings.MinimizeSteamAfter;
+            ChkAnimate.IsChecked = _settings.AnimateBanner;
+            Scene.Animate = _settings.AnimateBanner;
             ChkHotkeyToggle.IsChecked = _settings.HotkeyToggle;
             UpdateHotkeyFields();
             FillGrace();
@@ -344,6 +357,8 @@ namespace SteamTV
             _settings.TargetDisplay = TargetDisplayUi ?? _settings.TargetDisplay;
             _settings.AutoMonitorOnStart = ChkAutoMonitor.IsChecked == true;
             _settings.MinimizeSteamAfter = ChkMinimizeSteam.IsChecked == true;
+            _settings.AnimateBanner = ChkAnimate.IsChecked == true;
+            Scene.Animate = _settings.AnimateBanner;
             if (CmbGrace.SelectedItem is ComboBoxItem grace) _settings.RestoreGraceSec = (int)grace.Tag;
             _settings.DisableOthers = ChkDisableOthers.IsChecked == true;
             _settings.EnableWakeTV = ChkWakeTV.IsChecked == true;
@@ -367,7 +382,7 @@ namespace SteamTV
         {
             RoutedEventHandler save = (s, e) => SaveUiToSettings();
             foreach (var t in new[] { ChkWakeTV, ChkSourceSwitch, ChkRestoreTvApp, ChkSleepTv, ChkDisableOthers,
-                                      ChkSwitchAudio, ChkHdr, ChkBigPicture, ChkAutoMonitor, ChkMinimizeSteam })
+                                      ChkSwitchAudio, ChkHdr, ChkBigPicture, ChkAutoMonitor, ChkMinimizeSteam, ChkAnimate })
             { t.Checked += save; t.Unchecked += save; }
             foreach (var t in new[] { TxtIp, TxtTvHomeComponent, TxtTvAudioDevice, TxtSteamPath, TxtAdbPath })
                 t.LostKeyboardFocus += (s, e) => SaveUiToSettings();

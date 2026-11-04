@@ -15,16 +15,17 @@ namespace SteamTV.Controls
 {
     public partial class NightScene : UserControl
     {
-        private const int PetalCount = 22;
+        private const int PetalCount = 9;
         private readonly Storyboard _story = new Storyboard();
         private bool _started;
 
-        // Blossom centres on the branch (scene units) and their size.
+        // Blossoms sit at the twig tips (scene units: centre x, y, petal length) so they never hide
+        // the bark; a few closed buds in between.
         private static readonly double[,] BlossomSpots =
         {
-            { 636, 30, 7.5 }, { 648, 40, 6.5 }, { 624, 44, 6.5 }, { 652, 84, 7.5 }, { 642, 72, 5.5 },
-            { 582, 70, 6.5 }, { 560, 96, 6.5 }, { 596, 58, 5.5 }, { 668, 16, 6.5 }, { 674, 52, 6 }, { 610, 50, 5 },
+            { 679, 55, 8.5 }, { 654, 77, 9.0 }, { 627, 20, 8.0 }, { 563, 61, 8.0 }, { 553, 111, 7.0 }, { 690, 9, 7.0 },
         };
+        private static readonly double[,] BudSpots = { { 670, 32 }, { 616, 43 }, { 580, 78 }, { 646, 50 } };
 
         public NightScene()
         {
@@ -34,15 +35,23 @@ namespace SteamTV.Controls
             Loaded += (s, e) => UpdateRunning();
         }
 
+        // Off: a still picture (no petals) and no work per frame at all — a setting for anyone who'd
+        // rather keep the CPU idle.
+        private bool _animate = true;
+        public bool Animate
+        {
+            get => _animate;
+            set { _animate = value; Petals.Visibility = value ? Visibility.Visible : Visibility.Collapsed; UpdateRunning(); }
+        }
+
         private void UpdateRunning()
         {
-            if (IsVisible)
-            {
-                if (!_started) { _story.Begin(this, true); _started = true; }
-                else _story.Resume(this);
-            }
-            else if (_started) _story.Pause(this);
-            SetTicking(IsVisible);
+            bool run = IsVisible && _animate;
+            // Stop, not Pause: a paused storyboard keeps its clocks in WPF's timing tree, and the
+            // render loop keeps ticking at full rate even with the window hidden in the tray.
+            if (run && !_started) { _story.Begin(this, true); _started = true; }
+            else if (!run && _started) { _story.Stop(this); _story.Remove(this); _started = false; }
+            SetTicking(run);
         }
 
         private void BuildAnimations()
@@ -51,21 +60,23 @@ namespace SteamTV.Controls
             var ease = new SineEase { EasingMode = EasingMode.EaseInOut };
 
             // Branch: a breezy sway around the point where it enters the frame.
-            Add(new DoubleAnimation(-3.5, 3.0, Seconds(3.6)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = ease },
+            Add(new DoubleAnimation(-2.2, 1.8, Seconds(4.8)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = ease },
                 BranchSway, RotateTransform.AngleProperty);
 
-            // Blossoms: five-petal flowers that breathe, each on its own beat.
+            // Blossoms at the twig tips, a few buds between them.
             for (int i = 0; i < BlossomSpots.GetLength(0); i++)
                 AddBlossom(BlossomSpots[i, 0], BlossomSpots[i, 1], BlossomSpots[i, 2], rnd, ease);
+            for (int i = 0; i < BudSpots.GetLength(0); i++)
+                AddBud(BudSpots[i, 0], BudSpots[i, 1]);
 
             // Moon floats, its halo breathes.
-            Add(new DoubleAnimation(-4, 4, Seconds(7)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = ease },
+            Add(new DoubleAnimation(-7, 7, Seconds(9)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = ease },
                 MoonDrift, TranslateTransform.YProperty);
-            Add(new DoubleAnimation(-3, 3, Seconds(11)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = ease },
+            Add(new DoubleAnimation(-5, 5, Seconds(13)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = ease },
                 MoonDrift, TranslateTransform.XProperty);
-            Add(new DoubleAnimation(0.92, 1.1, Seconds(4)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = ease },
+            Add(new DoubleAnimation(0.85, 1.2, Seconds(4)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = ease },
                 MoonGlowScale, ScaleTransform.ScaleXProperty);
-            Add(new DoubleAnimation(0.92, 1.1, Seconds(4)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = ease },
+            Add(new DoubleAnimation(0.85, 1.2, Seconds(4)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = ease },
                 MoonGlowScale, ScaleTransform.ScaleYProperty);
 
             // TV glow breathes.
@@ -106,27 +117,50 @@ namespace SteamTV.Controls
             Add(a, t, p);
         }
 
-        private void AddBlossom(double cx, double cy, double r, Random rnd, IEasingFunction ease)
+        // A sakura flower: five notched petals radiating from the centre (the same petal shape that
+        // falls), a soft white-to-pink fill, a deeper pink heart. It sways very slightly on its own.
+        private void AddBlossom(double cx, double cy, double length, Random rnd, IEasingFunction ease)
         {
-            var petals = new GeometryGroup();
+            double s = length / 11.0, tilt = rnd.Next(72);
+            var flower = new GeometryGroup();
             for (int k = 0; k < 5; k++)
             {
-                double a = (k * 72 - 90) * Math.PI / 180;
-                petals.Children.Add(new EllipseGeometry(new Point(cx + Math.Cos(a) * r * 0.55, cy + Math.Sin(a) * r * 0.55), r * 0.52, r * 0.52));
+                var petal = PetalShape.Clone();
+                petal.Transform = new TransformGroup
+                {
+                    Children =
+                    {
+                        new TranslateTransform(0, -4.5),          // petal base at the origin
+                        new ScaleTransform(s, s * 0.95),
+                        new RotateTransform(tilt + k * 72),
+                        new TranslateTransform(cx, cy),
+                    },
+                };
+                flower.Children.Add(petal);
             }
-            var scale = new ScaleTransform(1, 1, cx, cy);
-            var flower = new Path { Data = petals, Fill = new SolidColorBrush(Color.FromRgb(0xFF, 0xB8, 0xD4)), RenderTransform = scale };
-            Blossoms.Children.Add(flower);
-            Blossoms.Children.Add(new Ellipse { Width = r * 0.55, Height = r * 0.55, Fill = new SolidColorBrush(Color.FromRgb(0xFF, 0x7E, 0xB6)) });
-            Canvas.SetLeft(Blossoms.Children[Blossoms.Children.Count - 1], cx - r * 0.275);
-            Canvas.SetTop(Blossoms.Children[Blossoms.Children.Count - 1], cy - r * 0.275);
+            var fill = new RadialGradientBrush(Color.FromRgb(0xFF, 0xF1, 0xF6), Color.FromRgb(0xFF, 0xB3, 0xD0))
+            {
+                MappingMode = BrushMappingMode.Absolute, Center = new Point(cx, cy), GradientOrigin = new Point(cx, cy),
+                RadiusX = length * 1.1, RadiusY = length * 1.1,
+            };
+            var turn = new RotateTransform(0, cx, cy);
+            Blossoms.Children.Add(new Path { Data = flower, Fill = fill, Stroke = new SolidColorBrush(Color.FromArgb(0x55, 0xE8, 0x7A, 0xA8)), StrokeThickness = 0.4, RenderTransform = turn });
+            var heart = new Ellipse { Width = length * 0.42, Height = length * 0.42, Fill = new SolidColorBrush(Color.FromRgb(0xE8, 0x5F, 0x9A)) };
+            Canvas.SetLeft(heart, cx - length * 0.21);
+            Canvas.SetTop(heart, cy - length * 0.21);
+            Blossoms.Children.Add(heart);
 
-            var breathe = Seconds(1.8 + rnd.NextDouble() * 1.6);
-            var begin = SecondsSpan(rnd.NextDouble() * 2);
-            Add(new DoubleAnimation(0.9, 1.08, breathe) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, BeginTime = begin, EasingFunction = ease },
-                scale, ScaleTransform.ScaleXProperty);
-            Add(new DoubleAnimation(0.9, 1.08, breathe) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, BeginTime = begin, EasingFunction = ease },
-                scale, ScaleTransform.ScaleYProperty);
+            Add(new DoubleAnimation(-6, 6, Seconds(3.5 + rnd.NextDouble() * 2.5))
+                { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, BeginTime = SecondsSpan(rnd.NextDouble() * 3), EasingFunction = ease },
+                turn, RotateTransform.AngleProperty);
+        }
+
+        private void AddBud(double cx, double cy)
+        {
+            var bud = new Ellipse { Width = 4.2, Height = 5.6, Fill = new SolidColorBrush(Color.FromRgb(0xF2, 0x8A, 0xB5)) };
+            Canvas.SetLeft(bud, cx - 2.1);
+            Canvas.SetTop(bud, cy - 2.8);
+            Blossoms.Children.Add(bud);
         }
 
         // ---------------------------------------------------------------------------------
@@ -170,29 +204,31 @@ namespace SteamTV.Controls
                 _petals.Add(p);
             }
 
-            AddCloud(40, 34, 1.0, 7.5, 0.0);
-            AddCloud(380, 88, 0.75, 5.5, 0.4);
-            AddCloud(-120, 128, 1.25, 4.5, 0.7);
+            AddCloud(60, 30, 1.1, 4.0, 0.0);
+            AddCloud(330, 74, 0.85, 3.0, 0.4);
+            AddCloud(-140, 118, 1.3, 2.4, 0.7);
         }
 
         private void Respawn(Petal p, bool firstTime)
         {
-            bool fromBranch = _rnd.NextDouble() < 0.65;
-            p.X = fromBranch ? 565 + _rnd.NextDouble() * 115 : 690 + _rnd.NextDouble() * 20;
-            p.Y = fromBranch ? 18 + _rnd.NextDouble() * 85 : -10 + _rnd.NextDouble() * 110;
-            p.Vx = -(28 + _rnd.NextDouble() * 34);          // units per second, leftwards on the breeze
-            p.Vy = 5 + _rnd.NextDouble() * 11;
-            p.Turn = (_rnd.Next(2) == 0 ? -1 : 1) * (40 + _rnd.NextDouble() * 90);
-            p.FlipSpeed = 2.5 + _rnd.NextDouble() * 4;
-            p.WobbleAmp = 6 + _rnd.NextDouble() * 12;
-            p.WobbleFreq = 0.5 + _rnd.NextDouble() * 0.7;
+            // Mostly let go of a blossom; now and then one drifts in from beyond the right edge.
+            int b = _rnd.Next(BlossomSpots.GetLength(0));
+            bool fromBlossom = _rnd.NextDouble() < 0.75;
+            p.X = fromBlossom ? BlossomSpots[b, 0] - 4 + _rnd.NextDouble() * 8 : 690 + _rnd.NextDouble() * 20;
+            p.Y = fromBlossom ? BlossomSpots[b, 1] - 3 + _rnd.NextDouble() * 6 : _rnd.NextDouble() * 90;
+            p.Vx = -(11 + _rnd.NextDouble() * 9);           // units per second: an unhurried drift to the left
+            p.Vy = 2.5 + _rnd.NextDouble() * 4;
+            p.Turn = (_rnd.Next(2) == 0 ? -1 : 1) * (12 + _rnd.NextDouble() * 28);
+            p.FlipSpeed = 0.7 + _rnd.NextDouble() * 1.0;
+            p.WobbleAmp = 5 + _rnd.NextDouble() * 7;
+            p.WobbleFreq = 0.18 + _rnd.NextDouble() * 0.2;
             p.Phase = _rnd.NextDouble() * Math.PI * 2;
             p.Size = 0.75 + _rnd.NextDouble() * 0.65;
             p.Spin.Angle = _rnd.Next(360);
             p.Age = 0;
             // On start, spread them out along their paths so the banner isn't empty for a while.
-            p.Delay = firstTime ? 0 : _rnd.NextDouble() * 1.5;
-            if (firstTime) Advance(p, _rnd.NextDouble() * 14);
+            p.Delay = firstTime ? 0 : 1 + _rnd.NextDouble() * 4;
+            if (firstTime) Advance(p, _rnd.NextDouble() * 30);
         }
 
         private void Advance(Petal p, double dt)
@@ -207,7 +243,7 @@ namespace SteamTV.Controls
             p.Move.Y = p.Y + wobble * p.WobbleAmp;
             p.Flip.ScaleX = p.Size;
             p.Flip.ScaleY = p.Size * (0.15 + 0.85 * Math.Abs(Math.Cos(p.Age * p.FlipSpeed + p.Phase)));   // edge-on and back
-            double fadeIn = Math.Min(1, p.Age / 0.6);
+            double fadeIn = Math.Min(1, p.Age / 1.2);
             double fadeOut = Math.Min(1, Math.Max(0, (p.X + 10) / 90)) * Math.Min(1, Math.Max(0, (200 - p.Y) / 45));
             // Softer over the text on the left, so it stays easy to read.
             double overText = p.Y > 175 ? 1 : Math.Min(1, Math.Max(0.3, 0.3 + (p.X - 230) / 260));
@@ -218,7 +254,7 @@ namespace SteamTV.Controls
         // A cloud is a few overlapping soft puffs drifting right; past the edge it re-enters left.
         private void AddCloud(double left, double top, double size, double speed, double tint)
         {
-            var cloud = new Canvas { Opacity = 0.55 };
+            var cloud = new Canvas { Opacity = 0.9 };
             var move = new TranslateTransform(left, top);
             cloud.RenderTransform = move;
             byte g = (byte)(0xE8 - tint * 40);
@@ -228,7 +264,7 @@ namespace SteamTV.Controls
                 var puff = new Ellipse
                 {
                     Width = w, Height = h,
-                    Fill = new RadialGradientBrush(Color.FromArgb(0x3A, 0xFF, g, 0xF4), Color.FromArgb(0x00, 0xFF, g, 0xF4)),
+                    Fill = new RadialGradientBrush(Color.FromArgb(0x48, 0xF4, g, 0xFF), Color.FromArgb(0x00, 0xF4, g, 0xFF)),
                 };
                 Canvas.SetLeft(puff, i * 34 * size);
                 Canvas.SetTop(puff, (i % 2 == 0 ? 6 : 0) * size);

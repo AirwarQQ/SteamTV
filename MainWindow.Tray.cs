@@ -132,7 +132,7 @@ namespace SteamTV
             _miTrayUpdate = new Forms.ToolStripMenuItem { Visible = false };
             _miTrayUpdate.Click += (s, e) => InstallUpdate();
             _miTrayCheck = new Forms.ToolStripMenuItem();
-            _miTrayCheck.Click += async (s, e) => await CheckForUpdatesAsync(manual: true);
+            _miTrayCheck.Click += async (s, e) => await CheckForUpdatesAsync(manual: true, fromTray: true);
             _miTrayLog = new Forms.ToolStripMenuItem();
             _miTrayLog.Click += (s, e) => OpenUrl(AppLog.FilePath);
             _miTrayExit = new Forms.ToolStripMenuItem();

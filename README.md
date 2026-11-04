@@ -10,6 +10,10 @@
   <a href="https://boosty.to/airwaruwu/donate"><img src="https://img.shields.io/badge/support-Boosty-FF7EB6" alt="Support on Boosty"></a>
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/catgirl-couch.jpg" width="760" alt="A catgirl on the couch with a controller, offering you a coffee">
+</p>
+
 **Not sold on the Steam Machine's specs — or its price? Your gaming PC already is one.**
 
 SteamTV turns the PC you have into a living-room console: pick up the controller and the TV wakes up, switches to the PC, the sound moves over and Steam Big Picture opens. Close Big Picture and your desk is back exactly as you left it — monitors, speakers, even the app the TV was showing. No second box, no remote, no Win+P, no walking to the PC.
@@ -58,6 +62,10 @@ Turn on **Start with Windows** in Settings and you'll never need to open it agai
 
 No HDMI-CEC needed — most PC graphics cards don't do it anyway. SteamTV talks to the TV over ADB, so it works with Android / Google TVs. Xiaomi TVs are switched with their own player; other Android TVs with the standard TV-input intent.
 
+<p align="center">
+  <img src="docs/screenshots/catgirl-tv.jpg" width="760" alt="A catgirl next to the glowing TV, with a cup of coffee">
+</p>
+
 ## Home Assistant
 
 Optional. On the **Home Assistant** page, enter your MQTT broker (e.g. the Mosquitto add-on) and turn it on. A **SteamTV** device appears by itself with two switches — **Gamepad monitoring** and **Steam on TV** — and, if you allow it, **Sleep**, **Shut down** and **Restart** buttons for the PC. Switching the PC *on* is Home Assistant's Wake on LAN integration; the page shows the MAC to use.
@@ -88,10 +96,10 @@ Discovery is published again whenever Home Assistant restarts.
 
 ## Support
 
-<p align="center"><a href="https://boosty.to/airwaruwu/donate"><img src="docs/screenshots/support.png" alt="Support SteamTV on Boosty"></a></p>
+<p align="center"><a href="https://boosty.to/airwaruwu/donate"><img src="docs/screenshots/catgirl-donate.jpg" width="760" alt="A catgirl holding a &quot;please donate&quot; sign — support SteamTV on Boosty"></a></p>
 
 SteamTV is free and stays free. If it makes your evenings on the couch nicer, you can buy the author a coffee on **[Boosty](https://boosty.to/airwaruwu/donate)** — there's also a ♥ button in the app.
 
 ---
 
-Built with [WPF-UI](https://github.com/lepoco/wpfui); headings in [M PLUS Rounded 1c](https://github.com/coz-m/MPLUS_FONTS) (SIL OFL); `adb.exe` from Android Platform Tools (Apache 2.0). The sakura branches were drawn with AI image generation; the rest of the artwork is original. Build it yourself with `dotnet build -c Release`. Licensed under [MIT](LICENSE).
+Built with [WPF-UI](https://github.com/lepoco/wpfui); headings in [M PLUS Rounded 1c](https://github.com/coz-m/MPLUS_FONTS) (SIL OFL); `adb.exe` from Android Platform Tools (Apache 2.0). The sakura branches and the catgirl illustrations were drawn with AI image generation; the rest of the artwork is original. Build it yourself with `dotnet build -c Release`. Licensed under [MIT](LICENSE).

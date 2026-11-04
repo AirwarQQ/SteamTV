@@ -21,13 +21,14 @@ namespace SteamTV.Controls
         private bool _started;
 
         // The sakura branch: three hand-drawn pictures (Assets/Branches) that take turns, cross-
-        // fading now and then. Each: file, width in scene units, and where its trunk meets the
-        // picture's right edge (0..1 from the top), which is pinned to BranchAnchor.
-        private static readonly (string File, double Width, double TrunkY)[] BranchArt =
+        // fading now and then. Each: file, width in scene units, where its trunk meets the
+        // picture's right edge (0..1 from the top), and the scene height the trunk enters at —
+        // low enough that no top twig is cut off, high enough that the lowest flowers show.
+        private static readonly (string File, double Width, double TrunkY, double EnterY)[] BranchArt =
         {
-            ("branch_1.png", 285, 0.886), ("branch_2.png", 270, 0.898), ("branch_3.png", 245, 0.911),
+            ("branch_1.png", 290, 0.920, 152), ("branch_2.png", 255, 0.650, 115), ("branch_3.png", 245, 0.873, 152),
         };
-        private static readonly Point BranchAnchor = new Point(700, 152);   // low enough that no top twig is cut off
+        private const double BranchEnterX = 700;
         private const double BranchSwitchSec = 40, BranchFadeSec = 2.5;
         private readonly Image[] _branchImg = new Image[3];
         private readonly List<Point>[] _branchSpots = new List<Point>[3];
@@ -142,7 +143,7 @@ namespace SteamTV.Controls
                 bmp.Freeze();
 
                 double w = art.Width, h = w * bmp.PixelHeight / bmp.PixelWidth;
-                double left = BranchAnchor.X - w, top = BranchAnchor.Y - art.TrunkY * h;
+                double left = BranchEnterX - w, top = art.EnterY - art.TrunkY * h;
                 var img = new Image { Source = bmp, Width = w, Height = h, Stretch = Stretch.Fill, Opacity = i == _branchIdx ? 1 : 0 };
                 RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
                 Canvas.SetLeft(img, left);

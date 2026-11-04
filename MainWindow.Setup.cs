@@ -25,6 +25,16 @@ namespace SteamTV
             LblHotkeys.Text = "Press Save shortcuts to apply.";
         }
 
+        // Registered shortcuts never reach the window, so they couldn't be recorded (e.g. to swap
+        // the two). Lift them while a field has focus; leaving restores the saved ones.
+        private void Hotkey_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e) => _hotkeys?.Dispose();
+
+        private void Hotkey_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+        {
+            if (e.NewFocus == TxtActivateHotkey || e.NewFocus == TxtDeactivateHotkey) return;
+            _hotkeys?.ApplyEach(_settings.ActivateHotkey, _settings.DeactivateHotkey);
+        }
+
         private void SaveHotkeys_Click(object sender, RoutedEventArgs e)
         {
             try

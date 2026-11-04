@@ -34,6 +34,25 @@ namespace SteamTV
             }
         }
 
+        // Startup / after recording: register whatever can be, each shortcut on its own, so one
+        // combination taken by another app doesn't take the other one down with it.
+        public string[] ApplyEach(string activate, string deactivate)
+        {
+            Dispose();
+            _activate = _deactivate = "";
+            var errors = new System.Collections.Generic.List<string>();
+            try { Register(ActivateId, Parse(activate)); _activate = activate; }
+            catch (Exception ex) { errors.Add("Activate shortcut: " + ex.Message); }
+            if (!string.IsNullOrWhiteSpace(deactivate) && deactivate == _activate)
+                errors.Add("Deactivate shortcut: same as Activate.");
+            else
+            {
+                try { Register(DeactivateId, Parse(deactivate)); _deactivate = deactivate; }
+                catch (Exception ex) { errors.Add("Deactivate shortcut: " + ex.Message); }
+            }
+            return errors.ToArray();
+        }
+
         private static KeyGesture Parse(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return null;

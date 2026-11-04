@@ -235,7 +235,6 @@ namespace SteamTV
             ChkAutostart.IsChecked = IsAutostartEnabled();
             TxtAdbPath.Text = _settings.AdbPath;
             TxtSteamPath.Text = _settings.SteamPath;
-            TxtHdmiActivityPattern.Text = _settings.HdmiActivityPattern;
             TxtTvHomeComponent.Text = _settings.TvHomeComponent;
             TxtActivateHotkey.Text = _settings.ActivateHotkey;
             TxtDeactivateHotkey.Text = _settings.DeactivateHotkey;
@@ -259,7 +258,6 @@ namespace SteamTV
             _settings.EnableBigPicture = ChkBigPicture.IsChecked == true;
             _settings.AdbPath = string.IsNullOrWhiteSpace(TxtAdbPath.Text) ? "adb.exe" : TxtAdbPath.Text.Trim();
             _settings.SteamPath = TxtSteamPath.Text.Trim();
-            _settings.HdmiActivityPattern = TxtHdmiActivityPattern.Text.Trim();
             _settings.TvHomeComponent = TxtTvHomeComponent.Text.Trim();
             _settings.Save();
         }
@@ -463,8 +461,13 @@ namespace SteamTV
             HwndSource.FromHwnd(hwnd)?.AddHook(WndProc);
             _devNotifyHandle = Native.RegisterForAllDeviceInterfaces(hwnd);
             _hotkeys = new GlobalHotkeys(hwnd);
-            try { _hotkeys.Apply(_settings.ActivateHotkey, _settings.DeactivateHotkey); }
-            catch (Exception ex) { LblHotkeys.Text = ex.Message; AppendLog(ex.Message); }
+            var errors = _hotkeys.ApplyEach(_settings.ActivateHotkey, _settings.DeactivateHotkey);
+            if (errors.Length > 0)
+            {
+                LblHotkeys.Text = string.Join("\n", errors);
+                foreach (var err in errors) AppendLog(err);
+                ShowTrayBalloon("SteamTV", string.Join("\n", errors) + "\nChange it on the Advanced tab.");
+            }
         }
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)

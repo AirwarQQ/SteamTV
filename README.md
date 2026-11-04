@@ -25,7 +25,7 @@ Turn on your gamepad: the TV wakes up, switches to the PC's HDMI input, and Stea
 - 🔌 **Bridge apps work too** — controllers connected through Switch2Connect (Switch 2 Pro Controller via an ESP32), DS4Windows and similar are picked up as virtual gamepads.
 - 🏠 **Home Assistant** (optional, over MQTT) — a SteamTV device with "Gamepad monitoring" and "Steam on TV" switches, for dashboards, automations and voice assistants.
 - 🛠️ **Nothing to install on the TV** — the HDMI input is switched with the TV's own components, and the TV's default launcher is detected automatically.
-- ⌨️ **Global keyboard shortcuts** — assign your own Activate and Deactivate combinations; they work while SteamTV is in the tray.
+- ⌨️ **Global keyboard shortcuts** — Ctrl+Alt+9 / Ctrl+Alt+0 out of the box, or your own combinations; they work while SteamTV is in the tray.
 - 🪶 **Lives in the tray** — starts with Windows, reacts instantly to devices, notifies you only when something goes wrong, checks for updates. Light/dark theme.
 
 ## Why SteamTV
@@ -129,11 +129,10 @@ The light / dark / auto theme switch sits in the title bar.
 |---|---|
 | **adb.exe path** | The bundled copy next to `SteamTV.exe`. Point it at your own `platform-tools` install if you prefer. |
 | **steam.exe path** | `C:\Program Files (x86)\Steam\steam.exe` |
-| **HDMI activity pattern** | Empty — SteamTV confirms the switch by itself. Only an override for TVs where that fails, see below. |
 | **TV home component** | Click **Find TV launcher** to detect the TV's default Home app, or enter its component manually. |
 
 ### Global keyboard shortcuts
-Click the **Activate now** or **Deactivate / Restore** shortcut field, then press your preferred combination with Ctrl, Alt or Win. Click **Save shortcuts** to apply and persist it. Shortcuts work even with SteamTV hidden in the tray or monitoring stopped, and perform the same actions as the corresponding buttons. They are disabled by default. Press Escape in a field and save to disable that shortcut.
+Click the **Activate now** or **Deactivate / Restore** shortcut field, then press your preferred combination with Ctrl, Alt or Win. Click **Save shortcuts** to apply and persist it. Shortcuts work even with SteamTV hidden in the tray or monitoring stopped, and perform the same actions as the corresponding buttons. Defaults: **Ctrl+Alt+9** activates, **Ctrl+Alt+0** deactivates. Press Escape in a field and save to disable that shortcut. If another app already uses a combination, SteamTV says so in a tray notification at startup and the other shortcut still works.
 
 SteamTV rejects duplicate combinations and reports shortcuts Windows cannot register (for example, those already used by another app). If registration fails, it attempts to restore the previous shortcuts. At startup, any registration error appears in the settings and log.
 
@@ -146,14 +145,14 @@ Nothing is installed on the TV. SteamTV tries, in order:
 It then waits for the screen that method opens to come to the front; if it doesn't within 10 s, it rolls back.
 
 ### Manual values
-Use automatic launcher detection first. To find an HDMI activity pattern override (or a launcher manually), connect to the TV (`adb connect <TV_IP>` from the folder with `adb.exe`) and inspect the foreground activity:
+Use automatic launcher detection first. To find a launcher manually (or an HDMI activity pattern override), connect to the TV (`adb connect <TV_IP>` from the folder with `adb.exe`) and inspect the foreground activity:
 
 ```
 adb shell dumpsys activity activities | findstr ResumedActivity
 ```
 
-1. **HDMI activity pattern** (only if the TV does switch but SteamTV still rolls back) — switch the TV to the PC's input with the remote, run the command, take the `package/.Activity` part (e.g. `com.example.tvplayer/.ExternalSourceActivity`) and escape the dots: `com\.example\.tvplayer/\.ExternalSourceActivity`.
-2. **TV home component** — click **Find TV launcher** for automatic detection. Alternatively, go back to the TV's home screen, run the command again, and paste the `package/.Activity` as-is (e.g. `com.example.launcher/.MainActivity`).
+1. **TV home component** — click **Find TV launcher** for automatic detection. Alternatively, go back to the TV's home screen, run the command, and paste the `package/.Activity` as-is (e.g. `com.example.launcher/.MainActivity`).
+2. **HDMI activity pattern** — not in the UI; needed only if the TV does switch but SteamTV still rolls back. Switch the TV to the PC's input with the remote, run the command, escape the dots of the `package/.Activity` part (`com\.example\.tvplayer/\.ExternalSourceActivity`) and store it as the `HdmiActivityPattern` string value in the registry key below.
 
 All settings live in the registry under `HKCU\Software\SteamTV`.
 

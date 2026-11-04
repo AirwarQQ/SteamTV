@@ -54,7 +54,8 @@ namespace SteamTV
         // Optional override; empty = confirm with the screen the chosen switch method opens.
         public string HdmiActivityPattern = "";
         private const string OldXiaomiPattern = @"com\.xiaomi\.mitv\.tvplayer/\.ExternalSourceActivity";   // pre-1.11 default
-        public string ActivateHotkey = "", DeactivateHotkey = "";
+        // KeyGestureConverter format; "" = disabled (kept as "" once the user clears one).
+        public string ActivateHotkey = "Ctrl+Alt+9", DeactivateHotkey = "Ctrl+Alt+0";
         public string TvHomeComponent = "com.spocky.projengmenu/.ui.home.MainActivity";
 
         // Replaced wholesale (never mutated in place) so the monitor thread can read it without locking.
@@ -81,8 +82,10 @@ namespace SteamTV
                     s.HdmiActivityPattern = (string)(k.GetValue("HdmiActivityPattern") ?? s.HdmiActivityPattern);
                     if (s.HdmiActivityPattern == OldXiaomiPattern) s.HdmiActivityPattern = "";
                     s.TvHomeComponent = (string)(k.GetValue("TvHomeComponent") ?? s.TvHomeComponent);
-                    s.ActivateHotkey = (string)(k.GetValue("ActivateHotkey") ?? "");
-                    s.DeactivateHotkey = (string)(k.GetValue("DeactivateHotkey") ?? "");
+                    // 1.10 had no defaults and saved "" for everyone — only from 1.11 on does "" mean "cleared".
+                    bool hotkeysCleared = ToInt(k.GetValue("HotkeyDefaults"), 0) != 0;
+                    s.ActivateHotkey = Hotkey(k.GetValue("ActivateHotkey") as string, s.ActivateHotkey, hotkeysCleared);
+                    s.DeactivateHotkey = Hotkey(k.GetValue("DeactivateHotkey") as string, s.DeactivateHotkey, hotkeysCleared);
                     s.MqttEnabled = ToInt(k.GetValue("MqttEnabled"), 0) != 0;
                     s.MqttHost = (string)(k.GetValue("MqttHost") ?? s.MqttHost);
                     s.MqttPort = ToInt(k.GetValue("MqttPort"), s.MqttPort);
@@ -160,6 +163,7 @@ namespace SteamTV
                     k.SetValue("TvHomeComponent", TvHomeComponent ?? "");
                     k.SetValue("ActivateHotkey", ActivateHotkey ?? "");
                     k.SetValue("DeactivateHotkey", DeactivateHotkey ?? "");
+                    k.SetValue("HotkeyDefaults", 1, RegistryValueKind.DWord);
                     k.SetValue("MqttEnabled", MqttEnabled ? 1 : 0, RegistryValueKind.DWord);
                     k.SetValue("MqttHost", MqttHost ?? "");
                     k.SetValue("MqttPort", MqttPort, RegistryValueKind.DWord);
@@ -205,6 +209,9 @@ namespace SteamTV
             try { return Encoding.UTF8.GetString(ProtectedData.Unprotect(b, null, DataProtectionScope.CurrentUser)); }
             catch { return ""; }   // copied from another user/PC — can't be decrypted, ask again
         }
+
+        private static string Hotkey(string stored, string def, bool emptyMeansCleared) =>
+            stored == null || (stored.Length == 0 && !emptyMeansCleared) ? def : stored;
 
         private static int ToInt(object v, int def)
         {

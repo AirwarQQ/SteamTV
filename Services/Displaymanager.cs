@@ -130,6 +130,71 @@ namespace SteamTV
             return result.Values.OrderBy(e => e.Number).ToList();
         }
 
+        // Monitor name from the display's EDID ("Mi TV", "LG TV SSCR2", ...), or null.
+        public static string GetFriendlyName(int displayNumber) =>
+            ListDisplays().Where(d => d.Number == displayNumber).Select(d => d.FriendlyName).FirstOrDefault(n => !string.IsNullOrEmpty(n));
+
+        private static readonly Regex TvNameRe = new Regex(@"\bTV\b|BRAVIA|Television", RegexOptions.IgnoreCase);
+
+        // The display that looks like a TV by its EDID name — lowest number if Windows lists it under
+        // several (QDC_ALL_PATHS repeats a monitor once per possible source). Null when none or
+        // when two different TVs are attached, so the user picks.
+        public static DisplayEntry? FindTvDisplay()
+        {
+            var tvs = ListDisplays().Where(d => !string.IsNullOrEmpty(d.FriendlyName) && TvNameRe.IsMatch(d.FriendlyName)).ToList();
+            if (tvs.Select(d => d.FriendlyName).Distinct().Count() != 1) return null;
+            return tvs.OrderBy(d => d.Number).First();
+        }
+
+        // HDR: null = unsupported/unknown, otherwise whether it's on. Only for an active display.
+        public static bool? GetHdr(int displayNumber)
+        {
+            var id = ResolvePhysicalId(displayNumber, out _);
+            if (id == null) return null;
+
+            var info2 = new Native.DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO_2();
+            info2.header.type = Native.DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO_2;
+            info2.header.size = (uint)Marshal.SizeOf(typeof(Native.DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO_2));
+            info2.header.adapterId = id.Value.AdapterId;
+            info2.header.id = id.Value.TargetId;
+            if (Native.DisplayConfigGetDeviceInfo(ref info2) == Native.ERROR_SUCCESS)
+                return (info2.value & 0x10) == 0 ? (bool?)null : (info2.value & 0x20) != 0;
+
+            // Before 24H2: advanced color is HDR.
+            var info = new Native.DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO();
+            info.header.type = Native.DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO;
+            info.header.size = (uint)Marshal.SizeOf(typeof(Native.DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO));
+            info.header.adapterId = id.Value.AdapterId;
+            info.header.id = id.Value.TargetId;
+            if (Native.DisplayConfigGetDeviceInfo(ref info) != Native.ERROR_SUCCESS || (info.value & 1) == 0) return null;
+            return (info.value & 2) != 0;
+        }
+
+        public static bool SetHdr(int displayNumber, bool enable, out string error)
+        {
+            error = null;
+            var id = ResolvePhysicalId(displayNumber, out error);
+            if (id == null) return false;
+
+            var hdr = new Native.DISPLAYCONFIG_SET_HDR_STATE();
+            hdr.header.type = Native.DISPLAYCONFIG_DEVICE_INFO_SET_HDR_STATE;
+            hdr.header.size = (uint)Marshal.SizeOf(typeof(Native.DISPLAYCONFIG_SET_HDR_STATE));
+            hdr.header.adapterId = id.Value.AdapterId;
+            hdr.header.id = id.Value.TargetId;
+            hdr.value = enable ? 1u : 0u;
+            if (Native.DisplayConfigSetDeviceInfo(ref hdr) == Native.ERROR_SUCCESS) return true;
+
+            var set = new Native.DISPLAYCONFIG_SET_ADVANCED_COLOR_STATE();
+            set.header.type = Native.DISPLAYCONFIG_DEVICE_INFO_SET_ADVANCED_COLOR_STATE;
+            set.header.size = (uint)Marshal.SizeOf(typeof(Native.DISPLAYCONFIG_SET_ADVANCED_COLOR_STATE));
+            set.header.adapterId = id.Value.AdapterId;
+            set.header.id = id.Value.TargetId;
+            set.value = enable ? 1u : 0u;
+            int r = Native.DisplayConfigSetDeviceInfo(ref set);
+            if (r != Native.ERROR_SUCCESS) error = "DisplayConfigSetDeviceInfo=" + r;
+            return r == Native.ERROR_SUCCESS;
+        }
+
         private static bool Apply(Native.DISPLAYCONFIG_PATH_INFO[] paths, Native.DISPLAYCONFIG_MODE_INFO[] modes, uint flags, out string error)
         {
             int r = Native.SetDisplayConfig((uint)paths.Length, paths, (uint)modes.Length, modes, flags);

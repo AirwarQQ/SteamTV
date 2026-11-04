@@ -18,7 +18,9 @@ Turn on your gamepad: the TV wakes up, switches to the PC's HDMI input, and Stea
 ## Features
 
 - 🎮 **Any controller is the "on" button** — Xbox, DualSense/DualShock, Switch Pro, 8BitDo, Flydigi… USB or Bluetooth. Even a keyboard or any other device can be a trigger.
-- 📺 **Takes over the TV** — wakes it and switches it to the PC's HDMI input over ADB (Wi-Fi), then checks the switch actually happened and rolls back if it didn't.
+- 🪄 **Sets itself up** — on first launch it finds the TV on your network, connects, and fills in the HDMI port, the TV display, the TV's launcher and the Steam path. No IP addresses or ADB commands to look up.
+- 📺 **Takes over the TV** — wakes it (Wake-on-LAN too, if it's in deep sleep) and switches it to the PC's HDMI input over ADB (Wi-Fi), then checks the switch actually happened and rolls back if it didn't. Afterwards it returns the TV to the app it was showing and, if SteamTV woke it, puts it back to sleep. A new IP from the router is picked up by itself.
+- 🔊 **Sound and HDR follow the TV** — the TV becomes the default playback device while it's active (and optionally HDR is switched on); both go back afterwards.
 - 🖥️ **Handles the monitors** — turns the TV display on in Windows, optionally switches every other monitor off, sets the highest refresh rate, and later restores the **exact** previous layout (positions, primary display, everything).
 - 🚀 **Steam Big Picture** opens on the TV, and closing it ends the session. Or end it when the controller switches off — with a 10 s grace period for Bluetooth hiccups.
 - ⚙️ **Per-device behaviour** — your own names, "TV + Big Picture" or "TV only" (e.g. a keyboard to use the desktop on the TV), restore on disconnect.
@@ -26,13 +28,13 @@ Turn on your gamepad: the TV wakes up, switches to the PC's HDMI input, and Stea
 - 🏠 **Home Assistant** (optional, over MQTT) — a SteamTV device with "Gamepad monitoring" and "Steam on TV" switches, plus optional Sleep / Shut down / Restart buttons, for dashboards, automations and voice assistants.
 - 🛠️ **Nothing to install on the TV** — the HDMI input is switched with the TV's own components, and the TV's default launcher is detected automatically.
 - ⌨️ **Global keyboard shortcuts** — Ctrl+Alt+9 / Ctrl+Alt+0 out of the box, or your own combinations; they work while SteamTV is in the tray.
-- 🪶 **Lives in the tray** — starts with Windows, reacts instantly to devices, notifies you only when something goes wrong, checks for updates. Light/dark theme.
+- 🪶 **Lives in the tray** — starts with Windows, reacts instantly to devices, notifies you only when something goes wrong, updates itself in one click, keeps a log file. Light/dark theme.
 
 ## Why SteamTV
 
 - **No HDMI-CEC needed.** Most PC GPUs don't do CEC at all; SteamTV talks to the TV over ADB instead, so it works with Android / Google TVs.
 - **Your desk setup survives.** Multi-monitor layouts are snapshotted before and restored after — not just "extend/duplicate" guesses.
-- **One file, nothing to install.** A single `SteamTV.exe`; `adb.exe` is bundled. Settings live in your user registry.
+- **One file, nothing to install.** A single `SteamTV.exe`; `adb.exe` is bundled and unpacked to `%LOCALAPPDATA%\SteamTV`. Settings live in your user registry.
 - **Hands off by default.** Once set up, you never open it: controller on → play, Big Picture off → back to work.
 
 ---
@@ -57,26 +59,21 @@ Turn on your gamepad: the TV wakes up, switches to the PC's HDMI input, and Stea
 ## Setup
 
 ### 1. Download
-Grab `SteamTV-vX.Y.Z-win.zip` from the [latest release](https://github.com/AirwarQQ/SteamTV/releases/latest), extract it anywhere and run `SteamTV.exe`. It's a single file — on first run it unpacks `adb.exe` next to itself.
+Grab `SteamTV-vX.Y.Z-win.zip` from the [latest release](https://github.com/AirwarQQ/SteamTV/releases/latest), extract it anywhere and run `SteamTV.exe`. It's a single file — on first run it unpacks `adb.exe` to `%LOCALAPPDATA%\SteamTV`.
 
 ### 2. Enable ADB on the TV
 - **Settings → Device Preferences → About → Build number** — tap it 7 times to unlock Developer options.
-- In **Developer options**, turn on **USB debugging** (ADB).
-- Note the TV's IP address from **Settings → Network**.
+- In **Developer options**, turn on **USB debugging** (ADB) — on some TVs it's called network or wireless debugging.
 
-### 3. Set up the Monitor tab
+### 3. Let SteamTV set itself up
+On first launch SteamTV runs **Set up automatically** by itself (it's also a button on the Monitor tab):
+1. It looks for Android TVs on your network. If it finds several, pick yours in the list next to **Find TV** and click **Set up automatically** again.
+2. The TV shows **"Allow USB debugging?"** — accept it and tick *Always allow*. SteamTV waits up to a minute for that.
+3. It fills in the **HDMI port** (from the inputs the TV reports a cable in — check it if several are connected), the **TV display** (by its name in Windows), the TV's **launcher** and the **Steam** path.
 
-| Field | What to enter |
-|---|---|
-| **TV IP** | The TV's IP address. The indicator under it turns green once ADB reaches the TV (checked every 15 s). |
-| **HDMI port** | Which HDMI input (1–4) the PC is plugged into. |
-| **Target display #** | The TV's display number in Windows — **Displays…** lists them. |
-
-Click **Start**. The first time, the TV shows an "Allow USB debugging?" prompt — accept it (tick *Always allow*).
+Everything stays editable: **TV IP**, **HDMI port** (1–4) and **Target display #** on the Monitor tab — **Detect TV display** and **Displays…** help with the last one. The indicator under the IP turns green once ADB reaches the TV (checked every 15 s).
 
 ### 4. Pick your trigger devices
-On **Advanced → TV integration**, click **Find TV launcher** to detect and save the TV's default Home app. If Android has no default launcher, select one on the TV first or enter the component manually.
-
 On the **Devices** tab, find your controller in the bottom list, select it and click **↑ Add** (or double-click it). Make sure its **On** box is ticked. That's it — switch the controller on and the TV should follow. More on this tab [below](#devices).
 
 ### 5. Autostart (optional)
@@ -110,14 +107,18 @@ A few details worth knowing:
 | Toggle | Effect |
 |---|---|
 | Disable other monitors when TV is active | Only the TV stays on while it's in use; the full layout comes back afterwards. |
-| Wake TV via ADB when a device connects | Sends a power key press if the TV screen is off. |
+| Wake TV via ADB when a device connects | Turns the TV screen on if it's off — and sends Wake-on-LAN first if the TV is in deep sleep and doesn't answer. |
 | Switch HDMI source on TV | Switches the TV to the PC's HDMI input — nothing needs to be installed on the TV, see [How the HDMI input is switched](#how-the-hdmi-input-is-switched). |
 | Launch Steam Big Picture | Opens Big Picture once the TV is on the right input. |
+| Play sound through the TV while it's active | Makes the TV's HDMI audio the default playback device and puts the previous one back afterwards. Found by the TV display's name; override it on Advanced. On by default. |
+| Turn on HDR on the TV while it's active | Switches Windows HDR on for the TV display, and back off afterwards. Off by default. |
+| Afterwards, return the TV to the app it was showing | Instead of the home screen — e.g. back to YouTube where you left it. |
+| Afterwards, put the TV back to sleep if SteamTV woke it | If the TV was off before, it goes off again when you're done. |
 
 **Activate now** / **Deactivate / Restore** run the same sequences by hand — useful for testing, and as a one-click way back if something got out of sync. The **Test** tab has buttons for each individual step (wake TV, switch input, list/enable/disable displays, …).
 
 ### Tray
-Closing or minimizing the window keeps SteamTV running in the tray. The icon is **green** when ADB reaches the TV and **red** when it doesn't; right-click shows the current ADB and monitoring status. A tray notification pops up when something needs your attention — the TV didn't switch input, Big Picture failed to start, monitors couldn't be restored, ADB unreachable for a while during monitoring — and when a new version is out.
+Closing or minimizing the window keeps SteamTV running in the tray. The icon is **green** when ADB reaches the TV and **red** when it doesn't; right-click shows the current ADB and monitoring status. A tray notification pops up when something needs your attention — the TV didn't switch input, Big Picture failed to start, monitors couldn't be restored, ADB unreachable for a while during monitoring — and when a new version is out: click the notification (or **Install update** in the tray menu) and SteamTV downloads it, swaps the exe and restarts. **Open log file** in the tray menu opens `%LOCALAPPDATA%\SteamTV\steamtv.log`, which keeps the log across restarts. Starting `SteamTV.exe` again while it's in the tray brings its window up.
 
 The light / dark / auto theme switch sits in the title bar.
 
@@ -127,9 +128,10 @@ The light / dark / auto theme switch sits in the title bar.
 
 | Setting | Default |
 |---|---|
-| **adb.exe path** | The bundled copy next to `SteamTV.exe`. Point it at your own `platform-tools` install if you prefer. |
+| **adb.exe path** | `adb.exe` = the bundled copy in `%LOCALAPPDATA%\SteamTV`. Point it at your own `platform-tools` install if you prefer. |
 | **steam.exe path** | `C:\Program Files (x86)\Steam\steam.exe` |
-| **TV home component** | Click **Find TV launcher** to detect the TV's default Home app, or enter its component manually. |
+| **TV home component** | Blank = the TV's Home key. **Find TV launcher** detects the default Home app, or enter its component manually. |
+| **TV sound device** | Blank = the playback device named after the TV display. Enter part of another device's name to override. |
 
 ### Global keyboard shortcuts
 Click the **Activate now** or **Deactivate / Restore** shortcut field, then press your preferred combination with Ctrl, Alt or Win. Click **Save shortcuts** to apply and persist it. Shortcuts work even with SteamTV hidden in the tray or monitoring stopped, and perform the same actions as the corresponding buttons. Defaults: **Ctrl+Alt+9** activates, **Ctrl+Alt+0** deactivates. Press Escape in a field and save to disable that shortcut. If another app already uses a combination, SteamTV says so in a tray notification at startup and the other shortcut still works.

@@ -17,7 +17,7 @@ namespace SteamTV
 
         public Adb(string adbPath, string ip)
         {
-            _adb = adbPath;
+            _adb = AdbBundle.Resolve(adbPath);
             System.Net.IPAddress address;
             if (!System.Net.IPAddress.TryParse(ip, out address))
                 throw new ArgumentException("Invalid TV IP address.");
@@ -94,19 +94,77 @@ namespace SteamTV
             return Regex.IsMatch(output, @"(?m)^package:" + Regex.Escape(package) + @"\s*$");
         }
 
-        // Analog of Send-WOL: wake TV if screen is sleeping
-        public string WakeTv()
+        // The power key (26) toggles, so it's only sent when the TV is known to be asleep — it used to
+        // put the TV to sleep when its screensaver was running ("Dreaming") or dumpsys didn't answer.
+        // Otherwise KEYCODE_WAKEUP (224), which never turns the screen off. (Not 224 for sleep too:
+        // Xiaomi refuses it there — "wakeup reason is 6, can't wakeup device".)
+        public string WakeTv() { bool asleep; return WakeTv(out asleep); }
+
+        public string WakeTv(out bool wasAsleep)
         {
             Connect();
+            string state = Wakefulness();
+            wasAsleep = state == "Asleep" || state == "Dozing";
+            if (state == "Awake") return "TV is already on.";
+            Run("shell input keyevent " + (wasAsleep ? "26" : "224"));
+            return wasAsleep ? "TV was asleep — woken up." : "Wake signal sent (TV state: " + (state ?? "unknown") + ").";
+        }
+
+        // "Awake", "Asleep", "Dreaming", "Dozing", or null when the TV didn't answer.
+        public string Wakefulness()
+        {
             string outp;
-            RunCapture("shell dumpsys power", out outp);
-            bool awake = outp.IndexOf("mWakefulness=Awake", StringComparison.OrdinalIgnoreCase) >= 0;
-            if (!awake)
+            if (!RunCapture("shell dumpsys power", out outp)) return null;
+            var m = Regex.Match(outp, @"mWakefulness=(\w+)");
+            return m.Success ? m.Groups[1].Value : null;
+        }
+
+        public void SleepTv() => Run("shell input keyevent 223");   // KEYCODE_SLEEP: never wakes
+
+        // "device", "unauthorized" (the TV still shows the "Allow USB debugging?" prompt), "offline" or null.
+        public string GetState()
+        {
+            Connect();
+            string output;
+            RunCapture("get-state", out output, 5000);
+            // Errors read "error: device unauthorized." — check the specific words before "device".
+            if (output.IndexOf("unauthorized", StringComparison.OrdinalIgnoreCase) >= 0) return "unauthorized";
+            if (output.IndexOf("offline", StringComparison.OrdinalIgnoreCase) >= 0) return "offline";
+            return Regex.IsMatch(output, @"(?m)^device\s*$") ? "device" : null;
+        }
+
+        public string GetModel()
+        {
+            string output;
+            return RunCapture("shell getprop ro.product.model", out output) ? output.Trim() : null;
+        }
+
+        // The activity in front right now, as package/.Activity — to go back to it after the game.
+        public string GetForegroundComponent()
+        {
+            string outp;
+            if (!RunCapture("shell dumpsys activity activities", out outp)) return null;
+            var m = Regex.Match(outp, @"(?m)^\s*ResumedActivity:? ActivityRecord\{\S+ u\d+ ([\w.]+/[\w.$]+)");
+            return m.Success ? m.Groups[1].Value : null;
+        }
+
+        // HDMI ports whose input reports a connected cable (TvInputManager state 0). The hardware list
+        // maps "id=6 … hdmi_port=2" to the input ".../HW6".
+        public List<int> ConnectedHdmiPorts()
+        {
+            var ports = new List<int>();
+            string outp;
+            if (!RunCapture("shell dumpsys tv_input", out outp)) return ports;
+            var state = new Dictionary<string, int>();
+            foreach (Match m in Regex.Matches(outp, @"/HW(\d+): info: TvInputInfo\{[^}]*\}; state: (\d+)"))
+                state[m.Groups[1].Value] = int.Parse(m.Groups[2].Value);
+            foreach (Match m in Regex.Matches(outp, @"TvInputHardwareInfo \{id=(\d+),[^}]*\bhdmi_port=(\d+)"))
             {
-                Run("shell input keyevent 26"); // power
-                return "TV was sleeping — wake signal sent.";
+                int s, port = int.Parse(m.Groups[2].Value);
+                if (state.TryGetValue(m.Groups[1].Value, out s) && s == 0 && !ports.Contains(port)) ports.Add(port);
             }
-            return "TV is already on.";
+            ports.Sort();
+            return ports;
         }
 
         private const string XiaomiPlayer = "com.xiaomi.mitv.tvplayer";
@@ -210,11 +268,39 @@ namespace SteamTV
             return false;
         }
 
-        public void RestoreSourceBeforeShutdown(string homeComponent, CancellationToken ct = default)
+        public void RestoreSourceBeforeShutdown(string homeComponent, CancellationToken ct = default) =>
+            ReturnTv(null, homeComponent, false, ct);
+
+        // Leaves the PC's input: back to the app that was open before (its launcher entry resumes the
+        // task where it was), else the configured launcher, else the Home key — then, if asked,
+        // back to sleep. Returns what was done, for the log.
+        public string ReturnTv(string previousComponent, string homeComponent, bool sleep, CancellationToken ct = default)
         {
-            Run("shell am start -n " + homeComponent);
+            Connect();
+            string done = null;
+            string pkg = previousComponent?.Split('/')[0];
+            if (!string.IsNullOrEmpty(pkg))
+            {
+                foreach (var category in new[] { "LEANBACK_LAUNCHER", "LAUNCHER" })
+                {
+                    string output;
+                    RunCapture("shell monkey -p " + pkg + " -c android.intent.category." + category + " 1", out output);
+                    if (output.IndexOf("Events injected: 1", StringComparison.Ordinal) >= 0) { done = "back to " + pkg; break; }
+                }
+            }
+            if (done == null && !string.IsNullOrWhiteSpace(homeComponent) && StartActivity("-n " + homeComponent.Trim()))
+                done = "launcher " + homeComponent.Trim();
+            if (done == null) { Run("shell input keyevent 3"); done = "Home key"; }
+
+            if (sleep)
+            {
+                ct.WaitHandle.WaitOne(1500);   // let the app come up first, so the TV wakes into it later
+                SleepTv();
+                done += ", then sleep";
+            }
             Disconnect();
             ct.WaitHandle.WaitOne(1000);
+            return done;
         }
 
         // Returns true if ADB is reachable and the device accepts the connection.

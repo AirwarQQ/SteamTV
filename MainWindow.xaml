@@ -87,6 +87,14 @@
                             <TextBlock x:Name="LblAdb" Text="○ ADB  ↺15s" Margin="0,6,0,0"
                                        FontWeight="Bold" Foreground="Gray"
                                        ToolTip="ADB reachability check — runs in background every 15 s.&#x0a;green = reachable   orange = not reachable" />
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <ui:Button x:Name="BtnAutoSetup" Content="Set up automatically" Appearance="Primary" Click="AutoSetup_Click"
+                                           ToolTip="Finds the TV on the network, connects, and fills in the launcher, HDMI port, TV display and Steam path." />
+                                <Button x:Name="BtnFindTv" Content="Find TV" Margin="8,0,0,0" Click="FindTv_Click" />
+                                <ComboBox x:Name="CmbFoundTvs" Margin="8,0,0,0" MinWidth="200" Visibility="Collapsed"
+                                          SelectionChanged="CmbFoundTvs_SelectionChanged" />
+                            </StackPanel>
+                            <TextBlock x:Name="LblSetup" Margin="0,8,0,0" TextWrapping="Wrap" />
                             <Grid Margin="0,14,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
@@ -114,8 +122,10 @@
                                 <ui:NumberBox Grid.Column="1" x:Name="NumTarget" Width="110" Minimum="1" Maximum="64"
                                               SpinButtonPlacementMode="Inline" ClearButtonEnabled="False" />
                             </Grid>
-                            <Button x:Name="BtnDisplays" Content="Displays…" Margin="0,10,0,0"
-                                    HorizontalAlignment="Left" Click="BtnDisplays_Click" />
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <Button x:Name="BtnDetectDisplay" Content="Detect TV display" Click="DetectDisplay_Click" />
+                                <Button x:Name="BtnDisplays" Content="Displays…" Margin="8,0,0,0" Click="BtnDisplays_Click" />
+                            </StackPanel>
                         </StackPanel>
                     </ui:Card>
 
@@ -127,6 +137,10 @@
                             <CheckBox x:Name="ChkWakeTV" Content="Wake TV via ADB when a device connects" Margin="0,0,0,8" />
                             <CheckBox x:Name="ChkSourceSwitch" Content="Switch HDMI source on TV" Margin="0,0,0,8" />
                             <CheckBox x:Name="ChkBigPicture" Content="Launch Steam Big Picture" Margin="0,0,0,8" />
+                            <CheckBox x:Name="ChkSwitchAudio" Content="Play sound through the TV while it's active" Margin="0,0,0,8" />
+                            <CheckBox x:Name="ChkHdr" Content="Turn on HDR on the TV while it's active" Margin="0,0,0,8" />
+                            <CheckBox x:Name="ChkRestoreTvApp" Content="Afterwards, return the TV to the app it was showing" Margin="0,0,0,8" />
+                            <CheckBox x:Name="ChkSleepTv" Content="Afterwards, put the TV back to sleep if SteamTV woke it" Margin="0,0,0,8" />
                             <CheckBox x:Name="ChkAutostart" Content="Run at Windows startup (hidden in tray)"
                                       Checked="ChkAutostart_CheckedChanged" Unchecked="ChkAutostart_CheckedChanged" />
                         </StackPanel>
@@ -369,7 +383,7 @@
                         <StackPanel>
                             <TextBlock Text="adb.exe path" Margin="0,0,0,4" />
                             <TextBox x:Name="TxtAdbPath" />
-                            <TextBlock Text="Blank / just &quot;adb.exe&quot; uses whatever is on your PATH." Margin="0,4,0,0"
+                            <TextBlock Text="Blank / just &quot;adb.exe&quot; uses the copy built into SteamTV. Enter a path only to use your own platform-tools." Margin="0,4,0,0"
                                        Foreground="Gray" TextWrapping="Wrap" />
 
                             <TextBlock Text="steam.exe path" Margin="0,14,0,4" />
@@ -386,7 +400,12 @@
                             <Button x:Name="BtnDetectLauncher" Content="Find TV launcher" Click="DetectLauncher_Click" HorizontalAlignment="Left" Margin="0,8,0,0" />
                             <TextBlock x:Name="LblTvSetup" TextWrapping="Wrap" Margin="0,8,0,0" />
                             <TextBlock Margin="0,4,0,0" Foreground="Gray" TextWrapping="Wrap"
-                                       Text="Click Find TV launcher to detect and save the TV's default Home app. If Android has no default launcher, choose one on the TV and retry. You can also enter its package/.Activity manually." />
+                                       Text="Blank = the TV's Home key, which opens its default launcher. Find TV launcher fills it in; you can also enter a package/.Activity manually." />
+
+                            <TextBlock Text="TV sound device" Margin="0,14,0,4" />
+                            <TextBox x:Name="TxtTvAudioDevice" />
+                            <TextBlock Margin="0,4,0,0" Foreground="Gray" TextWrapping="Wrap"
+                                       Text="Part of the playback device's name. Blank = the device named after the TV display (e.g. &quot;Mi TV (NVIDIA High Definition Audio)&quot;)." />
                         </StackPanel>
                     </ui:Card>
                 </StackPanel>

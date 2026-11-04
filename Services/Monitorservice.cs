@@ -30,6 +30,14 @@ namespace SteamTV
         private PhysicalDisplayId? _targetPhysicalId;
         private volatile bool _displayEnabled;
 
+        // What this session changed, so deactivation puts exactly that back.
+        private bool _tvWasAsleep;          // SteamTV woke it → may put it back to sleep
+        private string _tvPreviousApp;      // package/.Activity the TV showed before the switch
+        private string _audioPreviousId;    // default playback device before switching to the TV
+        private bool? _hdrPrevious;         // TV display's HDR state before SteamTV turned it on
+
+        private Adb NewAdb() => new Adb(_s.AdbPath, _s.TvIp);   // TvIp can change (found again after DHCP)
+
         public event Action<string> Log;
         public event Action<bool> RunningChanged;
         // Raised (on whatever thread changed it) whenever IsDisplayActive flips — automatic
@@ -38,6 +46,8 @@ namespace SteamTV
         // Fired for failures worth interrupting the user for (tray balloon), separate from the
         // full step-by-step Log so routine activity doesn't spam a notification.
         public event Action<string, string> Notify;
+        // The TV turned up under a different IP (after a DHCP change); settings are already saved.
+        public event Action<string> TvAddressChanged;
 
         public bool IsRunning => _running;
         public bool IsDisplayActive => _displayEnabled;
@@ -101,7 +111,7 @@ namespace SteamTV
                         return;
                     }
                     L("Manual activate requested.");
-                    Activate(new Adb(_s.AdbPath, _s.TvIp), CancellationToken.None, _s.EnableBigPicture);
+                    Activate(NewAdb(), CancellationToken.None, _s.EnableBigPicture);
                 }
             });
         }
@@ -110,15 +120,15 @@ namespace SteamTV
         // it's currently "active", so it also works as a recovery button if state ever desyncs.
         // Closes Big Picture first, same as restore-on-disconnect — also when it was started by hand
         // and the TV was never "active".
-        public void DeactivateNow()
+        public Task DeactivateNow()
         {
-            Task.Run(() =>
+            return Task.Run(() =>
             {
                 lock (_actionLock)
                 {
                     L("Manual deactivate requested.");
                     CloseBigPictureBeforeDeactivate(CancellationToken.None);
-                    Deactivate(new Adb(_s.AdbPath, _s.TvIp), CancellationToken.None);
+                    Deactivate(NewAdb(), CancellationToken.None);
                     SteamHelper.MinimizeSteamWindow();
                 }
             });
@@ -147,6 +157,21 @@ namespace SteamTV
         private void RestoreDisplayState()
         {
             string err;
+            // HDR first — it's a per-display setting Windows remembers, and it can only be changed
+            // while the TV display is still on.
+            if (_hdrPrevious != null)
+            {
+                if (DisplayManager.SetHdr(_s.TargetDisplay, _hdrPrevious.Value, out err)) L("TV HDR set back to " + (_hdrPrevious.Value ? "on." : "off."));
+                else L("Restore HDR: " + err);
+                _hdrPrevious = null;
+            }
+            if (_audioPreviousId != null)
+            {
+                if (AudioSwitcher.SetDefault(_audioPreviousId, out err)) L("Sound back on the previous device.");
+                else L("Restore sound device: " + err);
+                _audioPreviousId = null;
+            }
+
             if (_s.DisableOthers && _preActivateSnapshot != null)
             {
                 if (!DisplayManager.RestoreAll(_preActivateSnapshot, out err))
@@ -174,9 +199,36 @@ namespace SteamTV
         private void Activate(Adb adb, CancellationToken ct, bool launchBigPicture)
         {
             L("Activating TV.");
+            _tvWasAsleep = false;
+            _tvPreviousApp = null;
+
+            // Without ADB nothing below can reach the TV: find out now, not after the monitors have
+            // been rearranged and every adb call has waited out its timeout.
+            if (_s.EnableWakeTV || _s.EnableSourceSwitch)
+            {
+                if (!EnsureTvReachable(adb, ct))
+                {
+                    L("TV not reachable over ADB — activation cancelled.");
+                    N("SteamTV", "Can't reach the TV over ADB (" + _s.TvIp + "). Is it on the network, with network debugging enabled?");
+                    return;
+                }
+                adb = NewAdb();   // EnsureTvReachable may have found the TV under a new address
+            }
 
             if (_s.EnableWakeTV)
-                L(adb.WakeTv());
+            {
+                L(adb.WakeTv(out _tvWasAsleep));
+                if (_tvWasAsleep && Sleep(ct, 1500)) return;   // let the TV finish waking before asking it things
+            }
+            if (_s.EnableSourceSwitch && _s.RestoreTvApp && !_tvWasAsleep)
+            {
+                _tvPreviousApp = adb.GetForegroundComponent();
+                // Already on an HDMI input: nothing worth going back to — the launcher is better.
+                if (_tvPreviousApp != null && (_tvPreviousApp.StartsWith("com.xiaomi.mitv.tvplayer/", StringComparison.Ordinal) ||
+                                               _tvPreviousApp.StartsWith("com.liskovsoft.tvexternalsource", StringComparison.Ordinal)))
+                    _tvPreviousApp = null;
+                if (_tvPreviousApp != null) L("TV was showing " + _tvPreviousApp + ".");
+            }
 
             string err;
             if (_s.DisableOthers)
@@ -265,6 +317,7 @@ namespace SteamTV
                 {
                     if (Sleep(ct, 1000)) return;
                     L("HDMI source active.");
+                    ApplyHdrAndAudio(ct);
                     if (launchBigPicture)
                     {
                         L("Starting Big Picture.");
@@ -282,13 +335,14 @@ namespace SteamTV
                     N("SteamTV", switchErr != null ? "Can't switch the TV's HDMI input — rolled back. " + switchErr
                         : "TV didn't switch to the PC's HDMI input in time — rolled back.");
                     RestoreDisplayState();
-                    adb.RestoreSourceBeforeShutdown(_s.TvHomeComponent, ct);
-                    adb.Disconnect();
+                    L("TV: " + adb.ReturnTv(_tvPreviousApp, _s.TvHomeComponent, _s.SleepTvAfter && _tvWasAsleep, ct) + ".");
                     SetDisplayEnabled(false);
                 }
             }
-            else if (launchBigPicture)
+            else
             {
+                ApplyHdrAndAudio(ct);
+                if (!launchBigPicture) return;
                 L("Starting Big Picture (source switch disabled).");
                 string bpErr;
                 if (!SteamHelper.StartBigPicture(_s.SteamPath, out bpErr))
@@ -296,6 +350,68 @@ namespace SteamTV
                     L("Start Big Picture FAILED: " + bpErr);
                     N("SteamTV", "Steam Big Picture failed to start: " + bpErr);
                 }
+            }
+        }
+
+        // ADB answers → true. If not: wake the TV over the network (needs its MAC, learned the first
+        // time it was reachable) and wait for it, then look for it under a new address in case DHCP
+        // moved it.
+        private bool EnsureTvReachable(Adb adb, CancellationToken ct)
+        {
+            if (adb.IsAdbReachable(3000)) { LearnTvMac(); return true; }
+            if (string.IsNullOrEmpty(_s.TvMac)) return false;
+
+            L("TV not answering — sending Wake-on-LAN to " + _s.TvMac + ".");
+            TvDiscovery.SendWakeOnLan(_s.TvMac);
+            for (int i = 0; i < 8; i++)
+            {
+                if (Sleep(ct, 2500)) return false;
+                if (adb.IsAdbReachable(2500)) { L("TV woke up."); return true; }
+            }
+
+            string ip = TvDiscovery.FindByMacAsync(_s.TvMac).GetAwaiter().GetResult();
+            if (ip == null || ip == _s.TvIp) return false;
+            L("TV found at a new address: " + ip + " (was " + _s.TvIp + ").");
+            _s.TvIp = ip;
+            _s.Save();
+            TvAddressChanged?.Invoke(ip);
+            return NewAdb().IsAdbReachable(3000);
+        }
+
+        private void LearnTvMac()
+        {
+            string mac = TvDiscovery.MacOf(_s.TvIp);
+            if (mac == null || mac == _s.TvMac) return;
+            _s.TvMac = mac;
+            _s.Save();
+        }
+
+        // TV-side extras once the picture is on the TV: HDR on, sound to the TV. Both are undone in
+        // RestoreDisplayState().
+        private void ApplyHdrAndAudio(CancellationToken ct)
+        {
+            string err;
+            if (_s.EnableHdr)
+            {
+                bool? hdr = DisplayManager.GetHdr(_s.TargetDisplay);
+                if (hdr == null) L("HDR: the TV display doesn't report HDR support.");
+                else if (hdr == true) L("HDR already on.");
+                else
+                {
+                    if (DisplayManager.SetHdr(_s.TargetDisplay, true, out err)) { _hdrPrevious = false; L("HDR on."); }
+                    else L("HDR: " + err);
+                }
+            }
+
+            if (_s.SwitchAudio)
+            {
+                string hint = string.IsNullOrWhiteSpace(_s.TvAudioDevice) ? DisplayManager.GetFriendlyName(_s.TargetDisplay) : _s.TvAudioDevice;
+                var tv = AudioSwitcher.WaitForDevice(hint, 8000, ct);
+                string current = AudioSwitcher.GetDefaultId();
+                if (tv == null) L("Sound: no playback device matching \"" + hint + "\" — left as is.");
+                else if (tv.Id == current) L("Sound already on " + tv.Name + ".");
+                else if (AudioSwitcher.SetDefault(tv.Id, out err)) { _audioPreviousId = current; L("Sound → " + tv.Name + "."); }
+                else L("Sound: " + err);
             }
         }
 
@@ -309,7 +425,11 @@ namespace SteamTV
             RestoreDisplayState();
 
             if (_s.EnableSourceSwitch)
-                adb.RestoreSourceBeforeShutdown(_s.TvHomeComponent, ct);
+                L("TV: " + adb.ReturnTv(_tvPreviousApp, _s.TvHomeComponent, _s.SleepTvAfter && _tvWasAsleep, ct) + ".");
+            else if (_s.SleepTvAfter && _tvWasAsleep)
+                adb.SleepTv();
+            _tvWasAsleep = false;
+            _tvPreviousApp = null;
 
             adb.Disconnect();
             SetDisplayEnabled(false);
@@ -317,7 +437,7 @@ namespace SteamTV
 
         private void RunLoop(CancellationToken ct)
         {
-            var adb = new Adb(_s.AdbPath, _s.TvIp);
+            // A fresh Adb per action: the TV address may change while monitoring (found again after DHCP).
 
             // Empty at start, so an enabled device that's already plugged in when monitoring starts
             // triggers right away — same as the old single-gamepad behaviour.
@@ -364,7 +484,7 @@ namespace SteamTV
                             if (!_displayEnabled)
                             {
                                 L(trigger.DisplayName + " connected -> activating TV" + (tvOnly ? " (TV only)." : "."));
-                                Activate(adb, ct, launchBigPicture: !tvOnly && _s.EnableBigPicture);
+                                Activate(NewAdb(), ct, launchBigPicture: !tvOnly && _s.EnableBigPicture);
                             }
                         }
                     }
@@ -392,7 +512,7 @@ namespace SteamTV
                                     {
                                         L(NamesOf(watched, armed) + " still gone -> deactivating TV.");
                                         CloseBigPictureBeforeDeactivate(ct);
-                                        Deactivate(adb, ct);
+                                        Deactivate(NewAdb(), ct);
                                         SteamHelper.MinimizeSteamWindow();
                                     }
                                 }
@@ -425,7 +545,7 @@ namespace SteamTV
                             if (_displayEnabled)
                             {
                                 L("Big Picture closed -> deactivating TV.");
-                                Deactivate(adb, ct);
+                                Deactivate(NewAdb(), ct);
                                 SteamHelper.MinimizeSteamWindow();
                             }
                         }

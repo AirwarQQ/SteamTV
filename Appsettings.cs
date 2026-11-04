@@ -32,14 +32,21 @@ namespace SteamTV
     {
         private const string RegPath = @"Software\SteamTV";
 
-        public string TvIp = "192.168.1.102";
-        public int TargetDisplay = 3;
-        public int HdmiPort = 2;         // 1–4; the TV input the PC is plugged into
+        // Blank on a fresh install: the first-run setup finds the TV, its display and the HDMI port.
+        public string TvIp = "";
+        public int TargetDisplay = 1;
+        public int HdmiPort = 1;         // 1–4; the TV input the PC is plugged into
+        public string TvMac = "";        // learned from ARP: Wake-on-LAN and finding the TV again after an IP change
         public bool DisableOthers = false;
         public bool EnableWakeTV = true;
         public bool EnableSourceSwitch = true;
         public bool EnableBigPicture = true;
         public bool AutoMonitorOnStart = true;   // start monitoring immediately on autostart
+        public bool SwitchAudio = true;          // default playback device → the TV while it's active
+        public string TvAudioDevice = "";        // part of the endpoint name; blank = match the TV display's name
+        public bool RestoreTvApp = true;         // back to what the TV showed before, not just Home
+        public bool SleepTvAfter = true;         // put the TV back to sleep if SteamTV woke it
+        public bool EnableHdr = false;           // HDR on the TV while active, previous state restored after
 
         // Home Assistant over MQTT — off by default; when off nothing MQTT-related runs at all.
         public bool MqttEnabled = false;
@@ -51,13 +58,16 @@ namespace SteamTV
         public bool MqttPowerButtons = false;   // Sleep / Shut down / Restart buttons in HA — opt-in
 
         public string AdbPath = @"adb.exe";
-        public string SteamPath = @"C:\Program Files (x86)\Steam\steam.exe";
+        public string SteamPath = SteamHelper.FindSteamExe() ?? @"C:\Program Files (x86)\Steam\steam.exe";
         // Optional override; empty = confirm with the screen the chosen switch method opens.
         public string HdmiActivityPattern = "";
         private const string OldXiaomiPattern = @"com\.xiaomi\.mitv\.tvplayer/\.ExternalSourceActivity";   // pre-1.11 default
         // KeyGestureConverter format; "" = disabled (kept as "" once the user clears one).
         public string ActivateHotkey = "Ctrl+Alt+9", DeactivateHotkey = "Ctrl+Alt+0";
-        public string TvHomeComponent = "com.spocky.projengmenu/.ui.home.MainActivity";
+        public string TvHomeComponent = "";   // blank = the TV's Home key, which opens whatever launcher is default
+
+        // No settings stored yet — the window runs the automatic setup once.
+        public bool IsFirstRun { get; private set; } = true;
 
         // Replaced wholesale (never mutated in place) so the monitor thread can read it without locking.
         public List<WatchedDevice> WatchedDevices = new List<WatchedDevice>();
@@ -70,7 +80,14 @@ namespace SteamTV
                 using (var k = Registry.CurrentUser.OpenSubKey(RegPath))
                 {
                     if (k == null) return s;
+                    s.IsFirstRun = k.GetValue("TvIp") == null;
                     s.TvIp = (string)(k.GetValue("TvIp") ?? s.TvIp);
+                    s.TvMac = (string)(k.GetValue("TvMac") ?? s.TvMac);
+                    s.SwitchAudio = ToInt(k.GetValue("SwitchAudio"), 1) != 0;
+                    s.TvAudioDevice = (string)(k.GetValue("TvAudioDevice") ?? s.TvAudioDevice);
+                    s.RestoreTvApp = ToInt(k.GetValue("RestoreTvApp"), 1) != 0;
+                    s.SleepTvAfter = ToInt(k.GetValue("SleepTvAfter"), 1) != 0;
+                    s.EnableHdr = ToInt(k.GetValue("EnableHdr"), 0) != 0;
                     s.TargetDisplay = ToInt(k.GetValue("TargetDisplay"), s.TargetDisplay);
                     s.HdmiPort = Math.Max(1, Math.Min(4, ToInt(k.GetValue("HdmiPort"), s.HdmiPort)));
                     s.DisableOthers = ToInt(k.GetValue("DisableOthers"), 0) != 0;
@@ -152,6 +169,12 @@ namespace SteamTV
                 using (var k = Registry.CurrentUser.CreateSubKey(RegPath))
                 {
                     k.SetValue("TvIp", TvIp ?? "");
+                    k.SetValue("TvMac", TvMac ?? "");
+                    k.SetValue("SwitchAudio", SwitchAudio ? 1 : 0, RegistryValueKind.DWord);
+                    k.SetValue("TvAudioDevice", TvAudioDevice ?? "");
+                    k.SetValue("RestoreTvApp", RestoreTvApp ? 1 : 0, RegistryValueKind.DWord);
+                    k.SetValue("SleepTvAfter", SleepTvAfter ? 1 : 0, RegistryValueKind.DWord);
+                    k.SetValue("EnableHdr", EnableHdr ? 1 : 0, RegistryValueKind.DWord);
                     k.SetValue("TargetDisplay", TargetDisplay, RegistryValueKind.DWord);
                     k.SetValue("HdmiPort", HdmiPort, RegistryValueKind.DWord);
                     k.SetValue("DisableOthers", DisableOthers ? 1 : 0, RegistryValueKind.DWord);

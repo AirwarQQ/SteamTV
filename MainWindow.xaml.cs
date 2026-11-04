@@ -1,4 +1,4 @@
-// Main window: tab-based UI — Monitor settings, Gamepad management, Test actions.
+// Main window: settings sync, Test tab, status, log, window events. Tabs with more code live in MainWindow.*.cs.
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -60,6 +60,11 @@ namespace SteamTV
             _monitor.RunningChanged += OnRunningChanged;
             _monitor.Notify += ShowTrayBalloon;
             _monitor.DisplayActiveChanged += _ => Dispatcher.BeginInvoke(new Action(UpdateStatusLabel));
+            _monitor.TvAddressChanged += ip => Dispatcher.BeginInvoke(new Action(() =>
+            {
+                TxtIp.Text = ip;
+                ShowTrayBalloon("SteamTV", "The TV got a new IP address (" + ip + ") — settings updated.");
+            }));
             _ha = new HomeAssistantMqtt(_monitor, GetVersionString());
             _ha.Log += AppendLog;
             _ha.StatusChanged += OnMqttStatus;
@@ -93,6 +98,8 @@ namespace SteamTV
                 ShowInTaskbar = false;
                 Loaded += (s, e) => { HideToTray(); if (_settings.AutoMonitorOnStart) StartMonitor(); };
             }
+            else if (_settings.IsFirstRun)
+                Loaded += async (s, e) => await RunAutoSetupAsync(firstRun: true);
         }
 
         private static string GetVersionString()
@@ -106,6 +113,8 @@ namespace SteamTV
         // -------------------------------------------------------------------------
 
         private bool _updateAvailable;
+        private string _updateTag;
+        private Forms.ToolStripMenuItem _miTrayUpdate;
 
         private async Task CheckForUpdatesAsync()
         {
@@ -116,10 +125,32 @@ namespace SteamTV
             Dispatcher.Invoke(() =>
             {
                 _updateAvailable = true;
+                _updateTag = tag;
+                if (_miTrayUpdate != null) { _miTrayUpdate.Text = "Install update " + tag; _miTrayUpdate.Visible = true; }
                 AppendLog("Update available: " + tag + " (running v" + current.Major + "." + current.Minor + "." + current.Build + ") — " + UpdateChecker.ReleasesPageUrl);
                 _tray?.ShowBalloonTip(8000, "SteamTV update available",
-                    "Version " + tag + " is out — click to open the releases page.", Forms.ToolTipIcon.Info);
+                    "Version " + tag + " is out — click to install it.", Forms.ToolTipIcon.Info);
             });
+        }
+
+        private bool _updating;
+
+        private async void InstallUpdate()
+        {
+            if (_updating || _updateTag == null) return;
+            if (System.Windows.MessageBox.Show("Install SteamTV " + _updateTag + " now? SteamTV restarts; an active TV session is restored first.",
+                    "SteamTV update", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+            _updating = true;
+            AppendLog("Downloading " + _updateTag + "…");
+            var restoring = _monitor.IsDisplayActive ? _monitor.DeactivateNow() : Task.CompletedTask;
+            string err = await Updater.InstallAsync(_updateTag, startHidden: !IsVisible);
+            await restoring;   // never exit halfway through putting the monitors back
+            _updating = false;
+            if (err == null) { AppendLog("Update installed — restarting."); _reallyExit = true; Close(); return; }
+            AppendLog("Update failed: " + err);
+            if (System.Windows.MessageBox.Show("Update failed: " + err + "\n\nOpen the releases page?", "SteamTV update",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                Process.Start(new ProcessStartInfo(UpdateChecker.ReleasesPageUrl) { UseShellExecute = true });
         }
 
         // -------------------------------------------------------------------------
@@ -192,6 +223,29 @@ namespace SteamTV
                 return "done";
             }));
 
+            TestButtonsPanel.Children.Add(TestBtn("Sleep TV", () =>
+            {
+                new Adb(_settings.AdbPath, _settings.TvIp).SleepTv();
+                return "sent";
+            }));
+            TestButtonsPanel.Children.Add(TestBtn("TV: connected HDMI inputs", () =>
+            {
+                var adb = new Adb(_settings.AdbPath, _settings.TvIp);
+                adb.Connect();
+                var ports = adb.ConnectedHdmiPorts();
+                return ports.Count == 0 ? "none reported" : "HDMI " + string.Join(", ", ports) + " · showing " + (adb.GetForegroundComponent() ?? "?");
+            }));
+            TestButtonsPanel.Children.Add(TestBtn("List Sound Devices", () =>
+            {
+                string current = AudioSwitcher.GetDefaultId();
+                return string.Join(" | ", AudioSwitcher.ListPlayback().Select(d => (d.Id == current ? "[default] " : "") + d.Name));
+            }));
+            TestButtonsPanel.Children.Add(TestBtn("TV HDR State", () =>
+            {
+                bool? hdr = DisplayManager.GetHdr(_settings.TargetDisplay);
+                return hdr == null ? "not supported / display off" : (hdr.Value ? "on" : "off");
+            }));
+
             TestButtonsPanel.Children.Add(TestBtn("Set Highest Refresh Rate", () =>
             {
                 string err;
@@ -233,6 +287,11 @@ namespace SteamTV
             ChkWakeTV.IsChecked = _settings.EnableWakeTV;
             ChkSourceSwitch.IsChecked = _settings.EnableSourceSwitch;
             ChkBigPicture.IsChecked = _settings.EnableBigPicture;
+            ChkSwitchAudio.IsChecked = _settings.SwitchAudio;
+            ChkHdr.IsChecked = _settings.EnableHdr;
+            ChkRestoreTvApp.IsChecked = _settings.RestoreTvApp;
+            ChkSleepTv.IsChecked = _settings.SleepTvAfter;
+            TxtTvAudioDevice.Text = _settings.TvAudioDevice;
             ChkAutostart.IsChecked = IsAutostartEnabled();
             TxtAdbPath.Text = _settings.AdbPath;
             TxtSteamPath.Text = _settings.SteamPath;
@@ -260,6 +319,11 @@ namespace SteamTV
             _settings.EnableWakeTV = ChkWakeTV.IsChecked == true;
             _settings.EnableSourceSwitch = ChkSourceSwitch.IsChecked == true;
             _settings.EnableBigPicture = ChkBigPicture.IsChecked == true;
+            _settings.SwitchAudio = ChkSwitchAudio.IsChecked == true;
+            _settings.EnableHdr = ChkHdr.IsChecked == true;
+            _settings.RestoreTvApp = ChkRestoreTvApp.IsChecked == true;
+            _settings.SleepTvAfter = ChkSleepTv.IsChecked == true;
+            _settings.TvAudioDevice = TxtTvAudioDevice.Text.Trim();
             _settings.AdbPath = string.IsNullOrWhiteSpace(TxtAdbPath.Text) ? "adb.exe" : TxtAdbPath.Text.Trim();
             _settings.SteamPath = TxtSteamPath.Text.Trim();
             _settings.TvHomeComponent = TxtTvHomeComponent.Text.Trim();
@@ -274,7 +338,7 @@ namespace SteamTV
             string problem = null;
             System.Net.IPAddress addr;
             if (string.IsNullOrWhiteSpace(TxtIp.Text))
-                problem = "Enter the TV IP address.";
+                problem = "No TV set yet — click \"Set up automatically\" on the Monitor tab.";
             else if (!System.Net.IPAddress.TryParse(TxtIp.Text.Trim(), out addr))
                 problem = "Invalid IP address format.";
             if (problem == null) return true;
@@ -311,492 +375,6 @@ namespace SteamTV
         }
 
         // -------------------------------------------------------------------------
-        // Home Assistant (MQTT)
-        // -------------------------------------------------------------------------
-
-        // Runs exactly what the matching button does, on the UI thread, so Start/Stop and the
-        // status line update the same way as from a click.
-        private void OnHaCommand(HaSwitch sw, bool on)
-        {
-            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnHaCommand(sw, on))); return; }
-            if (sw == HaSwitch.Monitoring)
-            {
-                if (on) StartMonitor(interactive: false);
-                else _monitor.Stop();
-            }
-            else
-            {
-                if (on) ActivateNow(interactive: false);
-                else DeactivateNow(interactive: false);
-            }
-            UpdateStatusLabel();
-        }
-
-        private void OnHaPowerCommand(HaPower p)
-        {
-            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnHaPowerCommand(p))); return; }
-            if (p == HaPower.Sleep)
-            {
-                // A moment for the MQTT acknowledgement and the log line to go out before the PC freezes.
-                AppendLog("Home Assistant: going to sleep.");
-                Task.Delay(1500).ContinueWith(_ =>
-                {
-                    string err = PowerControl.Sleep();
-                    if (err != null) AppendLog("Home Assistant: sleep FAILED — " + err);
-                });
-                return;
-            }
-            string what = p == HaPower.Shutdown ? "shutting down" : "restarting";
-            string error = p == HaPower.Shutdown ? PowerControl.Shutdown() : PowerControl.Restart();
-            if (error != null) { AppendLog("Home Assistant: " + what + " FAILED — " + error); return; }
-            AppendLog("Home Assistant: " + what + " in " + PowerControl.ShutdownDelaySec + " s (cancel: shutdown /a).");
-            ShowTrayBalloon("SteamTV", "Home Assistant: " + what + " in " + PowerControl.ShutdownDelaySec + " s. Run \"shutdown /a\" to cancel.");
-        }
-
-        private void UpdateMqttPowerInfo()
-        {
-            LblMqttPowerInfo.Text = ChkMqttPower.IsChecked == true
-                ? "Sleep, Shut down and Restart buttons appear on the SteamTV device in Home Assistant. Shut down and Restart give a "
-                  + PowerControl.ShutdownDelaySec + "-second Windows warning first. They only work while SteamTV runs, i.e. after you sign in to Windows."
-                : "Off: Home Assistant gets no power buttons, and power commands are ignored.";
-        }
-
-        private void ChkMqttPower_Changed(object sender, RoutedEventArgs e)
-        {
-            UpdateMqttPowerInfo();
-            if (_loadingUi) return;
-            _settings.MqttPowerButtons = ChkMqttPower.IsChecked == true;
-            _settings.Save();
-            // Reconnect re-announces discovery, which adds or removes the buttons in HA.
-            if (_settings.MqttEnabled) StartMqtt();
-        }
-
-        private void OnMqttStatus(string status)
-        {
-            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnMqttStatus(status))); return; }
-            LblMqttStatus.Text = "● " + status;
-            LblMqttStatus.Foreground = status.StartsWith("Connected", StringComparison.Ordinal) ? System.Windows.Media.Brushes.Green
-                : status == "Off" ? System.Windows.Media.Brushes.Gray
-                : System.Windows.Media.Brushes.OrangeRed;
-        }
-
-        private void SaveMqttUiToSettings()
-        {
-            _settings.MqttEnabled = ChkMqttEnabled.IsChecked == true;
-            _settings.MqttHost = TxtMqttHost.Text.Trim();
-            _settings.MqttPort = (int)(NumMqttPort.Value ?? 1883);
-            _settings.MqttUser = TxtMqttUser.Text.Trim();
-            _settings.MqttPassword = PwdMqtt.Password;
-            _settings.Save();
-        }
-
-        private void StartMqtt()
-        {
-            if (string.IsNullOrWhiteSpace(_settings.MqttHost))
-            {
-                _ha.Stop();
-                OnMqttStatus("Not connected: enter the broker host");
-                return;
-            }
-            _ha.Start(MqttConfig.From(_settings));
-        }
-
-        private void ApplyMqtt()
-        {
-            SaveMqttUiToSettings();
-            if (_settings.MqttEnabled) StartMqtt();
-            else if (_ha.IsStarted) { _ha.Stop(); AppendLog("Home Assistant integration switched off."); }
-        }
-
-        private void ChkMqttEnabled_Changed(object sender, RoutedEventArgs e)
-        {
-            if (!_loadingUi) ApplyMqtt();
-        }
-
-        private void BtnMqttApply_Click(object sender, RoutedEventArgs e) => ApplyMqtt();
-
-        private async void BtnMqttTest_Click(object sender, RoutedEventArgs e)
-        {
-            var cfg = new MqttConfig
-            {
-                Host = TxtMqttHost.Text.Trim(), Port = (int)(NumMqttPort.Value ?? 1883),
-                User = TxtMqttUser.Text.Trim(), Password = PwdMqtt.Password, DeviceId = _settings.MqttDeviceId,
-            };
-            if (string.IsNullOrEmpty(cfg.Host)) { AppendLog("[Test] MQTT: enter the broker host first."); return; }
-
-            BtnMqttTest.IsEnabled = false;
-            AppendLog("[Test] MQTT: connecting to " + cfg.Host + ":" + cfg.Port + "...");
-            string err = await HomeAssistantMqtt.TestAsync(cfg);
-            AppendLog("[Test] MQTT → " + (err == null ? "connected and logged in ✓" : "FAILED: " + err));
-            BtnMqttTest.IsEnabled = true;
-        }
-
-        // -------------------------------------------------------------------------
-        // Devices tab
-        // -------------------------------------------------------------------------
-
-        public sealed class DeviceRow : INotifyPropertyChanged
-        {
-            private static readonly System.Windows.Media.Brush ConnectedBrush = System.Windows.Media.Brushes.LimeGreen;
-            private static readonly System.Windows.Media.Brush DisconnectedBrush = System.Windows.Media.Brushes.Gray;
-
-            private string _name, _category, _bus;
-            private bool _enabled, _connected, _watched;
-
-            public string Key { get; set; }
-            internal WatchedDevice Watched { get; set; }   // set only on rows of the trigger list
-
-            private string _detail;
-            public string Detail { get => _detail; set => Set(ref _detail, value, nameof(Detail)); }   // row tooltip
-
-            public string Name { get => _name; set => Set(ref _name, value, nameof(Name)); }
-            public string Bus { get => _bus; set => Set(ref _bus, value, nameof(Bus)); }
-            public string Category
-            {
-                get => _category;
-                set { if (Set(ref _category, value, nameof(Category))) Raise(nameof(CategoryRank)); }
-            }
-            public int CategoryRank
-            {
-                get { int i = Array.IndexOf(DeviceScanner.CategoryOrder, _category); return i < 0 ? 99 : i; }
-            }
-            public bool Enabled { get => _enabled; set => Set(ref _enabled, value, nameof(Enabled)); }
-            public bool IsWatched { get => _watched; set => Set(ref _watched, value, nameof(IsWatched)); }
-            public bool IsConnected
-            {
-                get => _connected;
-                set { if (Set(ref _connected, value, nameof(IsConnected))) { Raise(nameof(Status)); Raise(nameof(StatusBrush)); } }
-            }
-            public string Status => _connected ? "● Connected" : "○ Offline";
-            public System.Windows.Media.Brush StatusBrush => _connected ? ConnectedBrush : DisconnectedBrush;
-
-            public event PropertyChangedEventHandler PropertyChanged;
-            private void Raise(string p) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(p));
-            private bool Set<T>(ref T field, T value, string p)
-            {
-                if (Equals(field, value)) return false;
-                field = value;
-                Raise(p);
-                return true;
-            }
-        }
-
-        private const string AllCategories = "All categories";
-        private readonly System.Collections.ObjectModel.ObservableCollection<DeviceRow> _watchedRows =
-            new System.Collections.ObjectModel.ObservableCollection<DeviceRow>();
-        private readonly System.Collections.ObjectModel.ObservableCollection<DeviceRow> _deviceRows =
-            new System.Collections.ObjectModel.ObservableCollection<DeviceRow>();
-        private List<ExternalDevice> _lastScan = new List<ExternalDevice>();
-        private bool _scanPending;
-        private int _scanTick;
-
-        // -------------------------------------------------------------------------
-        // Device-change notifications — instant reaction instead of waiting for the next poll
-        // -------------------------------------------------------------------------
-
-        private IntPtr _devNotifyHandle;
-        private DispatcherTimer _devChangeDebounce;
-
-        protected override void OnSourceInitialized(EventArgs e)
-        {
-            base.OnSourceInitialized(e);
-            var hwnd = new WindowInteropHelper(this).Handle;
-            HwndSource.FromHwnd(hwnd)?.AddHook(WndProc);
-            _devNotifyHandle = Native.RegisterForAllDeviceInterfaces(hwnd);
-            _hotkeys = new GlobalHotkeys(hwnd);
-            var errors = _hotkeys.ApplyEach(_settings.ActivateHotkey, _settings.DeactivateHotkey);
-            if (errors.Length > 0)
-            {
-                LblHotkeys.Text = string.Join("\n", errors);
-                foreach (var err in errors) AppendLog(err);
-                ShowTrayBalloon("SteamTV", string.Join("\n", errors) + "\nChange it on the Advanced tab.");
-            }
-        }
-
-        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
-        {
-            if (msg == 0x0312 && (wParam.ToInt32() == GlobalHotkeys.ActivateId || wParam.ToInt32() == GlobalHotkeys.DeactivateId))
-            {
-                handled = true;
-                bool activate = wParam.ToInt32() == GlobalHotkeys.ActivateId;
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    if (TxtActivateHotkey.IsKeyboardFocused || TxtDeactivateHotkey.IsKeyboardFocused) return;
-                    AppendLog("Hotkey: " + (activate ? "Activate now" : "Deactivate / Restore"));
-                    if (activate) ActivateNow(false); else DeactivateNow(false);
-                }));
-            }
-            if (msg == Native.WM_DEVICECHANGE)
-            {
-                long ev = wParam.ToInt64();
-                if (ev == Native.DBT_DEVNODES_CHANGED || ev == Native.DBT_DEVICEARRIVAL || ev == Native.DBT_DEVICEREMOVECOMPLETE)
-                {
-                    _monitor.NotifyDevicesChanged();
-                    // One plug-in fires a burst of these; refresh the grids once it settles.
-                    _devChangeDebounce.Stop();
-                    _devChangeDebounce.Start();
-                }
-            }
-            return IntPtr.Zero;
-        }
-
-        private void InitDevicesTab()
-        {
-            _devChangeDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-            _devChangeDebounce.Tick += (s, e) =>
-            {
-                _devChangeDebounce.Stop();
-                if (IsVisible && Tabs.SelectedIndex == 1) ScanDevices();
-            };
-
-            GridWatched.ItemsSource = _watchedRows;
-            GridConnected.ItemsSource = _deviceRows;
-
-            var view = System.Windows.Data.CollectionViewSource.GetDefaultView(_deviceRows);
-            view.SortDescriptions.Add(new SortDescription(nameof(DeviceRow.CategoryRank), ListSortDirection.Ascending));
-            view.SortDescriptions.Add(new SortDescription(nameof(DeviceRow.Name), ListSortDirection.Ascending));
-            view.Filter = o =>
-            {
-                string cat = CmbCategory.SelectedItem as string;
-                return cat == null || cat == AllCategories || ((DeviceRow)o).Category == cat;
-            };
-
-            CmbCategory.Items.Add(AllCategories);
-            foreach (var c in DeviceScanner.CategoryOrder) CmbCategory.Items.Add(c);
-            CmbCategory.SelectedIndex = 0;
-
-            RebuildWatchedRows();
-        }
-
-        private void RebuildWatchedRows()
-        {
-            _watchedRows.Clear();
-            foreach (var w in _settings.WatchedDevices)
-            {
-                var row = new DeviceRow
-                {
-                    Key = w.Key, Watched = w, Name = w.DisplayName, Category = w.Category, Enabled = w.Enabled,
-                    Detail = WatchedDetail(w),
-                };
-                // Hooked after the initial values so building the list doesn't trigger saves.
-                row.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(DeviceRow.Enabled)) OnWatchedEnabledChanged((DeviceRow)s); };
-                _watchedRows.Add(row);
-            }
-            ApplyScanToRows();
-        }
-
-        private static string WatchedDetail(WatchedDevice w)
-        {
-            string what = w.Action == TriggerAction.TvOnly ? "On connect: TV only" : "On connect: TV + Big Picture";
-            if (w.RestoreOnDisconnect) what += " · restores on disconnect";
-            return (string.IsNullOrWhiteSpace(w.Alias) ? "" : w.Name + " · ") + w.Key + "\n" + what;
-        }
-
-        // Rescans in the background; skips if a scan is already running.
-        private void ScanDevices()
-        {
-            if (_scanPending) return;
-            _scanPending = true;
-            Task.Run(() =>
-            {
-                List<ExternalDevice> devices = null;
-                string error = null;
-                try { devices = DeviceScanner.Scan(); }
-                catch (Exception ex) { error = ex.Message; }
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    _scanPending = false;
-                    if (error != null) { AppendLog("Device scan failed: " + error); return; }
-                    _lastScan = devices;
-                    ApplyScanToRows();
-                }));
-            });
-        }
-
-        // Merges the latest scan into both grids in place, so selection and sort order survive live updates.
-        private void ApplyScanToRows()
-        {
-            var byKey = _lastScan.ToDictionary(d => d.Key, StringComparer.OrdinalIgnoreCase);
-            var watchedKeys = new HashSet<string>(_settings.WatchedDevices.Select(w => w.Key), StringComparer.OrdinalIgnoreCase);
-
-            bool dirty = false;
-            foreach (var row in _watchedRows)
-            {
-                ExternalDevice d;
-                bool found = byKey.TryGetValue(row.Key, out d);
-                row.IsConnected = found && d.IsConnected;
-                // Entries saved by older versions carry WMI's generic names ("HID-compliant game
-                // controller") — pick up the real product name the first time the device is seen.
-                // The user's own alias is never touched — only the product name underneath it.
-                if (found && row.Watched != null && (row.Watched.Name != d.Name || row.Watched.Category != d.Category))
-                {
-                    row.Watched.Name = d.Name;
-                    row.Watched.Category = row.Category = d.Category;
-                    row.Name = row.Watched.DisplayName;
-                    row.Detail = WatchedDetail(row.Watched);
-                    if (row == _panelRow) TxtAlias.PlaceholderText = d.Name;
-                    dirty = true;
-                }
-            }
-            if (dirty) _settings.Save();
-
-            var existing = _deviceRows.ToDictionary(r => r.Key, StringComparer.OrdinalIgnoreCase);
-            foreach (var row in existing.Values.Where(r => !byKey.ContainsKey(r.Key)).ToList())
-                _deviceRows.Remove(row);
-            foreach (var d in _lastScan)
-            {
-                DeviceRow row;
-                if (!existing.TryGetValue(d.Key, out row))
-                    _deviceRows.Add(row = new DeviceRow { Key = d.Key });
-                row.Name = d.Name;
-                row.Detail = d.Key;
-                row.Category = d.Category;
-                row.Bus = d.Bus;
-                row.IsConnected = d.IsConnected;
-                row.IsWatched = watchedKeys.Contains(d.Key);
-            }
-
-            LblNoDevices.Visibility = _settings.WatchedDevices.Any(w => w.Enabled) ? Visibility.Collapsed : Visibility.Visible;
-        }
-
-        private void AddSelectedDevice()
-        {
-            var row = GridConnected.SelectedItem as DeviceRow;
-            if (row == null) return;
-            if (_settings.WatchedDevices.Any(w => string.Equals(w.Key, row.Key, StringComparison.OrdinalIgnoreCase)))
-            {
-                GridWatched.SelectedItem = _watchedRows.FirstOrDefault(r => string.Equals(r.Key, row.Key, StringComparison.OrdinalIgnoreCase));
-                return;
-            }
-            // Copy-on-write: the monitor thread reads this list without a lock.
-            _settings.WatchedDevices = new List<WatchedDevice>(_settings.WatchedDevices)
-            {
-                new WatchedDevice { Key = row.Key, Name = row.Name, Category = row.Category, Enabled = true }
-            };
-            _settings.Save();
-            RebuildWatchedRows();
-        }
-
-        private void RemoveSelectedDevice()
-        {
-            var row = GridWatched.SelectedItem as DeviceRow;
-            if (row == null) return;
-            _settings.WatchedDevices = _settings.WatchedDevices.Where(w => w != row.Watched).ToList();
-            _settings.Save();
-            RebuildWatchedRows();
-        }
-
-        private void OnWatchedEnabledChanged(DeviceRow row)
-        {
-            row.Watched.Enabled = row.Enabled;
-            _settings.Save();
-            LblNoDevices.Visibility = _settings.WatchedDevices.Any(w => w.Enabled) ? Visibility.Collapsed : Visibility.Visible;
-        }
-
-        // --- Selected-device settings panel -------------------------------------
-
-        // The device the panel is currently showing. Tracked separately from GridWatched.SelectedItem
-        // because clicking another row can change the selection *before* the name box loses focus —
-        // committing against SelectedItem then would save the typed name onto the wrong device.
-        private DeviceRow _panelRow;
-        private bool _fillingPanel;
-
-        private void GridWatched_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            CommitAlias();   // whatever was typed belongs to the previously shown device
-            _panelRow = (GridWatched.SelectedItem as DeviceRow)?.Watched != null ? (DeviceRow)GridWatched.SelectedItem : null;
-            PnlDevice.Visibility = _panelRow != null ? Visibility.Visible : Visibility.Collapsed;
-            PnlNoSelection.Visibility = _panelRow != null ? Visibility.Collapsed : Visibility.Visible;
-            if (_panelRow == null) return;
-
-            var w = _panelRow.Watched;
-            _fillingPanel = true;
-            TxtAlias.Text = w.Alias ?? "";
-            TxtAlias.PlaceholderText = w.Name;
-            CmbAction.SelectedIndex = w.Action == TriggerAction.TvOnly ? 1 : 0;
-            ChkRestoreOnDisconnect.IsChecked = w.RestoreOnDisconnect;
-            _fillingPanel = false;
-        }
-
-        private void CommitAlias()
-        {
-            if (_panelRow == null || _fillingPanel) return;
-            var w = _panelRow.Watched;
-            string alias = TxtAlias.Text.Trim();
-            if (alias == (w.Alias ?? "")) return;
-            w.Alias = alias.Length == 0 ? null : alias;
-            _settings.Save();
-            _panelRow.Name = w.DisplayName;
-            _panelRow.Detail = WatchedDetail(w);
-        }
-
-        private void TxtAlias_LostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e) => CommitAlias();
-
-        private void TxtAlias_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
-        {
-            if (e.Key == System.Windows.Input.Key.Enter) CommitAlias();
-            else if (e.Key == System.Windows.Input.Key.Escape && _panelRow != null) TxtAlias.Text = _panelRow.Watched.Alias ?? "";
-        }
-
-        private void CmbAction_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            e.Handled = true;
-            if (_panelRow == null || _fillingPanel) return;
-            _panelRow.Watched.Action = CmbAction.SelectedIndex == 1 ? TriggerAction.TvOnly : TriggerAction.TvAndBigPicture;
-            _settings.Save();
-            _panelRow.Detail = WatchedDetail(_panelRow.Watched);
-        }
-
-        private void ChkRestoreOnDisconnect_Changed(object sender, RoutedEventArgs e)
-        {
-            if (_panelRow == null || _fillingPanel) return;
-            _panelRow.Watched.RestoreOnDisconnect = ChkRestoreOnDisconnect.IsChecked == true;
-            _settings.Save();
-            _panelRow.Detail = WatchedDetail(_panelRow.Watched);
-        }
-
-        private void CmbCategory_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
-            System.Windows.Data.CollectionViewSource.GetDefaultView(_deviceRows)?.Refresh();
-
-        private void GridConnected_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            if (IsOnRow(e)) AddSelectedDevice();
-        }
-
-        // Ignore double-clicks on headers / empty space under the last row.
-        private static bool IsOnRow(System.Windows.Input.MouseButtonEventArgs e)
-        {
-            var d = e.OriginalSource as DependencyObject;
-            while (d != null && !(d is DataGridRow) && !(d is System.Windows.Controls.Primitives.DataGridColumnHeader))
-                d = System.Windows.Media.VisualTreeHelper.GetParent(d);
-            return d is DataGridRow;
-        }
-
-        // -------------------------------------------------------------------------
-        // Display list popup
-        // -------------------------------------------------------------------------
-
-        private void ShowDisplaysList()
-        {
-            var list = DisplayManager.ListDisplays();
-            if (list.Count == 0)
-            {
-                System.Windows.MessageBox.Show("Failed to retrieve display list.", "Displays");
-                return;
-            }
-            var sb = new StringBuilder();
-            sb.AppendLine("Detected displays (number as in Windows Screen Settings):");
-            sb.AppendLine();
-            foreach (var d in list)
-                sb.AppendLine("#" + d.Number + "  " +
-                    (d.Active ? "[active]  " : "[off]     ") +
-                    (string.IsNullOrEmpty(d.FriendlyName) ? "(name unavailable)" : d.FriendlyName));
-            sb.AppendLine();
-            sb.AppendLine("Enter the TV display number in \"Target display #\".");
-            System.Windows.MessageBox.Show(sb.ToString(), "Displays");
-        }
-
-        // -------------------------------------------------------------------------
         // Status + ADB check
         // -------------------------------------------------------------------------
 
@@ -807,7 +385,9 @@ namespace SteamTV
             bool canEdit = !running;
             TxtIp.IsEnabled = NumHdmiPort.IsEnabled = NumTarget.IsEnabled = canEdit;
             ChkDisableOthers.IsEnabled = ChkWakeTV.IsEnabled = ChkSourceSwitch.IsEnabled = canEdit;
-            ChkBigPicture.IsEnabled = canEdit;
+            ChkBigPicture.IsEnabled = ChkSwitchAudio.IsEnabled = ChkHdr.IsEnabled = canEdit;
+            ChkRestoreTvApp.IsEnabled = ChkSleepTv.IsEnabled = canEdit;
+            BtnAutoSetup.IsEnabled = BtnFindTv.IsEnabled = BtnDetectDisplay.IsEnabled = canEdit;
             BtnStart.IsEnabled = canEdit;
             BtnStop.IsEnabled = running;
         }
@@ -853,6 +433,7 @@ namespace SteamTV
                             // a reboot), so after ~45s of failures, point at the actual fix.
                             if (ok || !_monitor.IsRunning) { _adbFailStreak = 0; _adbFailNotified = false; return; }
                             _adbFailStreak++;
+                            if (_adbFailStreak == 3) _ = LookForMovedTvAsync();
                             if (_adbFailStreak >= 3 && !_adbFailNotified)
                             {
                                 _adbFailNotified = true;
@@ -862,6 +443,20 @@ namespace SteamTV
                     });
                 }
             }
+        }
+
+        // ADB stopped answering: maybe the router gave the TV another address. Its MAC tells.
+        private async Task LookForMovedTvAsync()
+        {
+            string ip = await TvDiscovery.FindByMacAsync(_settings.TvMac);
+            if (ip == null || ip == _settings.TvIp) return;
+            AppendLog("TV found at a new address: " + ip + " (was " + _settings.TvIp + ").");
+            _settings.TvIp = ip;
+            _settings.Save();
+            TxtIp.Text = ip;
+            _adbFailStreak = 0;
+            _lastAdbCheck = DateTime.MinValue;   // re-check right away
+            ShowTrayBalloon("SteamTV", "The TV got a new IP address (" + ip + ") — settings updated.");
         }
 
         private void UpdateStatusLabel()
@@ -899,6 +494,7 @@ namespace SteamTV
         private void AppendLog(string msg)
         {
             if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => AppendLog(msg))); return; }
+            AppLog.Write(msg);
             TxtLog.AppendText("[" + DateTime.Now.ToString("HH:mm:ss") + "] " + msg + Environment.NewLine);
             if (TxtLog.Text.Length > 20000)
                 TxtLog.Text = TxtLog.Text.Substring(TxtLog.Text.Length - 12000);
@@ -911,148 +507,6 @@ namespace SteamTV
         {
             if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => ShowTrayBalloon(title, message))); return; }
             _tray?.ShowBalloonTip(6000, title, message, Forms.ToolTipIcon.Warning);
-        }
-
-        // -------------------------------------------------------------------------
-        // Autostart
-        // -------------------------------------------------------------------------
-
-        private static bool IsAutostartEnabled()
-        {
-            try
-            {
-                using (var k = Registry.CurrentUser.OpenSubKey(RunKeyPath))
-                    return k?.GetValue(RunValueName) != null;
-            }
-            catch { return false; }
-        }
-
-        private void SetAutostart(bool enable)
-        {
-            try
-            {
-                using (var k = Registry.CurrentUser.OpenSubKey(RunKeyPath, true))
-                {
-                    if (k == null) return;
-                    if (enable)
-                        k.SetValue(RunValueName, "\"" + System.Reflection.Assembly.GetEntryAssembly().Location + "\" -autostart");
-                    else
-                        k.DeleteValue(RunValueName, false);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Windows.MessageBox.Show("Failed to change autostart: " + ex.Message, "SteamTV",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
-
-        // -------------------------------------------------------------------------
-        // Tray icon
-        // -------------------------------------------------------------------------
-
-        private static System.Drawing.Icon LoadAppIcon()
-        {
-            try { return System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetEntryAssembly().Location); }
-            catch { return SystemIcons.Application; }
-        }
-
-        // Overlays a small colored status dot (bottom-right) on the app icon, for the tray.
-        private static System.Drawing.Icon BuildStatusIcon(System.Drawing.Icon baseIcon, System.Drawing.Color? dotColor)
-        {
-            using (var bmp = baseIcon.ToBitmap())
-            {
-                if (dotColor != null)
-                {
-                    using (var g = System.Drawing.Graphics.FromImage(bmp))
-                    {
-                        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                        int size = Math.Max(4, bmp.Width / 2);
-                        var rect = new System.Drawing.Rectangle(bmp.Width - size, bmp.Height - size, size, size);
-                        using (var brush = new System.Drawing.SolidBrush(dotColor.Value))
-                            g.FillEllipse(brush, rect);
-                        using (var pen = new System.Drawing.Pen(System.Drawing.Color.White, 1.5f))
-                            g.DrawEllipse(pen, rect);
-                    }
-                }
-                return System.Drawing.Icon.FromHandle(bmp.GetHicon());
-            }
-        }
-
-        private void BuildTray()
-        {
-            var baseIcon = LoadAppIcon();
-            _trayIconUnknown = BuildStatusIcon(baseIcon, null);
-            _trayIconOk = BuildStatusIcon(baseIcon, System.Drawing.Color.LimeGreen);
-            _trayIconBad = BuildStatusIcon(baseIcon, System.Drawing.Color.Red);
-
-            _miTrayAdbStatus = new Forms.ToolStripMenuItem("ADB: —") { Enabled = false };
-            _miTrayMonitorStatus = new Forms.ToolStripMenuItem("Monitoring: —") { Enabled = false };
-
-            _miTrayAutostart = new Forms.ToolStripMenuItem("Autostart app") { CheckOnClick = true };
-            _miTrayAutostart.Click += (s, e) =>
-            {
-                // Sync with Monitor tab checkbox — its Checked/Unchecked handler calls SetAutostart()
-                ChkAutostart.IsChecked = _miTrayAutostart.Checked;
-            };
-
-            _miTrayAutoMonitor = new Forms.ToolStripMenuItem("Auto-start monitoring on launch") { CheckOnClick = true };
-            _miTrayAutoMonitor.Click += (s, e) =>
-            {
-                _settings.AutoMonitorOnStart = _miTrayAutoMonitor.Checked;
-                _settings.Save();
-            };
-
-            var menu = new Forms.ContextMenuStrip();
-            menu.Opening += (s, e) =>
-            {
-                // Refresh checked/status state each time the menu opens
-                _miTrayAutostart.Checked = IsAutostartEnabled();
-                _miTrayAutoMonitor.Checked = _settings.AutoMonitorOnStart;
-                _miTrayAdbStatus.Text = "ADB: " + (_lastAdbReachable == null
-                    ? "checking…" : (_lastAdbReachable.Value ? "reachable ✓" : "not reachable ✗"));
-                _miTrayMonitorStatus.Text = "Monitoring: " + (_monitor.IsRunning ? "running ✓" : "stopped");
-            };
-            menu.Items.Add(_miTrayAdbStatus);
-            menu.Items.Add(_miTrayMonitorStatus);
-            menu.Items.Add(new Forms.ToolStripSeparator());
-            menu.Items.Add("Show", null, (s, e) => RestoreFromTray());
-            menu.Items.Add("Start monitoring", null, (s, e) => StartMonitor());
-            menu.Items.Add("Stop monitoring", null, (s, e) => _monitor.Stop());
-            menu.Items.Add(new Forms.ToolStripSeparator());
-            menu.Items.Add(_miTrayAutostart);
-            menu.Items.Add(_miTrayAutoMonitor);
-            menu.Items.Add(new Forms.ToolStripSeparator());
-            menu.Items.Add("Exit", null, (s, e) => { _reallyExit = true; Close(); });
-
-            _tray = new Forms.NotifyIcon
-            {
-                Text = "SteamTV Monitor",
-                Icon = _trayIconUnknown,
-                Visible = true,
-                ContextMenuStrip = menu
-            };
-            _tray.DoubleClick += (s, e) => RestoreFromTray();
-            _tray.BalloonTipClicked += (s, e) =>
-            {
-                if (_updateAvailable)
-                    Process.Start(new ProcessStartInfo(UpdateChecker.ReleasesPageUrl) { UseShellExecute = true });
-            };
-        }
-
-        private void HideToTray()
-        {
-            _tray.Visible = true;
-            Hide();
-            ShowInTaskbar = false;
-        }
-
-        private void RestoreFromTray()
-        {
-            Show();
-            ShowInTaskbar = true;
-            WindowState = WindowState.Normal;
-            Activate();
         }
 
         // -------------------------------------------------------------------------

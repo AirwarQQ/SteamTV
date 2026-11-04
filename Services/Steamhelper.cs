@@ -76,8 +76,31 @@ namespace SteamTV
             }
         }
 
+        // Where Steam itself says it lives (it writes this on every start), then the machine-wide install key.
+        public static string FindSteamExe()
+        {
+            try
+            {
+                using (var k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam"))
+                {
+                    var exe = k?.GetValue("SteamExe") as string;
+                    if (!string.IsNullOrEmpty(exe) && File.Exists(exe)) return Path.GetFullPath(exe);
+                }
+                foreach (var key in new[] { @"SOFTWARE\WOW6432Node\Valve\Steam", @"SOFTWARE\Valve\Steam" })
+                    using (var k = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(key))
+                    {
+                        var dir = k?.GetValue("InstallPath") as string;
+                        if (!string.IsNullOrEmpty(dir) && File.Exists(Path.Combine(dir, "steam.exe"))) return Path.Combine(dir, "steam.exe");
+                    }
+            }
+            catch { }
+            return null;
+        }
+
         public static bool StartBigPicture(string steamPath, out string error)
         {
+            if (string.IsNullOrWhiteSpace(steamPath) || !File.Exists(steamPath))
+                steamPath = FindSteamExe() ?? steamPath;   // Steam moved since the path was saved
             if (string.IsNullOrWhiteSpace(steamPath) || !File.Exists(steamPath))
             {
                 error = "steam.exe not found at '" + steamPath + "' — check the path on the Advanced tab.";

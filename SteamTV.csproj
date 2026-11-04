@@ -13,11 +13,14 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <!-- Shown in the title bar — bump this alongside each git release tag. -->
-    <Version>1.12.0</Version>
+    <Version>1.13.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
     <Reference Include="System.Net.Http" />
+    <!-- Self-update unpacks the release zip. -->
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
     <!-- ProtectedData (DPAPI) — keeps the MQTT password out of the registry in plain text. -->
     <Reference Include="System.Security" />
   </ItemGroup>

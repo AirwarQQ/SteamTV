@@ -223,7 +223,16 @@ Discovery and states are published again whenever Home Assistant restarts (`home
 - If the TV did switch but SteamTV still rolled back, set an HDMI activity pattern override — see [Manual values](#manual-values).
 
 **Wrong display turned on**
-- Use **Displays…** to find the TV's number; it matches `\\.\DISPLAYn` in Windows display settings.
+- Click **Detect TV display**, or use **Displays…** to find the TV's number; it matches `\\.\DISPLAYn` in Windows display settings.
+
+**Set up automatically finds no TV**
+- The PC and the TV must be on the same network, and USB / network debugging must be on in the TV's Developer options. If the TV has no network debugging at all, enter its IP by hand.
+- Several Android devices found: pick the TV in the list next to **Find TV**, then click **Set up automatically** again.
+
+**Sound stays on the PC**
+- The TV's sound device only exists while its display is on. Check the **List Sound Devices** button on the Test tab during a session — if the TV's device has an unusual name, enter part of it as **TV sound device** on the Advanced tab.
+
+**Something else** — the tray menu's **Open log file** shows everything SteamTV did, also from before the last restart.
 
 **Device not in the list**
 - Bluetooth devices have to be paired in Windows first.
@@ -246,20 +255,25 @@ Produces a single self-contained `bin\Release\net48\SteamTV.exe` — WPF-UI is m
 
 ```
 SteamTV/
-├─ App.xaml(.cs)            entry point: single instance, -autostart flag, theme
-├─ MainWindow.xaml(.cs)     UI: Monitor / Devices / Test / Home Assistant / Advanced tabs, tray icon
+├─ App.xaml(.cs)            entry point: single instance (a second start shows the window), -autostart flag, theme
+├─ MainWindow.xaml(.cs)     UI: Monitor / Test / Advanced tabs, status, log
+├─ MainWindow.*.cs          the rest of the window: AutoSetup, Devices, HomeAssistant, Tray, Setup (hotkeys, launcher)
 ├─ Appsettings.cs           registry-backed settings, WatchedDevice model
 ├─ app.manifest             per-monitor DPI awareness
 ├─ Interop/Native.cs        P/Invoke: CCD display API, device-change notifications
 ├─ Services/
 │  ├─ Monitorservice.cs     the main loop: trigger devices + Big Picture → activate / restore
 │  ├─ DeviceScanner.cs      external USB/Bluetooth devices via cfgmgr32
-│  ├─ Displaymanager.cs     enable / disable / restore monitors (SetDisplayConfig)
-│  ├─ Adb.cs, AdbBundle.cs  adb wrapper; unpacking the bundled adb.exe
-│  ├─ Steamhelper.cs        Big Picture: detect, launch, close; minimize Steam
+│  ├─ Displaymanager.cs     enable / disable / restore monitors (SetDisplayConfig), TV detection, HDR
+│  ├─ Adb.cs, AdbBundle.cs  adb wrapper (wake, HDMI switch, return/sleep); the bundled adb.exe
+│  ├─ TvDiscovery.cs        finding the TV on the network, its MAC, Wake-on-LAN
+│  ├─ AudioSwitcher.cs      default playback device (Core Audio / IPolicyConfig)
+│  ├─ Steamhelper.cs        Big Picture: detect, launch, close; minimize Steam; find steam.exe
 │  ├─ HomeAssistantMqtt.cs  MQTT discovery, switch states, commands from Home Assistant
 │  ├─ PowerControl.cs       sleep / shut down / restart, MAC for Wake on LAN
-│  └─ UpdateChecker.cs      new-release check on startup
+│  ├─ GlobalHotkeys.cs      Activate / Deactivate shortcuts
+│  ├─ UpdateChecker.cs, Updater.cs  new-release check; download, swap the exe, restart
+│  └─ AppLog.cs             log file in %LOCALAPPDATA%\SteamTV
 └─ Vendor/adb.exe           Android Platform Tools (Apache 2.0, see adb-NOTICE.txt)
 ```
 

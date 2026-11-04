@@ -23,14 +23,15 @@ h1 i { font-style: normal; background: linear-gradient(90deg, #ff7eb6, #9b8cff);
       <stop offset="0" stop-color="#1a1840"/><stop offset=".55" stop-color="#3b2c6e"/><stop offset=".85" stop-color="#8a4c8f"/><stop offset="1" stop-color="#e28aa9"/>
     </linearGradient>
     <radialGradient id="moonglow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff3f8" stop-opacity=".55"/><stop offset="1" stop-color="#fff3f8" stop-opacity="0"/></radialGradient>
+    <radialGradient id="moondisc" cx=".42" cy=".38" fx=".38" fy=".32" r=".7"><stop offset="0" stop-color="#fffbfd"/><stop offset=".6" stop-color="#fbe6ef"/><stop offset="1" stop-color="#efcfe0"/></radialGradient>
     <radialGradient id="tvglow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#7fd6ff" stop-opacity=".55"/><stop offset="1" stop-color="#7fd6ff" stop-opacity="0"/></radialGradient>
   </defs>
   <rect width="1600" height="400" fill="url(#sky)"/>
   <g transform="translate(444 -30) scale(1.7)">
     <g fill="#fff" opacity=".8"><circle cx="300" cy="30" r="1"/><circle cx="360" cy="58" r="1.2"/><circle cx="430" cy="22" r=".9"/><circle cx="500" cy="48" r="1.1"/><circle cx="610" cy="26" r="1"/><circle cx="650" cy="70" r=".8"/><circle cx="390" cy="96" r=".8"/><circle cx="560" cy="88" r="1"/><circle cx="250" cy="50" r=".9"/><circle cx="200" cy="20" r="1"/><circle cx="160" cy="70" r=".8"/></g>
     <circle cx="560" cy="62" r="60" fill="url(#moonglow)"/>
-    <circle cx="560" cy="62" r="26" fill="#fff1f6"/>
-    <circle cx="571" cy="55" r="22" fill="#3b2c6e" opacity=".18"/>
+    <circle cx="560" cy="62" r="26" fill="url(#moondisc)"/>
+    <g fill="#e3b9cf"><ellipse cx="551.5" cy="53" rx="6.5" ry="5" opacity=".45"/><ellipse cx="568" cy="65" rx="5" ry="4" opacity=".4"/><ellipse cx="555" cy="70.5" rx="3" ry="2.5" opacity=".35"/></g>
     <g fill="#2a2150">
       <rect x="230" y="166" width="30" height="70"/><rect x="264" y="140" width="32" height="96"/>
       <rect x="300" y="150" width="34" height="86"/><rect x="338" y="128" width="26" height="108"/><rect x="368" y="160" width="40" height="76"/><rect x="412" y="118" width="22" height="118"/>
@@ -49,14 +50,8 @@ h1 i { font-style: normal; background: linear-gradient(90deg, #ff7eb6, #9b8cff);
       <rect x="6" y="6" width="112" height="58" rx="3" fill="#1f3a5c"/>
       <path d="M42 22l26 13-26 13z" fill="#7fd6ff" opacity=".9"/>
     </g>
-    <g stroke="#1a1430" stroke-width="5" fill="none" stroke-linecap="round">
-      <path d="M690 4 C620 30 600 40 560 100"/><path d="M640 26 C630 50 640 70 650 84"/><path d="M600 60 C580 66 566 80 556 96"/>
-    </g>
-    <g fill="#ffb3d1">
-      <circle cx="636" cy="30" r="7"/><circle cx="648" cy="38" r="6"/><circle cx="626" cy="44" r="6"/><circle cx="652" cy="84" r="7"/><circle cx="642" cy="74" r="5"/>
-      <circle cx="582" cy="70" r="6"/><circle cx="560" cy="96" r="6"/><circle cx="596" cy="58" r="5"/><circle cx="668" cy="16" r="6"/>
-    </g>
-    <g fill="#ff8fbf"><circle cx="636" cy="30" r="2.5"/><circle cx="652" cy="84" r="2.5"/><circle cx="582" cy="70" r="2.5"/></g>
+    <!-- The same flat sakura branch as in the app (Assets/Branches/branch_2.png), placed as there -->
+    <image href="../../Assets/Branches/branch_2.png" x="445" y="15.2" width="255" height="153.6"/>
     <g fill="#ffd1e3" opacity=".85">
       <ellipse cx="520" cy="120" rx="4" ry="2.5" transform="rotate(30 520 120)"/><ellipse cx="470" cy="80" rx="3.5" ry="2" transform="rotate(-20 470 80)"/>
       <ellipse cx="610" cy="140" rx="4" ry="2.5" transform="rotate(50 610 140)"/><ellipse cx="400" cy="110" rx="3" ry="2" transform="rotate(10 400 110)"/>

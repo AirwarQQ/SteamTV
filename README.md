@@ -26,7 +26,7 @@ SteamTV turns the PC you have into a living-room console: pick up the controller
 - 🖥️ **Your desk survives** — optionally only the TV stays on while you play; the exact monitor layout, refresh rate and sound device come back afterwards.
 - ⌨️ **Shortcuts and tray** — Ctrl+Alt+9 / Ctrl+Alt+0 (or one key for both), Play on TV / Back to PC from the tray.
 - 🏠 **Home Assistant** (optional) — switches for dashboards and voice assistants, plus Sleep / Shut down / Restart for the PC.
-- 🌙 **Cozy and quiet** — a calm night theme with a sakura scene, English and Russian, updates itself, lives in the tray.
+- 🌙 **Cozy and quiet** — a calm night theme with an animated sakura scene (one switch turns the animation off), English and Russian, checks for updates daily and installs them in a click, lives in the tray.
 
 ## Quick start
 
@@ -94,4 +94,4 @@ SteamTV is free and stays free. If it makes your evenings on the couch nicer, yo
 
 ---
 
-Built with [WPF-UI](https://github.com/lepoco/wpfui); headings in [M PLUS Rounded 1c](https://github.com/coz-m/MPLUS_FONTS) (SIL OFL); `adb.exe` from Android Platform Tools (Apache 2.0). The artwork is original. Build it yourself with `dotnet build -c Release`. Licensed under [MIT](LICENSE).
+Built with [WPF-UI](https://github.com/lepoco/wpfui); headings in [M PLUS Rounded 1c](https://github.com/coz-m/MPLUS_FONTS) (SIL OFL); `adb.exe` from Android Platform Tools (Apache 2.0). The sakura branches were drawn with AI image generation; the rest of the artwork is original. Build it yourself with `dotnet build -c Release`. Licensed under [MIT](LICENSE).

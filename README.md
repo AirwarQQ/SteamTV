@@ -11,12 +11,8 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/catgirl-couch.jpg" width="760" alt="A catgirl on the couch with a controller, offering you a coffee">
+  <img src="docs/screenshots/catgirl-couch.jpg" alt="Not sold on the Steam Machine? Your gaming PC already is one. Pick up the controller — the TV wakes up, switches to the PC and opens Big Picture. Close it, and your desk is back as you left it. No second box, no remote, no Win+P.">
 </p>
-
-**Not sold on the Steam Machine's specs — or its price? Your gaming PC already is one.**
-
-SteamTV turns the PC you have into a living-room console: pick up the controller and the TV wakes up, switches to the PC, the sound moves over and Steam Big Picture opens. Close Big Picture and your desk is back exactly as you left it — monitors, speakers, even the app the TV was showing. No second box, no remote, no Win+P, no walking to the PC.
 
 <p align="center">
   <img src="docs/screenshots/home.png" width="760" alt="SteamTV home page">
@@ -55,15 +51,8 @@ Turn on **Start with Windows** in Settings and you'll never need to open it agai
 - **Network debugging turns itself off** on many TVs after a reboot. On the author's TV, **tvQuickActions** keeps it on; [adb-auto-enable](https://github.com/mouldybread/adb-auto-enable) and [KeepADB](https://f-droid.org/packages/de.hohnepeople.keepadb/) do the same job.
 - **When a controller disconnects** SteamTV can go back to the PC by itself — turn it on per device on the Devices page; how long it waits is in Settings.
 
-## How it works
-
-1. **A trigger device connects** → wake the TV over ADB (Wi-Fi), turn on the TV display, switch the TV's HDMI input, move the sound, open Big Picture.
-2. **Big Picture closes** (or the controller has been gone for a while) → restore the monitors and sound, return the TV, minimize Steam.
-
-No HDMI-CEC needed — most PC graphics cards don't do it anyway. SteamTV talks to the TV over ADB, so it works with Android / Google TVs. Xiaomi TVs are switched with their own player; other Android TVs with the standard TV-input intent.
-
 <p align="center">
-  <img src="docs/screenshots/catgirl-tv.jpg" width="760" alt="A catgirl next to the glowing TV, with a cup of coffee">
+  <img src="docs/screenshots/catgirl-tv.jpg" alt="How it works: 1. A controller connects — the TV wakes over Wi-Fi, switches to the PC's HDMI, the sound follows, Big Picture opens. 2. Big Picture closes — your monitors, sound and TV come back. No HDMI-CEC needed; works with Android / Google TVs over ADB.">
 </p>
 
 ## Home Assistant

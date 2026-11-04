@@ -85,7 +85,7 @@ Discovery is published again whenever Home Assistant restarts.
 
 ## Support
 
-<p align="center"><a href="https://boosty.to/airwaruwu/donate"><img src="docs/screenshots/catgirl-donate.jpg" alt="Free, and stays free. If SteamTV makes your evenings on the couch nicer, you can buy the author a coffee. There's also a ♥ button in the app."></a></p>
+<p align="center"><a href="https://boosty.to/airwaruwu/donate"><img src="docs/screenshots/catgirl-support.jpg" alt="Free, and stays free. If SteamTV makes your evenings on the couch nicer, you can buy the author a coffee. There's also a ♥ button in the app."></a></p>
 
 <p align="center"><b><a href="https://boosty.to/airwaruwu/donate">♥ Support SteamTV on Boosty</a></b></p>
 

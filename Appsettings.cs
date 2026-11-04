@@ -47,6 +47,7 @@ namespace SteamTV
         public bool RestoreTvApp = true;         // back to what the TV showed before, not just Home
         public bool SleepTvAfter = true;         // put the TV back to sleep if SteamTV woke it
         public bool EnableHdr = false;           // HDR on the TV while active, previous state restored after
+        public string Language = "";             // "" = follow Windows; "en" or "ru"
 
         // Home Assistant over MQTT — off by default; when off nothing MQTT-related runs at all.
         public bool MqttEnabled = false;
@@ -88,6 +89,7 @@ namespace SteamTV
                     s.RestoreTvApp = ToInt(k.GetValue("RestoreTvApp"), 1) != 0;
                     s.SleepTvAfter = ToInt(k.GetValue("SleepTvAfter"), 1) != 0;
                     s.EnableHdr = ToInt(k.GetValue("EnableHdr"), 0) != 0;
+                    s.Language = (string)(k.GetValue("Language") ?? s.Language);
                     s.TargetDisplay = ToInt(k.GetValue("TargetDisplay"), s.TargetDisplay);
                     s.HdmiPort = Math.Max(1, Math.Min(4, ToInt(k.GetValue("HdmiPort"), s.HdmiPort)));
                     s.DisableOthers = ToInt(k.GetValue("DisableOthers"), 0) != 0;
@@ -175,6 +177,7 @@ namespace SteamTV
                     k.SetValue("RestoreTvApp", RestoreTvApp ? 1 : 0, RegistryValueKind.DWord);
                     k.SetValue("SleepTvAfter", SleepTvAfter ? 1 : 0, RegistryValueKind.DWord);
                     k.SetValue("EnableHdr", EnableHdr ? 1 : 0, RegistryValueKind.DWord);
+                    k.SetValue("Language", Language ?? "");
                     k.SetValue("TargetDisplay", TargetDisplay, RegistryValueKind.DWord);
                     k.SetValue("HdmiPort", HdmiPort, RegistryValueKind.DWord);
                     k.SetValue("DisableOthers", DisableOthers ? 1 : 0, RegistryValueKind.DWord);

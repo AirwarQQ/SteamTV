@@ -52,9 +52,11 @@ namespace SteamTV
 
             var icon = LoadAppIcon();
             Icon = Imaging.CreateBitmapSourceFromHIcon(icon.Handle, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
-            Title = "SteamTV Monitor " + GetVersionString();
+            Title = "SteamTV";
 
             _settings = AppSettings.Load();
+            Loc.Set(_settings.Language);
+            Loc.Changed += OnLanguageChanged;
             _monitor = new MonitorService(_settings);
             _monitor.Log += AppendLog;
             _monitor.RunningChanged += OnRunningChanged;
@@ -63,7 +65,7 @@ namespace SteamTV
             _monitor.TvAddressChanged += ip => Dispatcher.BeginInvoke(new Action(() =>
             {
                 TxtIp.Text = ip;
-                ShowTrayBalloon("SteamTV", "The TV got a new IP address (" + ip + ") — settings updated.");
+                ShowTrayBalloon("SteamTV", Loc.T("Msg.NewIp", ip));
             }));
             _ha = new HomeAssistantMqtt(_monitor, GetVersionString());
             _ha.Log += AppendLog;
@@ -72,11 +74,12 @@ namespace SteamTV
             _ha.PowerCommand += OnHaPowerCommand;
 
             LoadSettingsToUi();
+            WireAutoSave();
             InitDevicesTab();
             BuildTestButtons();
             BuildTray();
+            NavList.SelectedIndex = 0;
             UpdateStatusLabel();
-            SetThemeButtons(system: true);
             if (_settings.MqttEnabled) StartMqtt();
 
             _ = CheckForUpdatesAsync();
@@ -96,10 +99,12 @@ namespace SteamTV
                 // taskbar means Show() never paints a normal window at all, so there's nothing to see.
                 WindowState = WindowState.Minimized;
                 ShowInTaskbar = false;
-                Loaded += (s, e) => { HideToTray(); if (_settings.AutoMonitorOnStart) StartMonitor(); };
+                Loaded += (s, e) => { HideToTray(); if (_settings.AutoMonitorOnStart) StartMonitor(interactive: false); };
             }
             else if (_settings.IsFirstRun)
                 Loaded += async (s, e) => await RunAutoSetupAsync(firstRun: true);
+            else if (_settings.AutoMonitorOnStart)
+                Loaded += (s, e) => StartMonitor(interactive: false);
         }
 
         private static string GetVersionString()
@@ -126,10 +131,9 @@ namespace SteamTV
             {
                 _updateAvailable = true;
                 _updateTag = tag;
-                if (_miTrayUpdate != null) { _miTrayUpdate.Text = "Install update " + tag; _miTrayUpdate.Visible = true; }
+                if (_miTrayUpdate != null) { _miTrayUpdate.Text = Loc.T("Tray.Update", tag); _miTrayUpdate.Visible = true; }
                 AppendLog("Update available: " + tag + " (running v" + current.Major + "." + current.Minor + "." + current.Build + ") — " + UpdateChecker.ReleasesPageUrl);
-                _tray?.ShowBalloonTip(8000, "SteamTV update available",
-                    "Version " + tag + " is out — click to install it.", Forms.ToolTipIcon.Info);
+                _tray?.ShowBalloonTip(8000, Loc.T("Msg.UpdateTitle"), Loc.T("Msg.UpdateText", tag), Forms.ToolTipIcon.Info);
             });
         }
 
@@ -138,8 +142,8 @@ namespace SteamTV
         private async void InstallUpdate()
         {
             if (_updating || _updateTag == null) return;
-            if (System.Windows.MessageBox.Show("Install SteamTV " + _updateTag + " now? SteamTV restarts; an active TV session is restored first.",
-                    "SteamTV update", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+            if (System.Windows.MessageBox.Show(Loc.T("Msg.UpdateAsk", _updateTag),
+                    "SteamTV", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
             _updating = true;
             AppendLog("Downloading " + _updateTag + "…");
             var restoring = _monitor.IsDisplayActive ? _monitor.DeactivateNow() : Task.CompletedTask;
@@ -148,7 +152,7 @@ namespace SteamTV
             _updating = false;
             if (err == null) { AppendLog("Update installed — restarting."); _reallyExit = true; Close(); return; }
             AppendLog("Update failed: " + err);
-            if (System.Windows.MessageBox.Show("Update failed: " + err + "\n\nOpen the releases page?", "SteamTV update",
+            if (System.Windows.MessageBox.Show(Loc.T("Msg.UpdateFailed", err), "SteamTV",
                     MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
                 Process.Start(new ProcessStartInfo(UpdateChecker.ReleasesPageUrl) { UseShellExecute = true });
         }
@@ -280,9 +284,16 @@ namespace SteamTV
 
         private void LoadSettingsToUi()
         {
+            _loadingUi = true;
             TxtIp.Text = _settings.TvIp;
-            NumHdmiPort.Value = Math.Max(1, Math.Min(4, _settings.HdmiPort));
-            NumTarget.Value = Math.Max(1, Math.Min(64, _settings.TargetDisplay));
+            HdmiPortUi = _settings.HdmiPort;
+            FillDisplays(_settings.TargetDisplay);
+            ChkAutoMonitor.IsChecked = _settings.AutoMonitorOnStart;
+            CmbLanguage.SelectedItem = CmbLanguage.Items.Cast<ComboBoxItem>()
+                .FirstOrDefault(i => (string)i.Tag == (_settings.Language ?? "")) ?? CmbLanguage.Items[0];
+            LblNavVersion.Text = GetVersionString();
+            LblVersion.Text = Loc.T("Set.Version", GetVersionString());
+            RowSupport.Visibility = BtnNavSupport.Visibility = string.IsNullOrEmpty(Links.Support) ? Visibility.Collapsed : Visibility.Visible;
             ChkDisableOthers.IsChecked = _settings.DisableOthers;
             ChkWakeTV.IsChecked = _settings.EnableWakeTV;
             ChkSourceSwitch.IsChecked = _settings.EnableSourceSwitch;
@@ -298,12 +309,11 @@ namespace SteamTV
             TxtTvHomeComponent.Text = _settings.TvHomeComponent;
             TxtActivateHotkey.Text = _settings.ActivateHotkey;
             TxtDeactivateHotkey.Text = _settings.DeactivateHotkey;
-            _loadingUi = true;
             ChkMqttEnabled.IsChecked = _settings.MqttEnabled;
             ChkMqttPower.IsChecked = _settings.MqttPowerButtons;
             _loadingUi = false;
             UpdateMqttPowerInfo();
-            TxtPcMac.Text = PowerControl.PrimaryMac() ?? "not found — see the adapter in ipconfig /all";
+            TxtPcMac.Text = PowerControl.PrimaryMac() ?? Loc.T("Ha.MacMissing");
             TxtMqttHost.Text = _settings.MqttHost;
             NumMqttPort.Value = _settings.MqttPort;
             TxtMqttUser.Text = _settings.MqttUser;
@@ -312,9 +322,11 @@ namespace SteamTV
 
         private void SaveUiToSettings()
         {
+            if (_loadingUi) return;
             _settings.TvIp = TxtIp.Text.Trim();
-            _settings.HdmiPort = (int)(NumHdmiPort.Value ?? _settings.HdmiPort);
-            _settings.TargetDisplay = (int)(NumTarget.Value ?? _settings.TargetDisplay);
+            _settings.HdmiPort = HdmiPortUi;
+            _settings.TargetDisplay = TargetDisplayUi ?? _settings.TargetDisplay;
+            _settings.AutoMonitorOnStart = ChkAutoMonitor.IsChecked == true;
             _settings.DisableOthers = ChkDisableOthers.IsChecked == true;
             _settings.EnableWakeTV = ChkWakeTV.IsChecked == true;
             _settings.EnableSourceSwitch = ChkSourceSwitch.IsChecked == true;
@@ -328,7 +340,57 @@ namespace SteamTV
             _settings.SteamPath = TxtSteamPath.Text.Trim();
             _settings.TvHomeComponent = TxtTvHomeComponent.Text.Trim();
             _settings.Save();
+            UpdateStatusLabel();
         }
+
+        // Settings apply as soon as they change — no Save button, and nothing is locked while
+        // monitoring runs: the monitor reads them at the start of each action.
+        private void WireAutoSave()
+        {
+            RoutedEventHandler save = (s, e) => SaveUiToSettings();
+            foreach (var t in new[] { ChkWakeTV, ChkSourceSwitch, ChkRestoreTvApp, ChkSleepTv, ChkDisableOthers,
+                                      ChkSwitchAudio, ChkHdr, ChkBigPicture, ChkAutoMonitor })
+            { t.Checked += save; t.Unchecked += save; }
+            foreach (var t in new[] { TxtIp, TxtTvHomeComponent, TxtTvAudioDevice, TxtSteamPath, TxtAdbPath })
+                t.LostKeyboardFocus += (s, e) => SaveUiToSettings();
+            CmbHdmi.SelectionChanged += (s, e) => SaveUiToSettings();
+            CmbDisplay.SelectionChanged += (s, e) => SaveUiToSettings();
+        }
+
+        private int HdmiPortUi
+        {
+            get => (CmbHdmi.SelectedItem as ComboBoxItem)?.Tag is string t ? int.Parse(t) : _settings.HdmiPort;
+            set => CmbHdmi.SelectedIndex = Math.Max(1, Math.Min(4, value)) - 1;
+        }
+
+        private int? TargetDisplayUi => (CmbDisplay.SelectedItem as ComboBoxItem)?.Tag as int?;
+
+        // Displays by name, not by number: "Mi TV" rather than "#3". Windows lists a monitor once per
+        // possible source, so each name appears once (lowest number); the saved one is always kept.
+        private void FillDisplays(int selected)
+        {
+            bool loading = _loadingUi;
+            _loadingUi = true;
+            CmbDisplay.Items.Clear();
+            var seen = new HashSet<string>();
+            foreach (var d in DisplayManager.ListDisplays())
+            {
+                bool named = !string.IsNullOrEmpty(d.FriendlyName);
+                if (d.Number != selected && (!named || !seen.Add(d.FriendlyName))) continue;
+                if (named) seen.Add(d.FriendlyName);
+                CmbDisplay.Items.Add(new ComboBoxItem
+                {
+                    Content = (named ? d.FriendlyName : "Display") + "  ·  #" + d.Number + (d.Active ? "" : " (off)"),
+                    Tag = d.Number,
+                });
+            }
+            if (!CmbDisplay.Items.Cast<ComboBoxItem>().Any(i => (int)i.Tag == selected))
+                CmbDisplay.Items.Add(new ComboBoxItem { Content = "#" + selected + " (not connected)", Tag = selected });
+            CmbDisplay.SelectedItem = CmbDisplay.Items.Cast<ComboBoxItem>().First(i => (int)i.Tag == selected);
+            _loadingUi = loading;
+        }
+
+        private void CmbDisplay_DropDownOpened(object sender, EventArgs e) => FillDisplays(TargetDisplayUi ?? _settings.TargetDisplay);
 
         // Shared by Start and the manual Activate/Deactivate buttons — all of them need a valid IP.
         // Remote (Home Assistant) commands pass interactive: false — nobody may be at the PC to
@@ -338,9 +400,9 @@ namespace SteamTV
             string problem = null;
             System.Net.IPAddress addr;
             if (string.IsNullOrWhiteSpace(TxtIp.Text))
-                problem = "No TV set yet — click \"Set up automatically\" on the Monitor tab.";
+                problem = Loc.T("Msg.NoTv");
             else if (!System.Net.IPAddress.TryParse(TxtIp.Text.Trim(), out addr))
-                problem = "Invalid IP address format.";
+                problem = Loc.T("Msg.BadIp");
             if (problem == null) return true;
 
             if (interactive)
@@ -348,7 +410,7 @@ namespace SteamTV
             else
             {
                 AppendLog("Command ignored: " + problem);
-                ShowTrayBalloon("SteamTV", "Command ignored: " + problem);
+                ShowTrayBalloon("SteamTV", Loc.T("Msg.Ignored", problem));
             }
             return false;
         }
@@ -381,15 +443,23 @@ namespace SteamTV
         private void OnRunningChanged(bool running)
         {
             if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnRunningChanged(running))); return; }
+            _syncingMonitorToggle = true;
+            TglMonitoring.IsChecked = running;
+            _syncingMonitorToggle = false;
             UpdateStatusLabel();
-            bool canEdit = !running;
-            TxtIp.IsEnabled = NumHdmiPort.IsEnabled = NumTarget.IsEnabled = canEdit;
-            ChkDisableOthers.IsEnabled = ChkWakeTV.IsEnabled = ChkSourceSwitch.IsEnabled = canEdit;
-            ChkBigPicture.IsEnabled = ChkSwitchAudio.IsEnabled = ChkHdr.IsEnabled = canEdit;
-            ChkRestoreTvApp.IsEnabled = ChkSleepTv.IsEnabled = canEdit;
-            BtnAutoSetup.IsEnabled = BtnFindTv.IsEnabled = BtnDetectDisplay.IsEnabled = canEdit;
-            BtnStart.IsEnabled = canEdit;
-            BtnStop.IsEnabled = running;
+        }
+
+        private bool _syncingMonitorToggle;
+
+        private void TglMonitoring_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_syncingMonitorToggle) return;
+            if (TglMonitoring.IsChecked == true) StartMonitor();
+            else _monitor.Stop();
+            // StartMonitor can refuse (no TV yet) — show what really happened.
+            _syncingMonitorToggle = true;
+            TglMonitoring.IsChecked = _monitor.IsRunning;
+            _syncingMonitorToggle = false;
         }
 
         private void OnStatusTick()
@@ -397,7 +467,7 @@ namespace SteamTV
             UpdateStatusLabel();
 
             // Live device status — only while someone can actually see the Devices tab.
-            if (IsVisible && Tabs.SelectedIndex == 1 && ++_scanTick % 2 == 0)
+            if (IsVisible && (CurrentPage <= 1) && ++_scanTick % 2 == 0)
                 ScanDevices();
 
             // ADB check: run every 15 s in a background task
@@ -407,9 +477,7 @@ namespace SteamTV
                 if (!System.Net.IPAddress.TryParse(_settings.TvIp ?? "", out addr))
                 {
                     _lastAdbCheck = DateTime.Now;
-                    LblAdb.Text = "● ADB  invalid IP";
-                    LblAdb.Foreground = System.Windows.Media.Brushes.OrangeRed;
-                    SetAdbReachable(false);
+                    SetAdbReachable(null);
                 }
                 else
                 {
@@ -423,8 +491,6 @@ namespace SteamTV
                         {
                             _adbCheckPending = false;
                             _lastAdbCheck = DateTime.Now;
-                            LblAdb.Text = "● ADB  ↺15s";
-                            LblAdb.Foreground = ok ? System.Windows.Media.Brushes.Green : System.Windows.Media.Brushes.OrangeRed;
                             SetAdbReachable(ok);
 
                             // Only nag while actively monitoring — ADB being unreachable while
@@ -437,7 +503,7 @@ namespace SteamTV
                             if (_adbFailStreak >= 3 && !_adbFailNotified)
                             {
                                 _adbFailNotified = true;
-                                ShowTrayBalloon("SteamTV", "TV unreachable via ADB for a while — check that Wireless debugging is still on in the TV's Developer Options (some TVs disable it again after a reboot).");
+                                ShowTrayBalloon("SteamTV", Loc.T("Msg.AdbLost"));
                             }
                         }));
                     });
@@ -456,40 +522,146 @@ namespace SteamTV
             TxtIp.Text = ip;
             _adbFailStreak = 0;
             _lastAdbCheck = DateTime.MinValue;   // re-check right away
-            ShowTrayBalloon("SteamTV", "The TV got a new IP address (" + ip + ") — settings updated.");
+            ShowTrayBalloon("SteamTV", Loc.T("Msg.NewIp", ip));
         }
+
+        // -------------------------------------------------------------------------
+        // Home page, sidebar and tray status — one place, refreshed every second
+        // -------------------------------------------------------------------------
+
+        private static readonly System.Windows.Media.Brush Sky = (System.Windows.Media.Brush)Application.Current.Resources["SkyBrush"];
+        private static readonly System.Windows.Media.Brush Mint = (System.Windows.Media.Brush)Application.Current.Resources["MintBrush"];
+        private static readonly System.Windows.Media.Brush Sakura = (System.Windows.Media.Brush)Application.Current.Resources["SakuraBrush"];
+        private static readonly System.Windows.Media.Brush Rose = (System.Windows.Media.Brush)Application.Current.Resources["RoseBrush"];
+        private static readonly System.Windows.Media.Brush Muted = (System.Windows.Media.Brush)Application.Current.Resources["MutedBrush"];
+        private static readonly System.Windows.Media.Brush Soft = (System.Windows.Media.Brush)Application.Current.Resources["SoftBrush"];
+        private static readonly System.Windows.Media.Brush ChipBg = (System.Windows.Media.Brush)Application.Current.Resources["ChipBrush"];
+        private static readonly System.Windows.Media.Brush ChipLiveBg = Frozen(System.Windows.Media.Color.FromArgb(0x1F, 0x7E, 0xE8, 0xC4));
+        private static readonly System.Windows.Media.Brush ChipBadBg = Frozen(System.Windows.Media.Color.FromArgb(0x1F, 0xFF, 0x8A, 0x8A));
+
+        private static System.Windows.Media.Brush Frozen(System.Windows.Media.Color c)
+        {
+            var b = new System.Windows.Media.SolidColorBrush(c);
+            b.Freeze();
+            return b;
+        }
+
+        private bool TvConfigured => System.Net.IPAddress.TryParse(_settings.TvIp ?? "", out _);
 
         private void UpdateStatusLabel()
         {
             bool running = _monitor.IsRunning;
             bool active = _monitor.IsDisplayActive;
-            LblStatus.Text = (running ? "● Running" : "● Stopped") + (active ? " — TV active" : "");
-            LblStatus.Foreground = running ? System.Windows.Media.Brushes.Green : System.Windows.Media.Brushes.OrangeRed;
-            if (_tray != null)
-                _tray.Text = BuildTrayTooltip(running);
+            bool setup = !TvConfigured;
+            var trigger = _settings.WatchedDevices.FirstOrDefault(d => d.Enabled);
+            int moreTriggers = Math.Max(0, _settings.WatchedDevices.Count(d => d.Enabled) - 1);
+
+            int hour = DateTime.Now.Hour;
+            LblKana.Text = Loc.T(hour >= 5 && hour < 11 ? "Home.Kana.Morning" : hour >= 11 && hour < 18 ? "Home.Kana.Day" : "Home.Kana.Evening");
+
+            string state = setup ? "Setup" : active ? "Active" : running ? "Ready" : "Paused";
+            LblHeroTitle.Text = Loc.T("Home.Title." + state);
+            LblHeroText.Text = state == "Ready"
+                ? (trigger != null ? Loc.T("Home.Text.Ready", trigger.DisplayName) : Loc.T("Home.Text.ReadyNoDevice"))
+                : Loc.T("Home.Text." + state);
+
+            string pill = Loc.T(setup ? "Home.Status.Setup" : active ? "Home.Status.Active" : running ? "Home.Status.Waiting" : "Home.Status.Paused");
+            if (!setup) pill += "  ·  " + TvDisplayName() + "  ·  HDMI " + _settings.HdmiPort;
+            LblStatus.Text = pill;
+            var pillBrush = active ? Sakura : running && !setup ? Sky : Muted;
+            var pillColor = ((System.Windows.Media.SolidColorBrush)pillBrush).Color;
+            LblStatus.Foreground = StatusLed.Fill = pillBrush;
+            StatusGlow.Color = pillColor;
+            StatusGlow.Opacity = pillBrush == Muted ? 0 : 0.9;
+            StatusPill.Background = Frozen(System.Windows.Media.Color.FromArgb(0x1A, pillColor.R, pillColor.G, pillColor.B));
+            StatusPill.BorderBrush = Frozen(System.Windows.Media.Color.FromArgb(0x47, pillColor.R, pillColor.G, pillColor.B));
+
+            BtnActivateNow.Visibility = BtnDeactivateNow.Visibility = setup ? Visibility.Collapsed : Visibility.Visible;
+            BtnHomeSetup.Visibility = setup ? Visibility.Visible : Visibility.Collapsed;
             BtnActivateNow.IsEnabled = !active;
+
+            // Cards
+            LblTriggerName.Text = trigger?.DisplayName ?? Loc.T("Home.Triggers.None");
+            LblTriggerSub.Text = trigger == null ? Loc.T("Home.Triggers.NoneSub")
+                : moreTriggers > 0 ? Loc.T("Home.Triggers.More", moreTriggers) : Loc.T("Home.Triggers.One");
+            bool triggerOn = trigger != null && _lastScan.Any(d => d.IsConnected && _settings.WatchedDevices.Any(w => w.Enabled && w.Key == d.Key));
+            SetChip(ChipTrigger, LblTriggerChip, trigger == null ? Loc.T("Chip.Manage") : triggerOn ? Loc.T("Chip.Connected") : Loc.T("Chip.Offline"),
+                    triggerOn ? (bool?)true : null);
+
+            LblTvName.Text = setup ? Loc.T("Home.Tv.None") : TvDisplayName();
+            LblTvSub.Text = setup ? Loc.T("Home.Tv.NoneSub") : Loc.T("Home.Tv.Sub", _settings.TvIp, _settings.HdmiPort);
+            ChipTv.Visibility = setup ? Visibility.Collapsed : Visibility.Visible;
+            SetChip(ChipTv, LblTvChip, _lastAdbReachable == true ? Loc.T("Chip.Connected") : _lastAdbReachable == false ? Loc.T("Chip.Unreachable") : "…",
+                    _lastAdbReachable);
+
+            // Sidebar footer
+            LblNavStatus.Text = Loc.T(setup ? "Nav.TvNone" : _lastAdbReachable == true ? "Nav.TvOk" : _lastAdbReachable == false ? "Nav.TvBad" : "Nav.TvUnknown");
+            var led = setup || _lastAdbReachable == null ? Muted : _lastAdbReachable.Value ? Mint : Rose;
+            NavLed.Fill = led;
+            NavLedGlow.Color = ((System.Windows.Media.SolidColorBrush)led).Color;
+            NavLedGlow.Opacity = led == Muted ? 0 : 0.9;
+
+            // Settings → TV address
+            LblAdb.Text = setup ? Loc.T(string.IsNullOrWhiteSpace(_settings.TvIp) ? "Set.Adb.NotSet" : "Set.Adb.Invalid")
+                : Loc.T(_lastAdbReachable == true ? "Set.Adb.Ok" : _lastAdbReachable == false ? "Set.Adb.Bad" : "Set.Adb.Checking");
+            LblAdb.Foreground = setup || _lastAdbReachable == null ? Muted : _lastAdbReachable.Value ? Mint : Rose;
+
+            if (_tray != null) _tray.Text = BuildTrayTooltip();
         }
 
-        private string BuildTrayTooltip(bool running)
+        private static void SetChip(Border chip, TextBlock text, string label, bool? good)
         {
-            string adb = _lastAdbReachable == null ? "checking…" : (_lastAdbReachable.Value ? "reachable" : "not reachable");
-            // NotifyIcon.Text is capped at 127 chars by Windows.
-            return "SteamTV — " + (running ? "running" : "stopped") + " | ADB: " + adb;
+            text.Text = label;
+            chip.Background = good == true ? ChipLiveBg : good == false ? ChipBadBg : ChipBg;
+            text.Foreground = good == true ? Mint : good == false ? Rose : Soft;
         }
 
-        private void SetAdbReachable(bool reachable)
+        // "Mi TV" from the display's EDID; the model from ADB isn't known without asking the TV.
+        private string _tvNameCache;
+        private int _tvNameFor = -1;
+        private string TvDisplayName()
+        {
+            if (_tvNameFor != _settings.TargetDisplay)
+            {
+                _tvNameFor = _settings.TargetDisplay;
+                _tvNameCache = DisplayManager.GetFriendlyName(_settings.TargetDisplay);
+            }
+            return string.IsNullOrEmpty(_tvNameCache) ? "TV" : _tvNameCache;
+        }
+
+        private string TrayStatusText() => Loc.T(_monitor.IsDisplayActive ? "Tray.Status.Active" : _monitor.IsRunning ? "Tray.Status.Waiting" : "Tray.Status.Paused");
+
+        private string BuildTrayTooltip()
+        {
+            string tv = Loc.T(_lastAdbReachable == null ? "Tray.Tip.Checking" : _lastAdbReachable.Value ? "Tray.Tip.Ok" : "Tray.Tip.Bad");
+            string tip = Loc.T("Tray.Tip", TrayStatusText(), tv);
+            return tip.Length > 127 ? tip.Substring(0, 127) : tip;   // NotifyIcon.Text is capped at 127 chars
+        }
+
+        private void SetAdbReachable(bool? reachable)
         {
             _lastAdbReachable = reachable;
             if (_tray != null)
-            {
-                _tray.Icon = reachable ? _trayIconOk : _trayIconBad;
-                _tray.Text = BuildTrayTooltip(_monitor.IsRunning);
-            }
+                _tray.Icon = reachable == true ? _trayIconOk : reachable == false ? _trayIconBad : _trayIconUnknown;
+            UpdateStatusLabel();
+        }
+
+        private void OnLanguageChanged()
+        {
+            LblVersion.Text = Loc.T("Set.Version", GetVersionString());
+            UpdateMqttPowerInfo();
+            OnMqttStatus(_ha.LastStatus ?? Loc.T("Ha.Off"));
+            RefreshTrayTexts();
+            RefreshDeviceTexts();
+            RenderRecent();
+            UpdateStatusLabel();
         }
 
         // -------------------------------------------------------------------------
-        // Log
+        // Log — the full log on the Diagnostics page, a short "Recent" list on Home
         // -------------------------------------------------------------------------
+
+        private readonly List<Tuple<DateTime, string>> _recent = new List<Tuple<DateTime, string>>();
 
         private void AppendLog(string msg)
         {
@@ -499,6 +671,25 @@ namespace SteamTV
             if (TxtLog.Text.Length > 20000)
                 TxtLog.Text = TxtLog.Text.Substring(TxtLog.Text.Length - 12000);
             TxtLog.ScrollToEnd();
+
+            // Home shows what happened, not every step of it.
+            if (msg.StartsWith("[Test]") || msg.StartsWith("SetHighestRefreshRate") || msg.StartsWith("DisableAllExcept") ||
+                msg.StartsWith("Waiting ") || msg.StartsWith("Setup:")) return;
+            _recent.Insert(0, Tuple.Create(DateTime.Now, msg));
+            if (_recent.Count > 6) _recent.RemoveAt(_recent.Count - 1);
+            RenderRecent();
+        }
+
+        private void RenderRecent()
+        {
+            LblRecent.Inlines.Clear();
+            if (_recent.Count == 0) { LblRecent.Inlines.Add(new System.Windows.Documents.Run(Loc.T("Home.Recent.Empty"))); return; }
+            for (int i = 0; i < _recent.Count; i++)
+            {
+                if (i > 0) LblRecent.Inlines.Add(new System.Windows.Documents.LineBreak());
+                LblRecent.Inlines.Add(new System.Windows.Documents.Run(_recent[i].Item1.ToString("HH:mm") + "  ") { Foreground = Muted, FontSize = 11 });
+                LblRecent.Inlines.Add(new System.Windows.Documents.Run(_recent[i].Item2) { Foreground = i == 0 ? Soft : Muted });
+            }
         }
 
         // Surfaces failures worth interrupting the user for, even when the window is hidden in
@@ -528,6 +719,7 @@ namespace SteamTV
             }
             _statusTimer?.Stop();
             _hotkeys?.Dispose();
+            Loc.Changed -= OnLanguageChanged;
             _monitor.Log -= AppendLog;
             _monitor.RunningChanged -= OnRunningChanged;
             _monitor.Notify -= ShowTrayBalloon;
@@ -540,64 +732,45 @@ namespace SteamTV
             if (_devNotifyHandle != IntPtr.Zero) Native.UnregisterDeviceNotification(_devNotifyHandle);
         }
 
-        private void Tabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        // 0 Home · 1 Devices · 2 Settings · 3 Home Assistant · 4 Diagnostics
+        private int CurrentPage { get; set; }
+
+        private void NavList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (e.OriginalSource == Tabs && Tabs.SelectedIndex == 1) ScanDevices();
+            if (NavList.SelectedIndex < 0) return;
+            CurrentPage = NavList.SelectedIndex;
+            for (int i = 0; i < Pages.Children.Count; i++)
+                Pages.Children[i].Visibility = i == CurrentPage ? Visibility.Visible : Visibility.Collapsed;
+            if (CurrentPage == 1) ScanDevices();
+            if (CurrentPage == 2) FillDisplays(TargetDisplayUi ?? _settings.TargetDisplay);
+        }
+
+        private void GoTo(int page) => NavList.SelectedIndex = page;
+        private void GoDevices_Click(object sender, RoutedEventArgs e) => GoTo(1);
+
+        private void CmbLanguage_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_loadingUi || !(CmbLanguage.SelectedItem is ComboBoxItem item)) return;
+            _settings.Language = (string)item.Tag;
+            _settings.Save();
+            Loc.Set(_settings.Language);
         }
 
         private void ChkAutostart_CheckedChanged(object sender, RoutedEventArgs e) => SetAutostart(ChkAutostart.IsChecked == true);
 
-        private void BtnStart_Click(object sender, RoutedEventArgs e) => StartMonitor();
-        private void BtnStop_Click(object sender, RoutedEventArgs e) => _monitor.Stop();
-        private void BtnExit_Click(object sender, RoutedEventArgs e) { _reallyExit = true; Close(); }
-
         private void BtnActivateNow_Click(object sender, RoutedEventArgs e) => ActivateNow();
         private void BtnDeactivateNow_Click(object sender, RoutedEventArgs e) => DeactivateNow();
-        private void BtnDisplays_Click(object sender, RoutedEventArgs e) => ShowDisplaysList();
         private void BtnRemove_Click(object sender, RoutedEventArgs e) => RemoveSelectedDevice();
         private void BtnAdd_Click(object sender, RoutedEventArgs e) => AddSelectedDevice();
 
-        // -------------------------------------------------------------------------
-        // Theme switcher
-        // -------------------------------------------------------------------------
+        private void OpenLogFile_Click(object sender, RoutedEventArgs e) => OpenUrl(AppLog.FilePath);
+        private void GitHub_Click(object sender, RoutedEventArgs e) => OpenUrl(Links.Repository);
+        private void Support_Click(object sender, RoutedEventArgs e) => OpenUrl(Links.Support);
 
-        private void SetThemeButtons(bool light = false, bool dark = false, bool system = false)
+        private static void OpenUrl(string target)
         {
-            BtnThemeLight.Appearance = light ? Wpf.Ui.Controls.ControlAppearance.Primary : Wpf.Ui.Controls.ControlAppearance.Secondary;
-            BtnThemeDark.Appearance = dark ? Wpf.Ui.Controls.ControlAppearance.Primary : Wpf.Ui.Controls.ControlAppearance.Secondary;
-            BtnThemeSystem.Appearance = system ? Wpf.Ui.Controls.ControlAppearance.Primary : Wpf.Ui.Controls.ControlAppearance.Secondary;
-        }
-
-        private void BtnThemeLight_Click(object sender, RoutedEventArgs e)
-        {
-            SystemThemeWatcher.UnWatch(this);
-            // Backdrop defaults to Mica, which needs ExtendsContentIntoTitleBar — without it the
-            // window just renders black. Must stay None here, same as the system-theme path below.
-            ApplicationThemeManager.Apply(ApplicationTheme.Light, Wpf.Ui.Controls.WindowBackdropType.None);
-            SetThemeButtons(light: true);
-        }
-
-        private void BtnThemeDark_Click(object sender, RoutedEventArgs e)
-        {
-            SystemThemeWatcher.UnWatch(this);
-            ApplicationThemeManager.Apply(ApplicationTheme.Dark, Wpf.Ui.Controls.WindowBackdropType.None);
-            SetThemeButtons(dark: true);
-        }
-
-        private void BtnThemeSystem_Click(object sender, RoutedEventArgs e)
-        {
-            // ApplySystemTheme() always calls Apply(...) with its default (Mica) backdrop internally,
-            // which it pushes straight to Application.Current.MainWindow — breaking this chrome-less
-            // window the same way the Light/Dark buttons did, and setting WindowBackdropType back
-            // afterward doesn't undo it (UpdateBackground already made its own DWM call by then).
-            // So: replicate ApplySystemTheme()'s own Dark/Light mapping and call Apply(..., None) directly.
-            var systemTheme = ApplicationThemeManager.GetSystemTheme();
-            var mappedTheme = systemTheme is SystemTheme.Dark or SystemTheme.CapturedMotion or SystemTheme.Glow
-                ? ApplicationTheme.Dark
-                : ApplicationTheme.Light;
-            ApplicationThemeManager.Apply(mappedTheme, Wpf.Ui.Controls.WindowBackdropType.None);
-            SystemThemeWatcher.Watch(this, Wpf.Ui.Controls.WindowBackdropType.None);
-            SetThemeButtons(system: true);
+            if (string.IsNullOrEmpty(target)) return;
+            try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); } catch { }
         }
     }
 

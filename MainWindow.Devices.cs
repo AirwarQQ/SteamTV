@@ -27,8 +27,8 @@ namespace SteamTV
 
         public sealed class DeviceRow : INotifyPropertyChanged
         {
-            private static readonly System.Windows.Media.Brush ConnectedBrush = System.Windows.Media.Brushes.LimeGreen;
-            private static readonly System.Windows.Media.Brush DisconnectedBrush = System.Windows.Media.Brushes.Gray;
+            private static readonly System.Windows.Media.Brush ConnectedBrush = (System.Windows.Media.Brush)Application.Current.Resources["MintBrush"];
+            private static readonly System.Windows.Media.Brush DisconnectedBrush = (System.Windows.Media.Brush)Application.Current.Resources["MutedBrush"];
 
             private string _name, _category, _bus;
             private bool _enabled, _connected, _watched;
@@ -44,8 +44,9 @@ namespace SteamTV
             public string Category
             {
                 get => _category;
-                set { if (Set(ref _category, value, nameof(Category))) Raise(nameof(CategoryRank)); }
+                set { if (Set(ref _category, value, nameof(Category))) { Raise(nameof(CategoryRank)); Raise(nameof(CategoryText)); } }
             }
+            public string CategoryText => Loc.T("Cat." + _category);   // shown; Category stays the stored English key
             public int CategoryRank
             {
                 get { int i = Array.IndexOf(DeviceScanner.CategoryOrder, _category); return i < 0 ? 99 : i; }
@@ -57,7 +58,8 @@ namespace SteamTV
                 get => _connected;
                 set { if (Set(ref _connected, value, nameof(IsConnected))) { Raise(nameof(Status)); Raise(nameof(StatusBrush)); } }
             }
-            public string Status => _connected ? "● Connected" : "○ Offline";
+            public string Status => Loc.T(_connected ? "Dev.Connected" : "Dev.Offline");
+            public void RefreshTexts() { Raise(nameof(Status)); Raise(nameof(CategoryText)); }
             public System.Windows.Media.Brush StatusBrush => _connected ? ConnectedBrush : DisconnectedBrush;
 
             public event PropertyChangedEventHandler PropertyChanged;
@@ -71,7 +73,6 @@ namespace SteamTV
             }
         }
 
-        private const string AllCategories = "All categories";
         private readonly System.Collections.ObjectModel.ObservableCollection<DeviceRow> _watchedRows =
             new System.Collections.ObjectModel.ObservableCollection<DeviceRow>();
         private readonly System.Collections.ObjectModel.ObservableCollection<DeviceRow> _deviceRows =
@@ -99,7 +100,7 @@ namespace SteamTV
             {
                 LblHotkeys.Text = string.Join("\n", errors);
                 foreach (var err in errors) AppendLog(err);
-                ShowTrayBalloon("SteamTV", string.Join("\n", errors) + "\nChange it on the Advanced tab.");
+                ShowTrayBalloon("SteamTV", string.Join("\n", errors) + "\n" + Loc.T("Msg.HotkeyChange"));
             }
         }
 
@@ -136,7 +137,7 @@ namespace SteamTV
             _devChangeDebounce.Tick += (s, e) =>
             {
                 _devChangeDebounce.Stop();
-                if (IsVisible && Tabs.SelectedIndex == 1) ScanDevices();
+                if (IsVisible && CurrentPage == 1) ScanDevices();
             };
 
             GridWatched.ItemsSource = _watchedRows;
@@ -147,15 +148,30 @@ namespace SteamTV
             view.SortDescriptions.Add(new SortDescription(nameof(DeviceRow.Name), ListSortDirection.Ascending));
             view.Filter = o =>
             {
-                string cat = CmbCategory.SelectedItem as string;
-                return cat == null || cat == AllCategories || ((DeviceRow)o).Category == cat;
+                string cat = (CmbCategory.SelectedItem as ComboBoxItem)?.Tag as string;
+                return string.IsNullOrEmpty(cat) || ((DeviceRow)o).Category == cat;
             };
 
-            CmbCategory.Items.Add(AllCategories);
-            foreach (var c in DeviceScanner.CategoryOrder) CmbCategory.Items.Add(c);
-            CmbCategory.SelectedIndex = 0;
+            FillCategories();
 
             RebuildWatchedRows();
+        }
+
+        // Category filter: localized labels, the stored English category as the Tag.
+        private void FillCategories()
+        {
+            string selected = (CmbCategory.SelectedItem as ComboBoxItem)?.Tag as string ?? "";
+            CmbCategory.Items.Clear();
+            CmbCategory.Items.Add(new ComboBoxItem { Content = Loc.T("Dev.AllCategories"), Tag = "" });
+            foreach (var c in DeviceScanner.CategoryOrder) CmbCategory.Items.Add(new ComboBoxItem { Content = Loc.T("Cat." + c), Tag = c });
+            CmbCategory.SelectedItem = CmbCategory.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == selected) ?? CmbCategory.Items[0];
+        }
+
+        private void RefreshDeviceTexts()
+        {
+            FillCategories();
+            foreach (var row in _watchedRows) row.RefreshTexts();
+            foreach (var row in _deviceRows) row.RefreshTexts();
         }
 
         private void RebuildWatchedRows()

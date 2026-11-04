@@ -67,9 +67,8 @@ namespace SteamTV
         private void UpdateMqttPowerInfo()
         {
             LblMqttPowerInfo.Text = ChkMqttPower.IsChecked == true
-                ? "Sleep, Shut down and Restart buttons appear on the SteamTV device in Home Assistant. Shut down and Restart give a "
-                  + PowerControl.ShutdownDelaySec + "-second Windows warning first. They only work while SteamTV runs, i.e. after you sign in to Windows."
-                : "Off: Home Assistant gets no power buttons, and power commands are ignored.";
+                ? Loc.T("Ha.Power.On", PowerControl.ShutdownDelaySec)
+                : Loc.T("Ha.Power.Off");
         }
 
         private void ChkMqttPower_Changed(object sender, RoutedEventArgs e)
@@ -86,9 +85,7 @@ namespace SteamTV
         {
             if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnMqttStatus(status))); return; }
             LblMqttStatus.Text = "● " + status;
-            LblMqttStatus.Foreground = status.StartsWith("Connected", StringComparison.Ordinal) ? System.Windows.Media.Brushes.Green
-                : status == "Off" ? System.Windows.Media.Brushes.Gray
-                : System.Windows.Media.Brushes.OrangeRed;
+            LblMqttStatus.Foreground = _ha.IsConnected ? Mint : !_ha.IsStarted || !_settings.MqttEnabled ? Muted : Rose;
         }
 
         private void SaveMqttUiToSettings()
@@ -106,7 +103,7 @@ namespace SteamTV
             if (string.IsNullOrWhiteSpace(_settings.MqttHost))
             {
                 _ha.Stop();
-                OnMqttStatus("Not connected: enter the broker host");
+                OnMqttStatus(Loc.T("Ha.NeedHost"));
                 return;
             }
             _ha.Start(MqttConfig.From(_settings));

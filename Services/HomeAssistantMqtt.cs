@@ -77,7 +77,7 @@ namespace SteamTV
             _cts.Dispose();
             _cts = null;
             _loop = null;
-            Status("Off");
+            Status("Ha.Off", null, false);
         }
 
         // One-shot connect with the given settings (under a separate client id, so it never kicks
@@ -117,7 +117,7 @@ namespace SteamTV
                 client.ApplicationMessageReceivedAsync += e => { OnMessage(e.ApplicationMessage); return Task.CompletedTask; };
                 try
                 {
-                    Status("Connecting to " + where + "…");
+                    Status("Ha.Status.Connecting", where, false);
                     using (var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
                     {
                         connectCts.CancelAfter(ConnectTimeout);
@@ -134,7 +134,7 @@ namespace SteamTV
                     _client = client;
 
                     L("Home Assistant: connected to MQTT broker " + where + ".");
-                    Status("Connected to " + where);
+                    Status("Ha.Status.Connected", where, true);
                     delaySec = 5;
                     failureLogged = false;
 
@@ -159,7 +159,7 @@ namespace SteamTV
                 {
                     _client = null;
                     string why = ex is OperationCanceledException ? "timed out" : Describe(ex);
-                    Status("Not connected: " + why + " (retrying)");
+                    Status("Ha.Status.Retrying", why, false);
                     if (!failureLogged)
                     {
                         L("Home Assistant: can't connect to MQTT broker " + where + " — " + why + ". Will keep retrying.");
@@ -357,7 +357,15 @@ namespace SteamTV
         }
 
         private void L(string msg) => Log?.Invoke(msg);
-        private void Status(string s) => StatusChanged?.Invoke(s);
+        // Shown on the Home Assistant page; LastStatus lets a language switch redraw it.
+        public string LastStatus => _statusKey == null ? null : Loc.T(_statusKey, _statusArg);   // in the current language
+        public bool IsConnected { get; private set; }
+        private string _statusKey, _statusArg;
+        private void Status(string key, string arg, bool connected)
+        {
+            _statusKey = key; _statusArg = arg; IsConnected = connected;
+            StatusChanged?.Invoke(LastStatus);
+        }
     }
 
 }

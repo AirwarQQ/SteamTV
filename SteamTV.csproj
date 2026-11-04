@@ -13,7 +13,7 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <!-- Shown in the title bar — bump this alongside each git release tag. -->
-    <Version>1.13.0</Version>
+    <Version>2.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -50,6 +50,8 @@
     run. No separate platform-tools install required for the wireless-ADB workflow this app uses.
   -->
   <ItemGroup>
-    <EmbeddedResource Include="Vendor\adb.exe" LogicalName="SteamTV.adb.exe" />  </ItemGroup>
+    <EmbeddedResource Include="Vendor\adb.exe" LogicalName="SteamTV.adb.exe" />
+    <!-- Rounded M+ headings font, subset to Latin + kana (OFL, see Fonts/OFL.txt). -->
+    <Resource Include="Fonts\*.ttf" />  </ItemGroup>
 
 </Project>

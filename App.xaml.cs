@@ -44,10 +44,12 @@ namespace SteamTV
             Updater.CleanUpOldExe();
             AdbBundle.EnsureExtracted();
 
-            ApplicationThemeManager.ApplySystemTheme();
+            // One look, always dark (Theme.xaml); WPF-UI's accent becomes the palette's sakura pink.
+            // Backdrop None: Mica needs ExtendsContentIntoTitleBar, without it the window renders black.
+            ApplicationThemeManager.Apply(ApplicationTheme.Dark, Wpf.Ui.Controls.WindowBackdropType.None, false);
+            ApplicationAccentColorManager.Apply(System.Windows.Media.Color.FromRgb(0xFF, 0x7E, 0xB6), ApplicationTheme.Dark);
 
             var window = new MainWindow(autostart);
-            SystemThemeWatcher.Watch(window, Wpf.Ui.Controls.WindowBackdropType.None);
             MainWindow = window;
             window.Show();
 

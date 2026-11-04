@@ -145,7 +145,7 @@ namespace SteamTV
             else
             {
                 L("Big Picture " + how + " — deactivating anyway.");
-                N("SteamTV", "Couldn't close Big Picture before restoring the monitors.");
+                N("SteamTV", Loc.T("Note.BpNotClosed"));
             }
         }
 
@@ -177,7 +177,7 @@ namespace SteamTV
                 if (!DisplayManager.RestoreAll(_preActivateSnapshot, out err))
                 {
                     L("Restore monitors FAILED: " + err);
-                    N("SteamTV", "Failed to restore monitor layout: " + err);
+                    N("SteamTV", Loc.T("Note.RestoreFailed", err));
                 }
                 else if (!string.IsNullOrEmpty(err))
                     L("Restore monitors (fallback): " + err);
@@ -209,7 +209,7 @@ namespace SteamTV
                 if (!EnsureTvReachable(adb, ct))
                 {
                     L("TV not reachable over ADB — activation cancelled.");
-                    N("SteamTV", "Can't reach the TV over ADB (" + _s.TvIp + "). Is it on the network, with network debugging enabled?");
+                    N("SteamTV", Loc.T("Note.Unreachable", _s.TvIp));
                     return;
                 }
                 adb = NewAdb();   // EnsureTvReachable may have found the TV under a new address
@@ -325,15 +325,14 @@ namespace SteamTV
                         if (!SteamHelper.StartBigPicture(_s.SteamPath, out bpErr))
                         {
                             L("Start Big Picture FAILED: " + bpErr);
-                            N("SteamTV", "Steam Big Picture failed to start: " + bpErr);
+                            N("SteamTV", Loc.T("Note.BpFailed", bpErr));
                         }
                     }
                 }
                 else
                 {
                     L((switchErr ?? "HDMI source did not activate within 10s.") + " Rolling back.");
-                    N("SteamTV", switchErr != null ? "Can't switch the TV's HDMI input — rolled back. " + switchErr
-                        : "TV didn't switch to the PC's HDMI input in time — rolled back.");
+                    N("SteamTV", switchErr != null ? Loc.T("Note.SwitchFailed", switchErr) : Loc.T("Note.SwitchTimeout"));
                     RestoreDisplayState();
                     L("TV: " + adb.ReturnTv(_tvPreviousApp, _s.TvHomeComponent, _s.SleepTvAfter && _tvWasAsleep, ct) + ".");
                     SetDisplayEnabled(false);
@@ -348,7 +347,7 @@ namespace SteamTV
                 if (!SteamHelper.StartBigPicture(_s.SteamPath, out bpErr))
                 {
                     L("Start Big Picture FAILED: " + bpErr);
-                    N("SteamTV", "Steam Big Picture failed to start: " + bpErr);
+                    N("SteamTV", Loc.T("Note.BpFailed", bpErr));
                 }
             }
         }

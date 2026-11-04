@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SteamTV redesign mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --deep: #0a0c18; --bg: #0f1222; --card: #161a2e; --card-hover: #1c2139; --field: #12152a;
+    --border: #262b47; --border-strong: #353b5e;
+    --text: #ecebf5; --soft: #c4c6dc; --muted: #8e93b4;
+    --sakura: #ff7eb6; --sakura-deep: #e05a98; --lavender: #9b8cff; --sky: #7fd6ff; --mint: #7ee8c4; --amber: #ffc978;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #05060c; color: var(--text); font: 14px/1.5 Inter, "Segoe UI", sans-serif; padding: 32px 16px; }
+  h1, h2, h3, .display { font-family: "M PLUS Rounded 1c", "Segoe UI", sans-serif; }
+  .caption { color: var(--muted); max-width: 1180px; margin: 0 auto 14px; font-size: 13px; }
+  .stage { display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; }
+  .win { width: 880px; max-width: 100%; height: 620px; background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
+         overflow: hidden; display: grid; grid-template-columns: 200px 1fr; grid-template-rows: 36px 1fr; box-shadow: 0 30px 80px rgba(0,0,0,.55); }
+  .titlebar { grid-column: 1 / 3; background: var(--deep); display: flex; align-items: center; padding: 0 14px; gap: 10px; color: var(--muted); font-size: 12px; }
+  .titlebar .dot { width: 14px; height: 14px; border-radius: 4px; background: linear-gradient(135deg, var(--sakura), var(--lavender)); }
+  .titlebar .sp { flex: 1; }
+  .titlebar span.ctl { width: 28px; text-align: center; font-size: 13px; }
+  nav { background: var(--deep); padding: 10px 10px 14px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid #151832; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 6px 10px 16px; }
+  .brand b { font-family: "M PLUS Rounded 1c"; font-weight: 800; font-size: 19px; letter-spacing: .2px; }
+  .brand b i { font-style: normal; background: linear-gradient(90deg, var(--sakura), var(--lavender)); -webkit-background-clip: text; color: transparent; }
+  .nav { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 10px; color: var(--soft); cursor: default; position: relative; }
+  .nav svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .nav.on { background: #1a1e36; color: var(--text); }
+  .nav.on::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 2px; background: var(--sakura); }
+  .nav-sp { flex: 1; }
+  .nav-foot { padding: 10px 12px; font-size: 12px; color: var(--muted); border-top: 1px solid #151832; }
+  .nav-foot .pill { display: inline-flex; align-items: center; gap: 6px; color: var(--mint); }
+  .pill .led { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+  main { overflow: hidden; padding: 0 22px 22px; }
+  .hero { position: relative; height: 236px; margin: 0 -22px; overflow: hidden; }
+  .hero svg.art { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .hero .fade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(15,18,34,.92) 0%, rgba(15,18,34,.55) 42%, rgba(15,18,34,0) 70%), linear-gradient(0deg, var(--bg) 0%, rgba(15,18,34,0) 38%); }
+  .hero .copy { position: absolute; left: 26px; top: 26px; right: 40%; }
+  .kana { font-size: 12px; letter-spacing: 3px; color: var(--sakura); opacity: .9; }
+  .hero h1 { margin: 4px 0 6px; font-size: 30px; font-weight: 800; line-height: 1.15; }
+  .hero p { margin: 0; color: var(--soft); font-size: 13px; }
+  .status { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 5px 12px 5px 10px; border-radius: 999px;
+            background: rgba(127,214,255,.1); border: 1px solid rgba(127,214,255,.28); color: var(--sky); font-size: 12px; font-weight: 500; }
+  .actions { display: flex; gap: 10px; margin-top: 16px; }
+  .btn-play { font-family: "M PLUS Rounded 1c"; font-weight: 800; font-size: 15px; color: #fff; border: 0; padding: 11px 24px; border-radius: 12px;
+              background: linear-gradient(180deg, #ff8cc0, #e05a98); box-shadow: 0 8px 24px rgba(255,126,182,.35), inset 0 1px 0 rgba(255,255,255,.35); display: inline-flex; gap: 10px; align-items: center; }
+  .btn { font: 500 13px Inter; color: var(--text); background: var(--card); border: 1px solid var(--border-strong); padding: 10px 16px; border-radius: 10px; }
+  .grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 12px; margin-top: 6px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+  .card h3 { margin: 0 0 2px; font-size: 14px; font-weight: 700; }
+  .card .sub { color: var(--muted); font-size: 12px; }
+  .row { display: flex; align-items: center; gap: 12px; }
+  .row + .row { margin-top: 12px; }
+  .ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: #1f2442; color: var(--lavender); flex: none; }
+  .ico svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .grow { flex: 1; min-width: 0; }
+  .toggle { width: 40px; height: 22px; border-radius: 999px; background: #2a2f4f; position: relative; flex: none; }
+  .toggle::after { content: ""; position: absolute; top: 4px; left: 4px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); }
+  .toggle.on { background: linear-gradient(90deg, var(--sakura), var(--lavender)); }
+  .toggle.on::after { left: 22px; background: #fff; }
+  .chip { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #20264a; color: var(--soft); }
+  .chip.live { background: rgba(126,232,196,.12); color: var(--mint); }
+  .log { font: 12px/1.75 Consolas, monospace; color: var(--muted); }
+  .log b { color: var(--soft); font-weight: 400; }
+  .log .t { color: #5d6390; margin-right: 8px; }
+  .pagehead { padding: 20px 0 6px; }
+  .pagehead h2 { margin: 2px 0 0; font-size: 26px; font-weight: 800; }
+  .section { margin: 18px 2px 8px; font-family: "M PLUS Rounded 1c"; font-weight: 700; font-size: 13px; color: var(--sakura); letter-spacing: .4px; }
+  .setting { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 11px 14px; display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+  .setting .t1 { font-weight: 500; }
+  .select { background: var(--field); border: 1px solid var(--border-strong); border-radius: 9px; padding: 7px 12px; width: 190px; display: flex; justify-content: space-between; color: var(--text); font-size: 13px; }
+  .petal { position: absolute; width: 9px; height: 7px; border-radius: 9px 0 9px 0; background: #ffb3d1; opacity: .75; }
+</style>
+</head>
+<body>
+<p class="caption">Mockup only — direction for the redesign. Left: Home. Right: Settings. Art is an original vector scene, drawn for SteamTV.</p>
+<div class="stage">
+
+  <!-- ===================== Home ===================== -->
+  <div class="win">
+    <div class="titlebar"><div class="dot"></div>SteamTV<div class="sp"></div><span class="ctl">—</span><span class="ctl">☐</span><span class="ctl">✕</span></div>
+    <nav>
+      <div class="brand"><b>Steam<i>TV</i></b></div>
+      <div class="nav on"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</div>
+      <div class="nav"><svg viewBox="0 0 24 24"><path d="M6 9h12a4 4 0 0 1 4 4v1a3 3 0 0 1-5.4 1.8L15 14H9l-1.6 1.8A3 3 0 0 1 2 14v-1a4 4 0 0 1 4-4z"/><path d="M7 12v2M6 13h2M16 12.5h.01M18 13.5h.01"/></svg>Devices</div>
+      <div class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</div>
+      <div class="nav"><svg viewBox="0 0 24 24"><path d="M4 21V10l8-6 8 6v11"/><path d="M9 21v-5h6v5"/><circle cx="12" cy="11" r="1.5"/></svg>Home Assistant</div>
+      <div class="nav"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>Diagnostics</div>
+      <div class="nav-sp"></div>
+      <div class="nav-foot"><div class="pill"><span class="led"></span>TV connected</div><div style="margin-top:4px">v1.14 · up to date</div></div>
+    </nav>
+    <main>
+      <div class="hero">
+        <svg class="art" viewBox="0 0 680 236" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <defs>
+            <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#1a1840"/><stop offset=".55" stop-color="#3b2c6e"/><stop offset=".85" stop-color="#8a4c8f"/><stop offset="1" stop-color="#e28aa9"/>
+            </linearGradient>
+            <radialGradient id="moonglow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff3f8" stop-opacity=".55"/><stop offset="1" stop-color="#fff3f8" stop-opacity="0"/></radialGradient>
+            <radialGradient id="tvglow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#7fd6ff" stop-opacity=".55"/><stop offset="1" stop-color="#7fd6ff" stop-opacity="0"/></radialGradient>
+          </defs>
+          <rect width="680" height="236" fill="url(#sky)"/>
+          <g fill="#fff" opacity=".8"><circle cx="300" cy="30" r="1"/><circle cx="360" cy="58" r="1.2"/><circle cx="430" cy="22" r=".9"/><circle cx="500" cy="48" r="1.1"/><circle cx="610" cy="26" r="1"/><circle cx="650" cy="70" r=".8"/><circle cx="390" cy="96" r=".8"/><circle cx="560" cy="88" r="1"/></g>
+          <circle cx="560" cy="62" r="60" fill="url(#moonglow)"/>
+          <circle cx="560" cy="62" r="26" fill="#fff1f6"/>
+          <circle cx="571" cy="55" r="22" fill="#3b2c6e" opacity=".18"/>
+          <g fill="#2a2150">
+            <rect x="300" y="150" width="34" height="86"/><rect x="338" y="128" width="26" height="108"/><rect x="368" y="160" width="40" height="76"/><rect x="412" y="118" width="22" height="118"/>
+            <rect x="438" y="146" width="36" height="90"/><rect x="478" y="134" width="28" height="102"/><rect x="510" y="164" width="44" height="72"/><rect x="558" y="124" width="24" height="112"/>
+            <rect x="586" y="152" width="38" height="84"/><rect x="628" y="140" width="52" height="96"/>
+          </g>
+          <g fill="#ffd9a8" opacity=".75">
+            <rect x="344" y="140" width="4" height="5"/><rect x="354" y="152" width="4" height="5"/><rect x="418" y="132" width="4" height="5"/><rect x="418" y="160" width="4" height="5"/>
+            <rect x="486" y="148" width="4" height="5"/><rect x="564" y="138" width="4" height="5"/><rect x="572" y="170" width="4" height="5"/><rect x="640" y="156" width="4" height="5"/>
+          </g>
+          <ellipse cx="470" cy="212" rx="120" ry="40" fill="url(#tvglow)"/>
+          <g transform="translate(408 170)">
+            <rect x="0" y="0" width="124" height="70" rx="6" fill="#12152a" stroke="#7fd6ff" stroke-opacity=".7"/>
+            <rect x="6" y="6" width="112" height="58" rx="3" fill="#1f3a5c"/>
+            <path d="M42 22l26 13-26 13z" fill="#7fd6ff" opacity=".9"/>
+          </g>
+          <g stroke="#1a1430" stroke-width="5" fill="none" stroke-linecap="round">
+            <path d="M690 4 C620 30 600 40 560 100"/><path d="M640 26 C630 50 640 70 650 84"/><path d="M600 60 C580 66 566 80 556 96"/>
+          </g>
+          <g fill="#ffb3d1">
+            <circle cx="636" cy="30" r="7"/><circle cx="648" cy="38" r="6"/><circle cx="626" cy="44" r="6"/><circle cx="652" cy="84" r="7"/><circle cx="642" cy="74" r="5"/>
+            <circle cx="582" cy="70" r="6"/><circle cx="560" cy="96" r="6"/><circle cx="596" cy="58" r="5"/><circle cx="668" cy="16" r="6"/>
+          </g>
+          <g fill="#ffd1e3" opacity=".85">
+            <ellipse cx="520" cy="120" rx="4" ry="2.5" transform="rotate(30 520 120)"/><ellipse cx="470" cy="80" rx="3.5" ry="2" transform="rotate(-20 470 80)"/>
+            <ellipse cx="610" cy="140" rx="4" ry="2.5" transform="rotate(50 610 140)"/><ellipse cx="400" cy="110" rx="3" ry="2" transform="rotate(10 400 110)"/>
+          </g>
+        </svg>
+        <div class="fade"></div>
+        <div class="copy">
+          <div class="kana">こんばんは · COUCH MODE</div>
+          <h1>Ready when you are</h1>
+          <p>Turn on your Flydigi and the TV wakes up, switches to the PC and opens Big Picture.</p>
+          <div class="status"><span class="pill" style="color:var(--sky)"><span class="led"></span></span>Waiting for a controller · Mi TV · HDMI 2</div>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:-6px">
+        <button class="btn-play"><svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M7 4l13 8-13 8z"/></svg>Play on TV</button>
+        <button class="btn">Back to the desk</button>
+      </div>
+      <div class="grid" style="margin-top:16px">
+        <div class="card">
+          <div class="row">
+            <div class="ico"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div>
+            <div class="grow"><h3>Monitoring</h3><div class="sub">Follows your controllers and Big Picture</div></div>
+            <div class="toggle on"></div>
+          </div>
+          <div class="row">
+            <div class="ico" style="color:var(--sakura)"><svg viewBox="0 0 24 24"><path d="M6 9h12a4 4 0 0 1 4 4v1a3 3 0 0 1-5.4 1.8L15 14H9l-1.6 1.8A3 3 0 0 1 2 14v-1a4 4 0 0 1 4-4z"/></svg></div>
+            <div class="grow"><h3>Flydigi APEX5</h3><div class="sub">and 1 more trigger device</div></div>
+            <span class="chip">Offline</span>
+          </div>
+          <div class="row">
+            <div class="ico" style="color:var(--sky)"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
+            <div class="grow"><h3>Mi TV</h3><div class="sub">192.168.1.102 · sound and HDR follow the TV</div></div>
+            <span class="chip live">Connected</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:8px">Recent</h3>
+          <div class="log">
+            <div><span class="t">17:42</span><b>Back to the desk</b> — TizenTube resumed</div>
+            <div><span class="t">17:40</span>Sound → Mi TV</div>
+            <div><span class="t">17:40</span>HDMI 2 · 144 Hz</div>
+            <div><span class="t">17:40</span><b>TV on</b> — woke from sleep</div>
+            <div><span class="t">17:37</span>Monitoring started</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===================== Settings ===================== -->
+  <div class="win">
+    <div class="titlebar"><div class="dot"></div>SteamTV<div class="sp"></div><span class="ctl">—</span><span class="ctl">☐</span><span class="ctl">✕</span></div>
+    <nav>
+      <div class="brand"><b>Steam<i>TV</i></b></div>
+      <div class="nav"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</div>
+      <div class="nav"><svg viewBox="0 0 24 24"><path d="M6 9h12a4 4 0 0 1 4 4v1a3 3 0 0 1-5.4 1.8L15 14H9l-1.6 1.8A3 3 0 0 1 2 14v-1a4 4 0 0 1 4-4z"/></svg>Devices</div>
+      <div class="nav on"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>Settings</div>
+      <div class="nav"><svg viewBox="0 0 24 24"><path d="M4 21V10l8-6 8 6v11"/><path d="M9 21v-5h6v5"/></svg>Home Assistant</div>
+      <div class="nav"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>Diagnostics</div>
+      <div class="nav-sp"></div>
+      <div class="nav-foot"><div class="pill"><span class="led"></span>TV connected</div><div style="margin-top:4px">v1.14 · up to date</div></div>
+    </nav>
+    <main style="overflow:hidden">
+      <div class="pagehead"><div class="kana">せってい</div><h2>Settings</h2></div>
+      <div class="setting" style="border-color:#3a2f5e;background:linear-gradient(90deg,#1d1838,#161a2e)">
+        <div class="ico" style="color:var(--sakura);background:#2a2147"><svg viewBox="0 0 24 24"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/></svg></div>
+        <div class="grow"><div class="t1">Set up automatically</div><div class="sub" style="color:var(--muted);font-size:12px">Find the TV, connect and fill in everything below</div></div>
+        <button class="btn">Find TV</button><button class="btn-play" style="padding:8px 16px;font-size:13px">Set up</button>
+      </div>
+      <div class="section">TV</div>
+      <div class="setting"><div class="ico" style="color:var(--sky)"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8"/></svg></div><div class="grow"><div class="t1">TV address</div><div class="sub" style="color:var(--mint);font-size:12px">● Connected over ADB</div></div><div class="select">192.168.1.102</div></div>
+      <div class="setting"><div class="ico"><svg viewBox="0 0 24 24"><path d="M9 7V3M15 7V3M6 7h12v5a6 6 0 0 1-12 0zM12 18v3"/></svg></div><div class="grow"><div class="t1">HDMI input</div><div class="sub" style="color:var(--muted);font-size:12px">The TV input the PC is plugged into</div></div><div class="select">HDMI 2 <span>⌄</span></div></div>
+      <div class="setting"><div class="ico"><svg viewBox="0 0 24 24"><path d="M12 2v10M18.4 6.6a9 9 0 1 1-12.8 0"/></svg></div><div class="grow"><div class="t1">Wake the TV</div><div class="sub" style="color:var(--muted);font-size:12px">With Wake-on-LAN if it's in deep sleep</div></div><div class="toggle on"></div></div>
+      <div class="setting"><div class="ico"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.9-4M4 4v4h4M4 13a8 8 0 0 0 14.9 4M20 20v-4h-4"/></svg></div><div class="grow"><div class="t1">Afterwards, go back to the TV app</div><div class="sub" style="color:var(--muted);font-size:12px">e.g. YouTube, instead of the home screen</div></div><div class="toggle on"></div></div>
+      <div class="section">Picture and sound</div>
+      <div class="setting"><div class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div><div class="grow"><div class="t1">TV display</div><div class="sub" style="color:var(--muted);font-size:12px">The TV as Windows sees it</div></div><div class="select">Mi TV · #3 <span>⌄</span></div></div>
+      <div class="setting"><div class="ico"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg></div><div class="grow"><div class="t1">Sound through the TV</div><div class="sub" style="color:var(--muted);font-size:12px">The TV becomes the default playback device</div></div><div class="toggle on"></div></div>
+      <div class="setting"><div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg></div><div class="grow"><div class="t1">HDR on the TV</div><div class="sub" style="color:var(--muted);font-size:12px">Only while the TV is on</div></div><div class="toggle"></div></div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

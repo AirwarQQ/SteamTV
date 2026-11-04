@@ -18,54 +18,60 @@ namespace SteamTV
         {
             BtnFindTv.IsEnabled = false;
             try { await FindTvsAsync(); }
-            finally { BtnFindTv.IsEnabled = !_monitor.IsRunning; }
+            finally { BtnFindTv.IsEnabled = true; }
         }
 
         private void CmbFoundTvs_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (CmbFoundTvs.SelectedItem is FoundTv tv) TxtIp.Text = tv.Ip;
+            if (CmbFoundTvs.SelectedItem is FoundTv tv) { TxtIp.Text = tv.Ip; SaveUiToSettings(); }
         }
 
         private void DetectDisplay_Click(object sender, RoutedEventArgs e)
         {
             var tv = DisplayManager.FindTvDisplay();
-            if (tv == null) { Setup("No display named like a TV — pick its number from Displays…"); return; }
-            NumTarget.Value = tv.Value.Number;
+            if (tv == null) { Setup(Loc.T("Setup.NoTvDisplay")); return; }
+            FillDisplays(tv.Value.Number);
             SaveUiToSettings();
-            Setup("TV display: #" + tv.Value.Number + " (" + tv.Value.FriendlyName + ").");
+            Setup(Loc.T("Setup.TvDisplay", tv.Value.FriendlyName + " · #" + tv.Value.Number));
         }
 
+        // Progress goes to Settings → TV and, while the TV isn't set up yet, under the Home button too.
         private void Setup(string message)
         {
-            LblSetup.Text = message;
+            LblSetup.Text = LblHomeSetup.Text = message;
+            LblSetup.Visibility = Visibility.Visible;
+            LblHomeSetup.Visibility = TvConfigured && !_setupRunning ? Visibility.Collapsed : Visibility.Visible;
             AppendLog("Setup: " + message);
         }
 
-        // Fills the combo with the TVs found; returns them.
+        // Fills the list with the TVs found; returns them.
         private async Task<FoundTv[]> FindTvsAsync()
         {
-            Setup("Looking for Android TVs on the network…");
+            Setup(Loc.T("Setup.Looking"));
             var found = (await TvDiscovery.ScanAsync()).ToArray();
             CmbFoundTvs.ItemsSource = found;
             CmbFoundTvs.Visibility = found.Length > 1 ? Visibility.Visible : Visibility.Collapsed;
-            if (found.Length == 0)
-                Setup("No Android TV found. On the TV: Developer options → turn on USB debugging / network debugging, and make sure it's on the same network.");
-            else if (found.Length == 1) { TxtIp.Text = found[0].Ip; Setup("Found " + found[0] + "."); }
-            else Setup("Found " + found.Length + " devices — pick the TV in the list next to Find TV.");
+            if (found.Length == 0) Setup(Loc.T("Setup.NoneFound"));
+            else if (found.Length == 1) { TxtIp.Text = found[0].Ip; Setup(Loc.T("Setup.FoundOne", found[0])); }
+            else
+            {
+                Setup(Loc.T("Setup.FoundMany", found.Length));
+                GoTo(2);   // the list is on the Settings page
+            }
             return found;
         }
 
         private async Task RunAutoSetupAsync(bool firstRun)
         {
-            if (_setupRunning || _monitor.IsRunning) return;
+            if (_setupRunning) return;
             _setupRunning = true;
-            BtnAutoSetup.IsEnabled = BtnFindTv.IsEnabled = false;
+            BtnAutoSetup.IsEnabled = BtnFindTv.IsEnabled = BtnHomeSetup.IsEnabled = false;
             try
             {
                 // 1. The TV's address: keep the entered one if ADB answers there, else search.
                 string ip = TxtIp.Text.Trim();
-                bool reachable = System.Net.IPAddress.TryParse(ip, out _) &&
-                                 await TvDiscovery.IsPortOpenAsync(System.Net.IPAddress.Parse(ip), TvDiscovery.AdbPort, 1500);
+                bool reachable = System.Net.IPAddress.TryParse(ip, out var parsed) &&
+                                 await TvDiscovery.IsPortOpenAsync(parsed, TvDiscovery.AdbPort, 1500);
                 if (!reachable)
                 {
                     var found = await FindTvsAsync();
@@ -75,17 +81,17 @@ namespace SteamTV
 
                 // 2. Connect and get past the TV's "Allow USB debugging?" prompt.
                 var adb = new Adb(AdbPathFromUi(), ip);
-                Setup("Connecting to " + ip + "…");
+                Setup(Loc.T("Setup.Connecting", ip));
                 string state = await Task.Run(() => adb.GetState());
                 for (int i = 0; state != "device" && i < 20; i++)
                 {
-                    Setup("On the TV, accept \"Allow USB debugging?\" (tick \"Always allow\")… " + (60 - i * 3) + " s");
+                    Setup(Loc.T("Setup.Accept", 60 - i * 3));
                     await Task.Delay(3000);
                     state = await Task.Run(() => adb.GetState());
                 }
                 if (state != "device")
                 {
-                    Setup("The TV didn't allow the connection (" + (state ?? "no answer") + "). Accept the prompt on the TV, then click Set up automatically again.");
+                    Setup(Loc.T("Setup.Denied", state ?? Loc.T("Setup.NoAnswer")));
                     return;
                 }
 
@@ -97,36 +103,38 @@ namespace SteamTV
 
                 TxtIp.Text = ip;
                 TxtTvHomeComponent.Text = launcher;
-                int port = (int)(NumHdmiPort.Value ?? 1);
+                int port = HdmiPortUi;
                 string portNote;
-                if (ports.Count == 1) { port = ports[0]; portNote = "HDMI " + port; }
-                else if (ports.Count == 0) portNote = "HDMI " + port + " (the TV reports no connected input — check it)";
+                if (ports.Count == 1) { port = ports[0]; portNote = Loc.T("Setup.Port.One", port); }
+                else if (ports.Count == 0) portNote = Loc.T("Setup.Port.None", port);
                 else
                 {
                     if (!ports.Contains(port)) port = ports[0];
-                    portNote = "HDMI " + port + " (cables in " + string.Join(", ", ports) + " — change it if the PC is on another)";
+                    portNote = Loc.T("Setup.Port.Many", port, string.Join(", ", ports));
                 }
-                NumHdmiPort.Value = port;
+                HdmiPortUi = port;
 
                 // 4. ...and from Windows.
                 var display = DisplayManager.FindTvDisplay();
-                if (display != null) NumTarget.Value = display.Value.Number;
+                if (display != null) FillDisplays(display.Value.Number);
                 string steam = SteamHelper.FindSteamExe();
                 if (steam != null) TxtSteamPath.Text = steam;
+                _setupRunning = false;
                 SaveUiToSettings();
 
-                Setup("Done: " + (string.IsNullOrEmpty(model) ? "TV" : model) + " at " + ip + " · " + portNote +
-                      " · display " + (display != null ? "#" + display.Value.Number + " (" + display.Value.FriendlyName + ")" : "not found — pick it from Displays…") +
-                      " · launcher " + (launcher.Length > 0 ? launcher.Split('/')[0] : "Home key") +
-                      " · Steam " + (steam != null ? "found" : "not found — set its path on Advanced") +
-                      ". Next: tick your gamepad on the Devices tab, then Start.");
-                if (firstRun) Tabs.SelectedIndex = 0;
+                Setup(Loc.T("Setup.Done", string.IsNullOrEmpty(model) ? "TV" : model, ip, portNote,
+                    display != null ? display.Value.FriendlyName + " · #" + display.Value.Number : Loc.T("Setup.Display.Missing"),
+                    launcher.Length > 0 ? launcher.Split('/')[0] : Loc.T("Setup.HomeKey"),
+                    Loc.T(steam != null ? "Setup.Steam.Found" : "Setup.Steam.Missing")));
+                LblHomeSetup.Visibility = Visibility.Collapsed;
+                if (firstRun && _settings.WatchedDevices.Count == 0) GoTo(1);   // next step: pick the controller
             }
-            catch (Exception ex) { Setup("Setup failed: " + ex.Message); }
+            catch (Exception ex) { Setup(Loc.T("Setup.Failed", ex.Message)); }
             finally
             {
                 _setupRunning = false;
-                BtnAutoSetup.IsEnabled = BtnFindTv.IsEnabled = !_monitor.IsRunning;
+                BtnAutoSetup.IsEnabled = BtnFindTv.IsEnabled = BtnHomeSetup.IsEnabled = true;
+                UpdateStatusLabel();
             }
         }
 

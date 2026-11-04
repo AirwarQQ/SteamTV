@@ -7,12 +7,15 @@
 
 **Pick up the controller — the TV is already showing Steam.**
 
-Turn on your gamepad: the TV wakes up, switches to the PC's HDMI input, and Steam Big Picture opens on it. Close Big Picture: your desk monitors come back exactly as they were and the TV goes back to its home screen. No remote, no Win+P, no walking to the PC.
+Turn on your gamepad: the TV wakes up, switches to the PC's HDMI input, sound moves to the TV and Steam Big Picture opens on it. Close Big Picture: your desk monitors and speakers come back exactly as they were, and the TV goes back to whatever it was showing. No remote, no Win+P, no walking to the PC.
 
 <p align="center">
-  <img src="docs/screenshots/monitor.png" width="380" alt="Monitor tab">
+  <img src="docs/screenshots/home.png" width="760" alt="SteamTV home page: a night-scene banner with sakura, Play on TV and Back to the desk buttons, monitoring, controller and TV status">
+</p>
+<p align="center">
+  <img src="docs/screenshots/settings.png" width="375" alt="Settings page">
   &nbsp;
-  <img src="docs/screenshots/devices.png" width="380" alt="Devices tab">
+  <img src="docs/screenshots/devices.png" width="375" alt="Devices page">
 </p>
 
 ## Features
@@ -20,15 +23,16 @@ Turn on your gamepad: the TV wakes up, switches to the PC's HDMI input, and Stea
 - 🎮 **Any controller is the "on" button** — Xbox, DualSense/DualShock, Switch Pro, 8BitDo, Flydigi… USB or Bluetooth. Even a keyboard or any other device can be a trigger.
 - 🪄 **Sets itself up** — on first launch it finds the TV on your network, connects, and fills in the HDMI port, the TV display, the TV's launcher and the Steam path. No IP addresses or ADB commands to look up.
 - 📺 **Takes over the TV** — wakes it (Wake-on-LAN too, if it's in deep sleep) and switches it to the PC's HDMI input over ADB (Wi-Fi), then checks the switch actually happened and rolls back if it didn't. Afterwards it returns the TV to the app it was showing and, if SteamTV woke it, puts it back to sleep. A new IP from the router is picked up by itself.
-- 🔊 **Sound and HDR follow the TV** — the TV becomes the default playback device while it's active (and optionally HDR is switched on); both go back afterwards.
+- 🔊 **Sound and HDR follow the TV** — the TV becomes the default playback device while it's on (and optionally HDR is switched on); both go back afterwards.
 - 🖥️ **Handles the monitors** — turns the TV display on in Windows, optionally switches every other monitor off, sets the highest refresh rate, and later restores the **exact** previous layout (positions, primary display, everything).
 - 🚀 **Steam Big Picture** opens on the TV, and closing it ends the session. Or end it when the controller switches off — with a 10 s grace period for Bluetooth hiccups.
-- ⚙️ **Per-device behaviour** — your own names, "TV + Big Picture" or "TV only" (e.g. a keyboard to use the desktop on the TV), restore on disconnect.
+- ⚙️ **Per-device behaviour** — your own names, "TV + Big Picture" or "TV only" (e.g. a keyboard to use the desktop on the TV), back to the desk on disconnect.
 - 🔌 **Bridge apps work too** — controllers connected through Switch2Connect (Switch 2 Pro Controller via an ESP32), DS4Windows and similar are picked up as virtual gamepads.
 - 🏠 **Home Assistant** (optional, over MQTT) — a SteamTV device with "Gamepad monitoring" and "Steam on TV" switches, plus optional Sleep / Shut down / Restart buttons, for dashboards, automations and voice assistants.
-- 🛠️ **Nothing to install on the TV** — the HDMI input is switched with the TV's own components, and the TV's default launcher is detected automatically.
-- ⌨️ **Global keyboard shortcuts** — Ctrl+Alt+9 / Ctrl+Alt+0 out of the box, or your own combinations; they work while SteamTV is in the tray.
-- 🪶 **Lives in the tray** — starts with Windows, reacts instantly to devices, notifies you only when something goes wrong, updates itself in one click, keeps a log file. Light/dark theme.
+- 🛠️ **Nothing to install on the TV** — the HDMI input is switched with the TV's own components.
+- ⌨️ **Global keyboard shortcuts** — Ctrl+Alt+9 / Ctrl+Alt+0 out of the box, or your own; they work while SteamTV is in the tray.
+- 🌙 **A cozy look** — a calm night palette with a softly animated sakura scene on the Home page (it pauses whenever the window isn't on screen). English and Russian, switchable on the fly.
+- 🪶 **Lives in the tray** — starts with Windows, reacts instantly to devices, Play on TV / Back to the desk right from the tray menu, notifies you only when something goes wrong, updates itself in one click, keeps a log file.
 
 ## Why SteamTV
 
@@ -41,8 +45,8 @@ Turn on your gamepad: the TV wakes up, switches to the PC's HDMI input, and Stea
 
 ## How it works
 
-1. **A trigger device connects** (USB or Bluetooth) → wake the TV over ADB, turn on the TV display in Windows (optionally turning the other monitors off), switch the TV's HDMI input to the PC, launch Steam Big Picture.
-2. **Big Picture closes** — or, if you choose, **the device disconnects** → restore the monitor layout, send the TV back to its home screen, minimize Steam.
+1. **A trigger device connects** (USB or Bluetooth) → wake the TV over ADB, turn on the TV display in Windows (optionally turning the other monitors off), switch the TV's HDMI input to the PC, move the sound to the TV, launch Steam Big Picture.
+2. **Big Picture closes** — or, if you choose, **the device disconnects** → restore the monitor layout and the sound device, return the TV to what it was showing (and back to sleep if SteamTV woke it), minimize Steam.
 
 ---
 
@@ -51,8 +55,8 @@ Turn on your gamepad: the TV wakes up, switches to the PC's HDMI input, and Stea
 | | |
 |---|---|
 | **Windows 10 / 11** | .NET Framework 4.8 is already built in (Windows 10 1903+). |
-| **Android TV with ADB** | *Developer options → USB debugging* (or *Wireless debugging*) enabled — see [Setup](#2-enable-adb-on-the-tv). `adb.exe` itself is bundled, nothing to install on the PC. |
-| **Steam** | Default install path, or set yours on the Advanced tab. |
+| **Android TV with ADB** | *Developer options → USB debugging* (or network / wireless debugging) enabled — see [Setup](#2-enable-adb-on-the-tv). `adb.exe` itself is bundled, nothing to install on the PC. |
+| **Steam** | Found by itself; set another path in Settings → Advanced if needed. |
 
 ---
 
@@ -66,18 +70,31 @@ Grab `SteamTV-vX.Y.Z-win.zip` from the [latest release](https://github.com/Airwa
 - In **Developer options**, turn on **USB debugging** (ADB) — on some TVs it's called network or wireless debugging.
 
 ### 3. Let SteamTV set itself up
-On first launch SteamTV runs **Set up automatically** by itself (it's also a button on the Monitor tab):
-1. It looks for Android TVs on your network. If it finds several, pick yours in the list next to **Find TV** and click **Set up automatically** again.
+On first launch SteamTV runs **Set up automatically** by itself (it's also on the Home page while no TV is set, and at the top of **Settings**):
+1. It looks for Android TVs on your network. If it finds several, pick yours in the list under **Set up automatically** and click **Set up** again.
 2. The TV shows **"Allow USB debugging?"** — accept it and tick *Always allow*. SteamTV waits up to a minute for that.
-3. It fills in the **HDMI port** (from the inputs the TV reports a cable in — check it if several are connected), the **TV display** (by its name in Windows), the TV's **launcher** and the **Steam** path.
+3. It fills in the **HDMI input** (from the inputs the TV reports a cable in — check it if several are connected), the **TV display** (by its name in Windows), the TV's **launcher** and the **Steam** path.
 
-Everything stays editable: **TV IP**, **HDMI port** (1–4) and **Target display #** on the Monitor tab — **Detect TV display** and **Displays…** help with the last one. The indicator under the IP turns green once ADB reaches the TV (checked every 15 s).
+Everything stays editable in **Settings**: the TV address, the HDMI input and the TV display (listed by name; the 🔍 button picks the one that looks like a TV). The line under the address turns green once ADB reaches the TV (checked every 15 s).
 
 ### 4. Pick your trigger devices
-On the **Devices** tab, find your controller in the bottom list, select it and click **↑ Add** (or double-click it). Make sure its **On** box is ticked. That's it — switch the controller on and the TV should follow. More on this tab [below](#devices).
+On the **Devices** page, find your controller in the bottom list, select it and click **Add** (or double-click it). Make sure its **On** box is ticked. That's it — switch the controller on and the TV should follow. More on this page [below](#devices).
 
 ### 5. Autostart (optional)
-Tick **Run at Windows startup (hidden in tray)** on the Monitor tab. SteamTV then starts silently in the tray at login and begins monitoring on its own.
+Turn on **Start with Windows** in Settings → App. SteamTV then starts silently in the tray at login and, with **Monitor right away** on, begins monitoring on its own.
+
+---
+
+## Home
+
+The status banner says what SteamTV is doing — waiting for a controller, TV on, or monitoring paused — with the TV and its HDMI input. Below it:
+
+- **Play on TV** runs the whole sequence by hand, without waiting for a controller.
+- **Back to the desk** closes Big Picture and brings the monitors, the sound and the TV back — also a one-click fix if things got out of sync.
+- **Monitoring** turns the automatic reaction to controllers and Big Picture on or off.
+- The trigger device and the TV with their live state, and the most recent events.
+
+The same actions are in the tray menu and on the keyboard shortcuts.
 
 ---
 
@@ -89,54 +106,48 @@ Tick **Run at Windows startup (hidden in tray)** on the Monitor tab. SteamTV the
 
 | Setting | What it does |
 |---|---|
-| **Name** | Your own name for it (e.g. *Living-room pad*), used in the list and the log. Empty = product name. |
+| **Name** | Your own name for it (e.g. *Living-room pad*), used in the list, on Home and in the log. Empty = product name. |
 | **On connect** | **TV + Big Picture** — the full sequence. **TV only** — wake the TV and switch displays/input, but don't open Big Picture (e.g. a keyboard for using the desktop on the TV). |
-| **Restore monitors when it disconnects** | When the device has been gone for 10 s: close Big Picture if open, restore the monitors, send the TV home. The 10 s grace rides out brief Bluetooth dropouts — reconnecting in time cancels it. A natural pair for **TV only**, which has no Big Picture to close. |
+| **Back to the desk when it disconnects** | When the device has been gone for 10 s: close Big Picture if open, restore the monitors, return the TV. The 10 s grace rides out brief Bluetooth dropouts — reconnecting in time cancels it. A natural pair for **TV only**, which has no Big Picture to close. |
 
 A few details worth knowing:
 - Activation happens when a ticked device **connects**, not while it stays connected — so a keyboard that's always plugged in never blocks a gamepad from triggering.
-- While the TV is already active, another trigger device connecting doesn't start a second activation.
+- While the TV is already on, another trigger device connecting doesn't start a second activation.
 - Devices are picked up the moment Windows reports them, with a 2-second poll as a backup.
 
 ---
 
-## Monitor tab
+## Settings
 
-**Features** — switch off any step you don't want:
+Changes apply right away — there's no Save button, and nothing is locked while monitoring runs.
 
-| Toggle | Effect |
+| Setting | Effect |
 |---|---|
-| Disable other monitors when TV is active | Only the TV stays on while it's in use; the full layout comes back afterwards. |
-| Wake TV via ADB when a device connects | Turns the TV screen on if it's off — and sends Wake-on-LAN first if the TV is in deep sleep and doesn't answer. |
-| Switch HDMI source on TV | Switches the TV to the PC's HDMI input — nothing needs to be installed on the TV, see [How the HDMI input is switched](#how-the-hdmi-input-is-switched). |
-| Launch Steam Big Picture | Opens Big Picture once the TV is on the right input. |
-| Play sound through the TV while it's active | Makes the TV's HDMI audio the default playback device and puts the previous one back afterwards. Found by the TV display's name; override it on Advanced. On by default. |
-| Turn on HDR on the TV while it's active | Switches Windows HDR on for the TV display, and back off afterwards. Off by default. |
-| Afterwards, return the TV to the app it was showing | Instead of the home screen — e.g. back to YouTube where you left it. |
-| Afterwards, put the TV back to sleep if SteamTV woke it | If the TV was off before, it goes off again when you're done. |
+| **TV address**, **HDMI input** | Filled in by Set up automatically. |
+| **Wake the TV** | Turns the TV screen on if it's off — and sends Wake-on-LAN first if the TV is in deep sleep and doesn't answer. |
+| **Switch the TV to the PC** | Selects the PC's HDMI input — nothing needs to be installed on the TV, see [How the HDMI input is switched](#how-the-hdmi-input-is-switched). |
+| **Afterwards, go back to the TV app** | Instead of the home screen — e.g. back to YouTube where you left it. |
+| **Afterwards, put the TV back to sleep** | If the TV was off before, it goes off again when you're done. |
+| **TV display** | The TV as Windows sees it, listed by name. |
+| **Only the TV while it's on** | Switches the other monitors off; the full layout comes back afterwards. |
+| **Sound through the TV** | Makes the TV's HDMI audio the default playback device and puts the previous one back afterwards. On by default. |
+| **HDR on the TV** | Switches Windows HDR on for the TV display, and back afterwards. Off by default. |
+| **Open Big Picture** | Once the TV is on the right input. Closing Big Picture ends the session. |
+| **Language** | Same as Windows, English or Russian. Applies right away. |
+| **Start with Windows**, **Monitor right away** | Start hidden in the tray; turn monitoring on at start. |
 
-**Activate now** / **Deactivate / Restore** run the same sequences by hand — useful for testing, and as a one-click way back if something got out of sync. The **Test** tab has buttons for each individual step (wake TV, switch input, list/enable/disable displays, …).
+### Keyboard shortcuts
+Click the **Play on TV** or **Back to desk** field, then press your combination with Ctrl, Alt or Win, and click **Save shortcuts**. Shortcuts work even with SteamTV hidden in the tray or monitoring off. Defaults: **Ctrl+Alt+9** and **Ctrl+Alt+0**. Press Escape in a field and save to disable that shortcut. SteamTV rejects duplicate combinations; if another app already uses one, a tray notification says so at startup and the other shortcut still works.
 
-### Tray
-Closing or minimizing the window keeps SteamTV running in the tray. The icon is **green** when ADB reaches the TV and **red** when it doesn't; right-click shows the current ADB and monitoring status. A tray notification pops up when something needs your attention — the TV didn't switch input, Big Picture failed to start, monitors couldn't be restored, ADB unreachable for a while during monitoring — and when a new version is out: click the notification (or **Install update** in the tray menu) and SteamTV downloads it, swaps the exe and restarts. **Open log file** in the tray menu opens `%LOCALAPPDATA%\SteamTV\steamtv.log`, which keeps the log across restarts. Starting `SteamTV.exe` again while it's in the tray brings its window up.
-
-The light / dark / auto theme switch sits in the title bar.
-
----
-
-## Advanced tab
+### Advanced
+Collapsed at the bottom of Settings — normally filled in by themselves:
 
 | Setting | Default |
 |---|---|
-| **adb.exe path** | `adb.exe` = the bundled copy in `%LOCALAPPDATA%\SteamTV`. Point it at your own `platform-tools` install if you prefer. |
-| **steam.exe path** | `C:\Program Files (x86)\Steam\steam.exe` |
-| **TV home component** | Blank = the TV's Home key. **Find TV launcher** detects the default Home app, or enter its component manually. |
-| **TV sound device** | Blank = the playback device named after the TV display. Enter part of another device's name to override. |
-
-### Global keyboard shortcuts
-Click the **Activate now** or **Deactivate / Restore** shortcut field, then press your preferred combination with Ctrl, Alt or Win. Click **Save shortcuts** to apply and persist it. Shortcuts work even with SteamTV hidden in the tray or monitoring stopped, and perform the same actions as the corresponding buttons. Defaults: **Ctrl+Alt+9** activates, **Ctrl+Alt+0** deactivates. Press Escape in a field and save to disable that shortcut. If another app already uses a combination, SteamTV says so in a tray notification at startup and the other shortcut still works.
-
-SteamTV rejects duplicate combinations and reports shortcuts Windows cannot register (for example, those already used by another app). If registration fails, it attempts to restore the previous shortcuts. At startup, any registration error appears in the settings and log.
+| **TV launcher** | Blank = the TV's Home key. **Find** detects the default Home app, or enter its `package/.Activity` manually. |
+| **TV sound device** | Blank = the playback device named after the TV display (e.g. *Mi TV (NVIDIA High Definition Audio)*). Enter part of another device's name to override. |
+| **steam.exe** | Where Steam says it's installed. |
+| **adb.exe** | `adb.exe` = the bundled copy in `%LOCALAPPDATA%\SteamTV`. Point it at your own `platform-tools` install if you prefer. |
 
 ### How the HDMI input is switched
 Nothing is installed on the TV. SteamTV tries, in order:
@@ -147,16 +158,26 @@ Nothing is installed on the TV. SteamTV tries, in order:
 It then waits for the screen that method opens to come to the front; if it doesn't within 10 s, it rolls back.
 
 ### Manual values
-Use automatic launcher detection first. To find a launcher manually (or an HDMI activity pattern override), connect to the TV (`adb connect <TV_IP>` from the folder with `adb.exe`) and inspect the foreground activity:
+To find a launcher by hand (or an HDMI activity pattern override), connect to the TV (`adb connect <TV_IP>` from the folder with `adb.exe`) and inspect the foreground activity:
 
 ```
 adb shell dumpsys activity activities | findstr ResumedActivity
 ```
 
-1. **TV home component** — click **Find TV launcher** for automatic detection. Alternatively, go back to the TV's home screen, run the command, and paste the `package/.Activity` as-is (e.g. `com.example.launcher/.MainActivity`).
+1. **TV launcher** — go to the TV's home screen, run the command, and paste the `package/.Activity` as-is (e.g. `com.example.launcher/.MainActivity`).
 2. **HDMI activity pattern** — not in the UI; needed only if the TV does switch but SteamTV still rolls back. Switch the TV to the PC's input with the remote, run the command, escape the dots of the `package/.Activity` part (`com\.example\.tvplayer/\.ExternalSourceActivity`) and store it as the `HdmiActivityPattern` string value in the registry key below.
 
 All settings live in the registry under `HKCU\Software\SteamTV`.
+
+---
+
+## Tray
+
+Closing or minimizing the window keeps SteamTV running in the tray. The icon's dot is **mint** when ADB reaches the TV and **red** when it doesn't. Right-click for the current state, **Play on TV**, **Back to the desk**, **Monitoring**, autostart options, the log file and Exit.
+
+A tray notification pops up when something needs your attention — the TV didn't switch input, Big Picture failed to start, monitors couldn't be restored, ADB unreachable for a while during monitoring — and when a new version is out: click the notification (or **Install update** in the tray menu) and SteamTV downloads it, swaps the exe and restarts. **Open log file** opens `%LOCALAPPDATA%\SteamTV\steamtv.log`, which keeps the log across restarts. Starting `SteamTV.exe` again while it's in the tray brings its window up.
+
+The **Diagnostics** page has a button for each individual step (wake TV, switch input, list/enable/disable displays, sound devices, HDR, …) and the live log.
 
 ---
 
@@ -164,34 +185,34 @@ All settings live in the registry under `HKCU\Software\SteamTV`.
 
 Optional — SteamTV can show up in Home Assistant as a device you can see and switch from a dashboard, an automation or a voice assistant. It talks MQTT, so you need a broker (the **Mosquitto broker** add-on, or any other) and the **MQTT** integration set up in Home Assistant.
 
-1. On the **Home Assistant** tab, under **MQTT broker**, enter the broker's **Host**, **Port** (1883 by default), **Login** and **Password** (an HA user works with the Mosquitto add-on).
+1. On the **Home Assistant** page, enter the broker's **Host**, **Port** (1883 by default), **Login** and **Password** (an HA user works with the Mosquitto add-on).
 2. **Test** checks that the broker accepts the connection and the login — it doesn't change anything.
-3. Tick **Connect to Home Assistant through an MQTT broker**. After editing the fields later, click **Save & reconnect**.
+3. Turn on **Connect to Home Assistant through an MQTT broker**. After editing the fields later, click **Save and reconnect**.
 
-<p align="center"><img src="docs/screenshots/home-assistant.png" width="560" alt="Home Assistant tab"></p>
+<p align="center"><img src="docs/screenshots/home-assistant.png" width="600" alt="Home Assistant page"></p>
 
 A **SteamTV** device appears in Home Assistant by itself (MQTT discovery), with two switches:
 
 | Switch | On | Off |
 |---|---|---|
-| **Gamepad monitoring** | Same as **Start** | Same as **Stop** |
-| **Steam on TV** | Same as **Activate now** | Same as **Deactivate / Restore** |
+| **Gamepad monitoring** | Same as the **Monitoring** toggle on | Monitoring off |
+| **Steam on TV** | Same as **Play on TV** | Same as **Back to the desk** |
 
 - Both report the real state, including changes SteamTV makes on its own — a gamepad switching the TV on, Big Picture closing.
 - When SteamTV exits, or the PC goes to sleep or drops off the network, the device shows as **unavailable**.
 - SteamTV reconnects by itself if the broker restarts or the network goes away for a while.
 - Every command from Home Assistant is written to the log (`Home Assistant command: …`).
 - The password is stored encrypted for your Windows account (DPAPI).
-- Unticked, SteamTV makes no network connections for this at all.
+- Turned off, SteamTV makes no network connections for this at all.
 
 ### PC power
-Tick **Let Home Assistant put this PC to sleep, shut it down or restart it** and the device also gets **Sleep**, **Shut down** and **Restart** buttons. This replaces the usual SSH-into-Windows `shell_command` setup: no OpenSSH server on the PC, no keys or YAML in Home Assistant, and the buttons come back by themselves after a Home Assistant reinstall.
+Turn on **Let Home Assistant put this PC to sleep, shut it down or restart it** and the device also gets **Sleep**, **Shut down** and **Restart** buttons. This replaces the usual SSH-into-Windows `shell_command` setup: no OpenSSH server on the PC, no keys or YAML in Home Assistant, and the buttons come back by themselves after a Home Assistant reinstall.
 
 - **Shut down** and **Restart** show Windows' own 30-second warning first; `shutdown /a` cancels it.
 - The buttons only work while SteamTV runs, i.e. after you've signed in to Windows.
-- Unticked, the buttons disappear from Home Assistant and power commands are ignored.
+- Turned off, the buttons disappear from Home Assistant and power commands are ignored.
 
-**Switching on** can't come from SteamTV, since the PC is off at that point. Add the **Wake on LAN** integration in Home Assistant (Settings → Devices & services → Add integration) with the MAC address shown on the tab, and enable Wake on LAN in the BIOS / network adapter settings. To get a single on/off switch, add a **Template → Switch** helper: state from a **Ping** sensor for the PC, turn on → the Wake on LAN button, turn off → SteamTV's **Sleep** or **Shut down** button.
+**Switching on** can't come from SteamTV, since the PC is off at that point. Add the **Wake on LAN** integration in Home Assistant (Settings → Devices & services → Add integration) with the MAC address shown on the page, and enable Wake on LAN in the BIOS / network adapter settings. To get a single on/off switch, add a **Template → Switch** helper: state from a **Ping** sensor for the PC, turn on → the Wake on LAN button, turn off → SteamTV's **Sleep** or **Shut down** button.
 
 <details>
 <summary>MQTT topics</summary>
@@ -213,26 +234,24 @@ Discovery and states are published again whenever Home Assistant restarts (`home
 
 ## Troubleshooting
 
-**ADB indicator / tray icon is red**
-- Check the TV IP and that the TV is on the same network.
-- Make sure the TV accepted the debugging prompt. Missed or declined it? Use **Revoke USB debugging authorisations** in Developer options, then click **Start** again to get a fresh prompt.
+**"TV not reachable" / tray dot is red**
+- Check the TV address and that the TV is on the same network.
+- Make sure the TV accepted the debugging prompt. Missed or declined it? Use **Revoke USB debugging authorisations** in Developer options, then run **Set up** again to get a fresh prompt.
 - Many Android TVs **switch Wireless debugging off by themselves** after a reboot or update. Nothing on the PC side can turn it back on — re-enable it on the TV, or install [adb-auto-enable](https://github.com/mouldybread/adb-auto-enable) **on the TV** to have it re-enabled at every boot.
 
 **TV didn't switch to the PC ("rolled back")**
-- Click **Switch HDMI Source** on the Test tab — the log says which method was used, or why none worked.
+- Click **Switch HDMI Source** on the Diagnostics page — the log says which method was used, or why none worked.
 - If the TV did switch but SteamTV still rolled back, set an HDMI activity pattern override — see [Manual values](#manual-values).
 
 **Wrong display turned on**
-- Click **Detect TV display**, or use **Displays…** to find the TV's number; it matches `\\.\DISPLAYn` in Windows display settings.
+- Pick the TV in Settings → **TV display**, or click 🔍 next to it; the number matches `\\.\DISPLAYn` in Windows display settings.
 
 **Set up automatically finds no TV**
-- The PC and the TV must be on the same network, and USB / network debugging must be on in the TV's Developer options. If the TV has no network debugging at all, enter its IP by hand.
-- Several Android devices found: pick the TV in the list next to **Find TV**, then click **Set up automatically** again.
+- The PC and the TV must be on the same network, and USB / network debugging must be on in the TV's Developer options. If the TV has no network debugging at all, enter its address by hand.
+- Several Android devices found: pick the TV in the list under **Set up automatically**, then click **Set up** again.
 
 **Sound stays on the PC**
-- The TV's sound device only exists while its display is on. Check the **List Sound Devices** button on the Test tab during a session — if the TV's device has an unusual name, enter part of it as **TV sound device** on the Advanced tab.
-
-**Something else** — the tray menu's **Open log file** shows everything SteamTV did, also from before the last restart.
+- The TV's sound device only exists while its display is on. Check **List Sound Devices** on the Diagnostics page during a session — if the TV's device has an unusual name, enter part of it as **TV sound device** in Settings → Advanced.
 
 **Device not in the list**
 - Bluetooth devices have to be paired in Windows first.
@@ -243,6 +262,8 @@ Discovery and states are published again whenever Home Assistant restarts (`home
 - Such apps hand Windows a *virtual* gamepad that only exists while the real controller is connected. It shows up as **Virtual gamepad (…)** with bus **Virtual** — add that one, not the USB adapter (an ESP32 or other dongle is powered all the time and always reads as connected).
 - The virtual pad's identity depends on the app's emulation mode (Xbox, PS4, PS5…). After switching modes, add it again.
 
+**Something else** — the tray menu's **Open log file** shows everything SteamTV did, also from before the last restart.
+
 ---
 
 ## Building from source
@@ -251,14 +272,17 @@ Discovery and states are published again whenever Home Assistant restarts (`home
 dotnet build -c Release
 ```
 
-Produces a single self-contained `bin\Release\net48\SteamTV.exe` — WPF-UI is merged in by Costura.Fody and `adb.exe` is embedded as a resource. Visual Studio 2022+ works too.
+Produces a single self-contained `bin\Release\net48\SteamTV.exe` — WPF-UI is merged in by Costura.Fody, `adb.exe` is embedded as a resource. Visual Studio 2022+ works too.
 
 ```
 SteamTV/
 ├─ App.xaml(.cs)            entry point: single instance (a second start shows the window), -autostart flag, theme
-├─ MainWindow.xaml(.cs)     UI: Monitor / Test / Advanced tabs, status, log
+├─ Theme.xaml               the palette, fonts and control styles; re-points WPF-UI's brushes at the palette
+├─ MainWindow.xaml(.cs)     the window: sidebar, Home / Devices / Settings / Home Assistant / Diagnostics pages, status, log
 ├─ MainWindow.*.cs          the rest of the window: AutoSetup, Devices, HomeAssistant, Tray, Setup (hotkeys, launcher)
+├─ Controls/NightScene      the animated banner on Home
 ├─ Appsettings.cs           registry-backed settings, WatchedDevice model
+├─ Fonts/                   Rounded M+ 1c, subset to Latin, Cyrillic and kana (OFL)
 ├─ app.manifest             per-monitor DPI awareness
 ├─ Interop/Native.cs        P/Invoke: CCD display API, device-change notifications
 ├─ Services/
@@ -271,10 +295,11 @@ SteamTV/
 │  ├─ Steamhelper.cs        Big Picture: detect, launch, close; minimize Steam; find steam.exe
 │  ├─ HomeAssistantMqtt.cs  MQTT discovery, switch states, commands from Home Assistant
 │  ├─ PowerControl.cs       sleep / shut down / restart, MAC for Wake on LAN
-│  ├─ GlobalHotkeys.cs      Activate / Deactivate shortcuts
+│  ├─ GlobalHotkeys.cs      Play on TV / Back to the desk shortcuts
+│  ├─ Loc.cs                English and Russian UI text ({l:Tr Key} in XAML)
 │  ├─ UpdateChecker.cs, Updater.cs  new-release check; download, swap the exe, restart
 │  └─ AppLog.cs             log file in %LOCALAPPDATA%\SteamTV
 └─ Vendor/adb.exe           Android Platform Tools (Apache 2.0, see adb-NOTICE.txt)
 ```
 
-UI built with [WPF-UI](https://github.com/lepoco/wpfui). Licensed under MIT — see [LICENSE](LICENSE).
+UI built with [WPF-UI](https://github.com/lepoco/wpfui); headings in [M PLUS Rounded 1c](https://github.com/coz-m/MPLUS_FONTS) (SIL Open Font License, see `Fonts/OFL.txt`). The Home banner is original artwork. SteamTV is licensed under MIT — see [LICENSE](LICENSE).

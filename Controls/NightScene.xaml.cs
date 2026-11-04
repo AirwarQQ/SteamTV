@@ -25,9 +25,9 @@ namespace SteamTV.Controls
         // picture's right edge (0..1 from the top), which is pinned to BranchAnchor.
         private static readonly (string File, double Width, double TrunkY)[] BranchArt =
         {
-            ("branch_1.png", 285, 0.886), ("branch_2.png", 270, 0.898), ("branch_3.png", 255, 0.911),
+            ("branch_1.png", 285, 0.886), ("branch_2.png", 270, 0.898), ("branch_3.png", 245, 0.911),
         };
-        private static readonly Point BranchAnchor = new Point(700, 132);
+        private static readonly Point BranchAnchor = new Point(700, 152);   // low enough that no top twig is cut off
         private const double BranchSwitchSec = 40, BranchFadeSec = 2.5;
         private readonly Image[] _branchImg = new Image[3];
         private readonly List<Point>[] _branchSpots = new List<Point>[3];

@@ -122,7 +122,7 @@
                      the whole branch sways around where its trunk enters at the right edge. -->
                 <Canvas x:Name="Branch">
                     <Canvas.RenderTransform>
-                        <RotateTransform x:Name="BranchSway" CenterX="700" CenterY="132" />
+                        <RotateTransform x:Name="BranchSway" CenterX="700" CenterY="152" />
                     </Canvas.RenderTransform>
                 </Canvas>
             </Canvas>

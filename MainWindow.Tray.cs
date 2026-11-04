@@ -65,6 +65,19 @@ namespace SteamTV
             catch { return SystemIcons.Application; }
         }
 
+        // The tray wants the small frame drawn for its size (just the play mark at 16–24 px), not
+        // the 32 px TV scaled down into a blur.
+        private static System.Drawing.Icon LoadTrayIcon()
+        {
+            try
+            {
+                using (var s = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("SteamTV.start_icon.ico"))
+                    if (s != null) return new System.Drawing.Icon(s, Forms.SystemInformation.SmallIconSize);
+            }
+            catch { }
+            return LoadAppIcon();
+        }
+
         // Overlays a small colored status dot (bottom-right) on the app icon, for the tray.
         private static System.Drawing.Icon BuildStatusIcon(System.Drawing.Icon baseIcon, System.Drawing.Color? dotColor)
         {
@@ -75,23 +88,23 @@ namespace SteamTV
                     using (var g = System.Drawing.Graphics.FromImage(bmp))
                     {
                         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                        int size = Math.Max(4, bmp.Width / 2);
-                        var rect = new System.Drawing.Rectangle(bmp.Width - size, bmp.Height - size, size, size);
+                        int size = Math.Max(5, bmp.Width * 7 / 16);
+                        var rect = new System.Drawing.Rectangle(bmp.Width - size, bmp.Height - size, size - 1, size - 1);
+                        using (var ring = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(0x0A, 0x0C, 0x18)))
+                            g.FillEllipse(ring, System.Drawing.Rectangle.Inflate(rect, 1, 1));
                         using (var brush = new System.Drawing.SolidBrush(dotColor.Value))
                             g.FillEllipse(brush, rect);
-                        using (var pen = new System.Drawing.Pen(System.Drawing.Color.White, 1.5f))
-                            g.DrawEllipse(pen, rect);
                     }
                 }
                 return System.Drawing.Icon.FromHandle(bmp.GetHicon());
             }
         }
 
-        private Forms.ToolStripMenuItem _miTrayPlay, _miTrayBack, _miTrayMonitoring, _miTrayShow, _miTraySupport, _miTrayLog, _miTrayExit;
+        private Forms.ToolStripMenuItem _miTrayPlay, _miTrayBack, _miTrayMonitoring, _miTrayShow, _miTrayLog, _miTrayExit;
 
         private void BuildTray()
         {
-            var baseIcon = LoadAppIcon();
+            var baseIcon = LoadTrayIcon();
             _trayIconUnknown = BuildStatusIcon(baseIcon, null);
             _trayIconOk = BuildStatusIcon(baseIcon, System.Drawing.Color.FromArgb(0x7E, 0xE8, 0xC4));
             _trayIconBad = BuildStatusIcon(baseIcon, System.Drawing.Color.FromArgb(0xFF, 0x8A, 0x8A));
@@ -118,8 +131,6 @@ namespace SteamTV
 
             _miTrayUpdate = new Forms.ToolStripMenuItem { Visible = false };
             _miTrayUpdate.Click += (s, e) => InstallUpdate();
-            _miTraySupport = new Forms.ToolStripMenuItem { Visible = !string.IsNullOrEmpty(Links.Support) };
-            _miTraySupport.Click += (s, e) => OpenUrl(Links.Support);
             _miTrayLog = new Forms.ToolStripMenuItem();
             _miTrayLog.Click += (s, e) => OpenUrl(AppLog.FilePath);
             _miTrayExit = new Forms.ToolStripMenuItem();
@@ -133,7 +144,7 @@ namespace SteamTV
                 _miTrayPlay, _miTrayBack, new Forms.ToolStripSeparator(),
                 _miTrayMonitoring, _miTrayShow, new Forms.ToolStripSeparator(),
                 _miTrayAutostart, _miTrayAutoMonitor, new Forms.ToolStripSeparator(),
-                _miTrayUpdate, _miTraySupport, _miTrayLog, _miTrayExit,
+                _miTrayUpdate, _miTrayLog, _miTrayExit,
             });
             foreach (Forms.ToolStripItem item in menu.Items) item.ForeColor = System.Drawing.Color.FromArgb(0xEC, 0xEB, 0xF5);
             _miTrayMonitorStatus.ForeColor = _miTrayAdbStatus.ForeColor = System.Drawing.Color.FromArgb(0x8E, 0x93, 0xB4);
@@ -170,7 +181,6 @@ namespace SteamTV
             _miTrayAutoMonitor.Text = Loc.T("Tray.AutoMonitor");
             _miTrayAutoMonitor.Checked = _settings.AutoMonitorOnStart;
             if (_updateTag != null) _miTrayUpdate.Text = Loc.T("Tray.Update", _updateTag);
-            _miTraySupport.Text = "♥  " + Loc.T("Tray.Support");
             _miTrayLog.Text = Loc.T("Tray.Log");
             _miTrayExit.Text = Loc.T("Tray.Exit");
             _tray.Text = BuildTrayTooltip();

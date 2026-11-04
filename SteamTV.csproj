@@ -51,7 +51,10 @@
   -->
   <ItemGroup>
     <EmbeddedResource Include="Vendor\adb.exe" LogicalName="SteamTV.adb.exe" />
-    <!-- Rounded M+ headings font, subset to Latin + kana (OFL, see Fonts/OFL.txt). -->
-    <Resource Include="Fonts\*.ttf" />  </ItemGroup>
+    <!-- Also as a resource, so the tray can pick the frame drawn for its size. -->
+    <EmbeddedResource Include="start_icon.ico" LogicalName="SteamTV.start_icon.ico" />
+    <!-- Rounded M+ headings font, subset to Latin, Cyrillic and kana (OFL, see Fonts/OFL.txt). -->
+    <Resource Include="Fonts\*.ttf" />
+  </ItemGroup>
 
 </Project>

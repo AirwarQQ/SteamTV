@@ -11,7 +11,7 @@
 Turn on your gamepad: the TV wakes up, switches to the PC's HDMI input, sound moves to the TV and Steam Big Picture opens on it. Close Big Picture: your desk monitors and speakers come back exactly as they were, and the TV goes back to whatever it was showing. No remote, no Win+P, no walking to the PC.
 
 <p align="center">
-  <img src="docs/screenshots/home.png" width="760" alt="SteamTV home page: a night-scene banner with sakura, Play on TV and Back to the desk buttons, monitoring, controller and TV status">
+  <img src="docs/screenshots/home.png" width="760" alt="SteamTV home page: a night-scene banner with sakura, Play on TV and Back to PC buttons, monitoring, controller and TV status">
 </p>
 <p align="center">
   <img src="docs/screenshots/settings.png" width="375" alt="Settings page">
@@ -27,13 +27,13 @@ Turn on your gamepad: the TV wakes up, switches to the PC's HDMI input, sound mo
 - 🔊 **Sound and HDR follow the TV** — the TV becomes the default playback device while it's on (and optionally HDR is switched on); both go back afterwards.
 - 🖥️ **Handles the monitors** — turns the TV display on in Windows, optionally switches every other monitor off, sets the highest refresh rate, and later restores the **exact** previous layout (positions, primary display, everything).
 - 🚀 **Steam Big Picture** opens on the TV, and closing it ends the session. Or end it when the controller switches off — with a 10 s grace period for Bluetooth hiccups.
-- ⚙️ **Per-device behaviour** — your own names, "TV + Big Picture" or "TV only" (e.g. a keyboard to use the desktop on the TV), back to the desk on disconnect.
+- ⚙️ **Per-device behaviour** — your own names, "TV + Big Picture" or "TV only" (e.g. a keyboard to use the desktop on the TV), back to the PC on disconnect.
 - 🔌 **Bridge apps work too** — controllers connected through Switch2Connect (Switch 2 Pro Controller via an ESP32), DS4Windows and similar are picked up as virtual gamepads.
 - 🏠 **Home Assistant** (optional, over MQTT) — a SteamTV device with "Gamepad monitoring" and "Steam on TV" switches, plus optional Sleep / Shut down / Restart buttons, for dashboards, automations and voice assistants.
 - 🛠️ **Nothing to install on the TV** — the HDMI input is switched with the TV's own components.
 - ⌨️ **Global keyboard shortcuts** — Ctrl+Alt+9 / Ctrl+Alt+0 out of the box, or your own; they work while SteamTV is in the tray.
 - 🌙 **A cozy look** — a calm night palette with a softly animated sakura scene on the Home page (it pauses whenever the window isn't on screen). English and Russian, switchable on the fly.
-- 🪶 **Lives in the tray** — starts with Windows, reacts instantly to devices, Play on TV / Back to the desk right from the tray menu, notifies you only when something goes wrong, updates itself in one click, keeps a log file.
+- 🪶 **Lives in the tray** — starts with Windows, reacts instantly to devices, Play on TV / Back to PC right from the tray menu, notifies you only when something goes wrong, updates itself in one click, keeps a log file.
 
 ## Why SteamTV
 
@@ -91,7 +91,7 @@ Turn on **Start with Windows** in Settings → App. SteamTV then starts silently
 The status banner says what SteamTV is doing — waiting for a controller, TV on, or monitoring paused — with the TV and its HDMI input. Below it:
 
 - **Play on TV** runs the whole sequence by hand, without waiting for a controller.
-- **Back to the desk** closes Big Picture and brings the monitors, the sound and the TV back — also a one-click fix if things got out of sync.
+- **Back to PC** closes Big Picture and brings the monitors, the sound and the TV back — also a one-click fix if things got out of sync.
 - **Monitoring** turns the automatic reaction to controllers and Big Picture on or off.
 - The trigger device and the TV with their live state, and the most recent events.
 
@@ -109,7 +109,7 @@ The same actions are in the tray menu and on the keyboard shortcuts.
 |---|---|
 | **Name** | Your own name for it (e.g. *Living-room pad*), used in the list, on Home and in the log. Empty = product name. |
 | **On connect** | **TV + Big Picture** — the full sequence. **TV only** — wake the TV and switch displays/input, but don't open Big Picture (e.g. a keyboard for using the desktop on the TV). |
-| **Back to the desk when it disconnects** | When the device has been gone for 10 s: close Big Picture if open, restore the monitors, return the TV. The 10 s grace rides out brief Bluetooth dropouts — reconnecting in time cancels it. A natural pair for **TV only**, which has no Big Picture to close. |
+| **Back to PC when it disconnects** | When the device has been gone for 10 s: close Big Picture if open, restore the monitors, return the TV. The 10 s grace rides out brief Bluetooth dropouts — reconnecting in time cancels it. A natural pair for **TV only**, which has no Big Picture to close. |
 
 A few details worth knowing:
 - Activation happens when a ticked device **connects**, not while it stays connected — so a keyboard that's always plugged in never blocks a gamepad from triggering.
@@ -138,7 +138,7 @@ Changes apply right away — there's no Save button, and nothing is locked while
 | **Start with Windows**, **Monitor right away** | Start hidden in the tray; turn monitoring on at start. |
 
 ### Keyboard shortcuts
-Click the **Play on TV** or **Back to desk** field, then press your combination with Ctrl, Alt or Win, and click **Save shortcuts**. Shortcuts work even with SteamTV hidden in the tray or monitoring off. Defaults: **Ctrl+Alt+9** and **Ctrl+Alt+0**. Press Escape in a field and save to disable that shortcut. SteamTV rejects duplicate combinations; if another app already uses one, a tray notification says so at startup and the other shortcut still works.
+Click the **Play on TV** or **Back to PC** field, then press your combination with Ctrl, Alt or Win, and click **Save shortcuts**. Shortcuts work even with SteamTV hidden in the tray or monitoring off. Defaults: **Ctrl+Alt+9** and **Ctrl+Alt+0**. Press Escape in a field and save to disable that shortcut. SteamTV rejects duplicate combinations; if another app already uses one, a tray notification says so at startup and the other shortcut still works.
 
 ### Advanced
 Collapsed at the bottom of Settings — normally filled in by themselves:
@@ -174,7 +174,7 @@ All settings live in the registry under `HKCU\Software\SteamTV`.
 
 ## Tray
 
-Closing or minimizing the window keeps SteamTV running in the tray. The icon's dot is **mint** when ADB reaches the TV and **red** when it doesn't. Right-click for the current state, **Play on TV**, **Back to the desk**, **Monitoring**, autostart options, the log file and Exit.
+Closing or minimizing the window keeps SteamTV running in the tray. The icon's dot is **mint** when ADB reaches the TV and **red** when it doesn't. Right-click for the current state, **Play on TV**, **Back to PC**, **Monitoring**, autostart options, the log file and Exit.
 
 A tray notification pops up when something needs your attention — the TV didn't switch input, Big Picture failed to start, monitors couldn't be restored, ADB unreachable for a while during monitoring — and when a new version is out: click the notification (or **Install update** in the tray menu) and SteamTV downloads it, swaps the exe and restarts. **Open log file** opens `%LOCALAPPDATA%\SteamTV\steamtv.log`, which keeps the log across restarts. Starting `SteamTV.exe` again while it's in the tray brings its window up.
 
@@ -197,7 +197,7 @@ A **SteamTV** device appears in Home Assistant by itself (MQTT discovery), with 
 | Switch | On | Off |
 |---|---|---|
 | **Gamepad monitoring** | Same as the **Monitoring** toggle on | Monitoring off |
-| **Steam on TV** | Same as **Play on TV** | Same as **Back to the desk** |
+| **Steam on TV** | Same as **Play on TV** | Same as **Back to PC** |
 
 - Both report the real state, including changes SteamTV makes on its own — a gamepad switching the TV on, Big Picture closing.
 - When SteamTV exits, or the PC goes to sleep or drops off the network, the device shows as **unavailable**.
@@ -296,7 +296,7 @@ SteamTV/
 │  ├─ Steamhelper.cs        Big Picture: detect, launch, close; minimize Steam; find steam.exe
 │  ├─ HomeAssistantMqtt.cs  MQTT discovery, switch states, commands from Home Assistant
 │  ├─ PowerControl.cs       sleep / shut down / restart, MAC for Wake on LAN
-│  ├─ GlobalHotkeys.cs      Play on TV / Back to the desk shortcuts
+│  ├─ GlobalHotkeys.cs      Play on TV / Back to PC shortcuts
 │  ├─ Loc.cs                English and Russian UI text ({l:Tr Key} in XAML)
 │  ├─ UpdateChecker.cs, Updater.cs  new-release check; download, swap the exe, restart
 │  └─ AppLog.cs             log file in %LOCALAPPDATA%\SteamTV
@@ -305,7 +305,7 @@ SteamTV/
 
 ## Support
 
-SteamTV is free and stays free. If it makes your evenings on the couch nicer, you can buy the author a coffee on **[Boosty](https://boosty.to/airwaruwu/donate)** — it's also behind the ♥ button in the app and the tray menu.
+SteamTV is free and stays free. If it makes your evenings on the couch nicer, you can buy the author a coffee on **[Boosty](https://boosty.to/airwaruwu/donate)** — it's also behind the ♥ button in the app's sidebar and in Settings → About.
 
 ---
 

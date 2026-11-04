@@ -12,7 +12,7 @@ namespace SteamTV.Controls
 {
     public partial class NightScene : UserControl
     {
-        private const int PetalCount = 14;
+        private const int PetalCount = 24;
         private readonly Storyboard _story = new Storyboard();
         private bool _started;
 
@@ -39,8 +39,8 @@ namespace SteamTV.Controls
             var rnd = new Random(7);   // fixed seed: the same gentle choreography every launch
             var ease = new SineEase { EasingMode = EasingMode.EaseInOut };
 
-            // Branch: a slow ±1.2° sway around the point where it enters the frame.
-            Add(new DoubleAnimation(-1.2, 1.2, Seconds(4.5)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = ease },
+            // Branch: a breezy ±2.6° sway around the point where it enters the frame.
+            Add(new DoubleAnimation(-2.6, 2.6, Seconds(3.2)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = ease },
                 BranchSway, RotateTransform.AngleProperty);
 
             // TV glow breathes.
@@ -58,37 +58,45 @@ namespace SteamTV.Controls
             for (int i = 0; i < PetalCount; i++) AddPetal(rnd);
         }
 
-        // A petal leaves the branch area, drifts left on the breeze with a side-to-side wobble,
-        // tumbles, and fades out low in the frame — then starts over.
+        // A petal leaves the branch (or drifts in from above), floats left on the breeze with a
+        // side-to-side wobble, tumbles — flipping edge-on and back, like a real petal — and fades
+        // out before it leaves the visible strip of the banner. Then it starts over.
+        // The banner shows roughly the top 150 of the scene's 236 units, so that's where they fall.
         private void AddPetal(Random rnd)
         {
-            double size = 4 + rnd.NextDouble() * 3;
+            double size = 5 + rnd.NextDouble() * 3.5;
             var petal = new Ellipse
             {
-                Width = size * 1.6, Height = size,
-                Fill = new SolidColorBrush(rnd.Next(3) == 0 ? Color.FromRgb(0xFF, 0xB3, 0xD1) : Color.FromRgb(0xFF, 0xD1, 0xE3)),
+                Width = size * 1.7, Height = size,
+                Fill = new SolidColorBrush(rnd.Next(3) == 0 ? Color.FromRgb(0xFF, 0xA8, 0xCB) : Color.FromRgb(0xFF, 0xD1, 0xE3)),
                 Opacity = 0,
                 RenderTransformOrigin = new Point(0.5, 0.5),
             };
+            var flip = new ScaleTransform(1, 1);
             var rotate = new RotateTransform(rnd.Next(360));
             var move = new TranslateTransform();
-            petal.RenderTransform = new TransformGroup { Children = { rotate, move } };
-            Canvas.SetLeft(petal, 540 + rnd.NextDouble() * 150);
-            Canvas.SetTop(petal, 10 + rnd.NextDouble() * 80);
+            petal.RenderTransform = new TransformGroup { Children = { flip, rotate, move } };
+            bool fromBranch = rnd.NextDouble() < 0.6;
+            Canvas.SetLeft(petal, fromBranch ? 560 + rnd.NextDouble() * 130 : 380 + rnd.NextDouble() * 300);
+            Canvas.SetTop(petal, fromBranch ? 10 + rnd.NextDouble() * 80 : -10);
             Petals.Children.Add(petal);
 
-            var fall = Seconds(9 + rnd.NextDouble() * 7);
-            var begin = SecondsSpan(rnd.NextDouble() * 12);
-            double drift = -(140 + rnd.NextDouble() * 260);
-            double wobble = 10 + rnd.NextDouble() * 18;
+            var fall = Seconds(6 + rnd.NextDouble() * 4.5);
+            var begin = SecondsSpan(rnd.NextDouble() * 8);
+            double drift = -(90 + rnd.NextDouble() * 170);
+            double wobble = 8 + rnd.NextDouble() * 14;
 
-            Add(new DoubleAnimation(0, 150 + rnd.NextDouble() * 60, fall) { BeginTime = begin, RepeatBehavior = RepeatBehavior.Forever },
+            Add(new DoubleAnimation(0, 95 + rnd.NextDouble() * 60, fall) { BeginTime = begin, RepeatBehavior = RepeatBehavior.Forever },
                 move, TranslateTransform.YProperty);
 
             var x = new DoubleAnimationUsingKeyFrames { BeginTime = begin, Duration = fall, RepeatBehavior = RepeatBehavior.Forever };
-            for (int k = 0; k <= 4; k++)
-                x.KeyFrames.Add(new SplineDoubleKeyFrame(drift * k / 4 + (k % 2 == 0 ? 0 : wobble), KeyTime.FromPercent(k / 4.0), new KeySpline(0.4, 0, 0.6, 1)));
+            for (int k = 0; k <= 6; k++)
+                x.KeyFrames.Add(new SplineDoubleKeyFrame(drift * k / 6 + (k % 2 == 0 ? 0 : wobble), KeyTime.FromPercent(k / 6.0), new KeySpline(0.4, 0, 0.6, 1)));
             Add(x, move, TranslateTransform.XProperty);
+
+            Add(new DoubleAnimation(1, 0.2, Seconds(0.6 + rnd.NextDouble() * 0.9))
+                { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut } },
+                flip, ScaleTransform.ScaleYProperty);
 
             double spin = (rnd.Next(2) == 0 ? -1 : 1) * (240 + rnd.Next(360));
             Add(new DoubleAnimation(rotate.Angle, rotate.Angle + spin, fall) { BeginTime = begin, RepeatBehavior = RepeatBehavior.Forever },

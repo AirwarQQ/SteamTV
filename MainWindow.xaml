@@ -44,6 +44,11 @@
 
         <Border Grid.Row="0" Grid.ColumnSpan="2" Background="{StaticResource DeepBrush}" />
         <ui:TitleBar Grid.Row="0" Grid.ColumnSpan="2" ShowMaximize="True" Title="" />
+        <!-- App mark in the title bar; not hit-testable, so the bar still drags the window. -->
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
+            <Border Width="15" Height="15" CornerRadius="4" Background="{StaticResource SakuraDiagonal}" Margin="0,0,10,0" />
+            <TextBlock Text="SteamTV" FontSize="12" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+        </StackPanel>
 
         <!-- ============================== Sidebar ============================== -->
         <Border Grid.Row="1" Grid.Column="0" Background="{StaticResource DeepBrush}" BorderBrush="#151832" BorderThickness="0,0,1,0">
@@ -115,7 +120,7 @@
                             <TextBlock x:Name="LblHeroTitle" FontFamily="{StaticResource DisplayFont}" FontWeight="ExtraBold" FontSize="30"
                                        Margin="0,4,0,6" TextWrapping="Wrap" />
                             <TextBlock x:Name="LblHeroText" FontSize="13" Foreground="{StaticResource SoftBrush}" TextWrapping="Wrap" />
-                            <Border x:Name="StatusPill" Margin="0,14,0,0" HorizontalAlignment="Left" CornerRadius="999" Padding="10,5,12,5"
+                            <Border x:Name="StatusPill" Margin="0,14,0,0" HorizontalAlignment="Left" CornerRadius="14" Padding="11,5,13,5" MinHeight="28"
                                     Background="#1A7FD6FF" BorderBrush="#477FD6FF" BorderThickness="1">
                                 <StackPanel Orientation="Horizontal">
                                     <Ellipse x:Name="StatusLed" Width="7" Height="7" Fill="{StaticResource SkyBrush}" Margin="0,0,8,0" VerticalAlignment="Center">
@@ -198,7 +203,7 @@
             <Border>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="24,20,24,20">
-                    <TextBlock Text="デバイス" Style="{StaticResource Kana}" />
+                    <TextBlock Text="デ バ イ ス" Style="{StaticResource Kana}" />
                     <TextBlock Text="{l:Tr Nav.Devices}" Style="{StaticResource PageTitle}" />
 
                     <TextBlock Text="{l:Tr Dev.Triggers}" Style="{StaticResource Section}" Margin="2,10,0,2" />
@@ -321,7 +326,7 @@
             <Border>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="24,20,24,24">
-                    <TextBlock Text="せってい" Style="{StaticResource Kana}" />
+                    <TextBlock Text="せ っ て い" Style="{StaticResource Kana}" />
                     <TextBlock Text="{l:Tr Nav.Settings}" Style="{StaticResource PageTitle}" Margin="0,0,0,14" />
 
                     <!-- Automatic setup -->
@@ -603,7 +608,7 @@
             <Border>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="24,20,24,24">
-                    <TextBlock Text="ホームアシスタント" Style="{StaticResource Kana}" />
+                    <TextBlock Text="ホ ー ム ア シ ス タ ン ト" Style="{StaticResource Kana}" />
                     <TextBlock Text="{l:Tr Nav.HomeAssistant}" Style="{StaticResource PageTitle}" Margin="0,0,0,14" />
 
                     <TextBlock Text="{l:Tr Ha.Broker}" Style="{StaticResource Section}" Margin="2,0,0,8" />
@@ -675,7 +680,7 @@
             <!-- ============================== Diagnostics ============================== -->
             <Border>
                 <DockPanel Margin="24,20,24,20">
-                    <TextBlock DockPanel.Dock="Top" Text="しんだん" Style="{StaticResource Kana}" />
+                    <TextBlock DockPanel.Dock="Top" Text="し ん だ ん" Style="{StaticResource Kana}" />
                     <TextBlock DockPanel.Dock="Top" Text="{l:Tr Nav.Diagnostics}" Style="{StaticResource PageTitle}" Margin="0,0,0,10" />
                     <TextBlock DockPanel.Dock="Top" Text="{l:Tr Diag.Steps}" Style="{StaticResource Section}" Margin="2,4,0,2" />
                     <TextBlock DockPanel.Dock="Top" Text="{l:Tr Diag.Steps.Sub}" Style="{StaticResource Hint}" Margin="2,0,0,8" />

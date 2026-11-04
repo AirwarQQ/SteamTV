@@ -557,7 +557,7 @@ namespace SteamTV
             int moreTriggers = Math.Max(0, _settings.WatchedDevices.Count(d => d.Enabled) - 1);
 
             int hour = DateTime.Now.Hour;
-            LblKana.Text = Loc.T(hour >= 5 && hour < 11 ? "Home.Kana.Morning" : hour >= 11 && hour < 18 ? "Home.Kana.Day" : "Home.Kana.Evening");
+            LblKana.Text = Tracked(Loc.T(hour >= 5 && hour < 11 ? "Home.Kana.Morning" : hour >= 11 && hour < 18 ? "Home.Kana.Day" : "Home.Kana.Evening"));
 
             string state = setup ? "Setup" : active ? "Active" : running ? "Ready" : "Paused";
             LblHeroTitle.Text = Loc.T("Home.Title." + state);
@@ -608,6 +608,10 @@ namespace SteamTV
 
             if (_tray != null) _tray.Text = BuildTrayTooltip();
         }
+
+        // WPF has no letter-spacing; thin spaces between the characters give the small kana label
+        // the airy tracking it has in the design.
+        private static string Tracked(string s) => string.Join(" ", s.Select(c => c.ToString()));
 
         private static void SetChip(Border chip, TextBlock text, string label, bool? good)
         {
@@ -741,8 +745,20 @@ namespace SteamTV
             CurrentPage = NavList.SelectedIndex;
             for (int i = 0; i < Pages.Children.Count; i++)
                 Pages.Children[i].Visibility = i == CurrentPage ? Visibility.Visible : Visibility.Collapsed;
+            AnimatePageIn(Pages.Children[CurrentPage]);
             if (CurrentPage == 1) ScanDevices();
             if (CurrentPage == 2) FillDisplays(TargetDisplayUi ?? _settings.TargetDisplay);
+        }
+
+        // The new page fades in and settles up from a few pixels below.
+        private static void AnimatePageIn(UIElement page)
+        {
+            var shift = page.RenderTransform as System.Windows.Media.TranslateTransform;
+            if (shift == null) page.RenderTransform = shift = new System.Windows.Media.TranslateTransform();
+            var ease = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut };
+            var time = new Duration(TimeSpan.FromMilliseconds(220));
+            page.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0, 1, time) { EasingFunction = ease });
+            shift.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, new System.Windows.Media.Animation.DoubleAnimation(10, 0, time) { EasingFunction = ease });
         }
 
         private void GoTo(int page) => NavList.SelectedIndex = page;

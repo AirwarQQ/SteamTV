@@ -47,6 +47,10 @@
         <GradientStop Color="#FF7EB6" Offset="0" />
         <GradientStop Color="#9B8CFF" Offset="1" />
     </LinearGradientBrush>
+    <LinearGradientBrush x:Key="SakuraDiagonal" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#FF7EB6" Offset="0" />
+        <GradientStop Color="#9B8CFF" Offset="1" />
+    </LinearGradientBrush>
     <LinearGradientBrush x:Key="PlayGradient" StartPoint="0,0" EndPoint="0,1">
         <GradientStop Color="#FF8CC0" Offset="0" />
         <GradientStop Color="#E05A98" Offset="1" />
@@ -64,16 +68,18 @@
         <GradientStop Color="#161A2E" Offset="1" />
     </LinearGradientBrush>
 
-    <!-- Fonts: rounded M+ (subset: Latin + kana, see Fonts/OFL.txt) for headings; kana labels
-         fall back to the Japanese UI font every Windows has. -->
+    <!-- Fonts: rounded M+ (subset: Latin, Cyrillic and kana, see Fonts/OFL.txt) for headings.
+         The small kana labels are deliberately light: the UI font, with kana from the Japanese
+         UI font every Windows has. -->
     <FontFamily x:Key="DisplayFont">pack://application:,,,/Fonts/#Rounded Mplus 1c</FontFamily>
     <FontFamily x:Key="SectionFont">pack://application:,,,/Fonts/#Rounded Mplus 1c Bold</FontFamily>
     <FontFamily x:Key="BodyFont">Segoe UI Variable Text, Segoe UI</FontFamily>
-    <FontFamily x:Key="KanaFont">pack://application:,,,/Fonts/#Rounded Mplus 1c Bold, Yu Gothic UI</FontFamily>
+    <FontFamily x:Key="KanaFont">Segoe UI Variable Text, Segoe UI, Yu Gothic UI</FontFamily>
 
     <!-- Text -->
     <Style x:Key="Kana" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource KanaFont}" />
+        <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Foreground" Value="{StaticResource SakuraBrush}" />
         <Setter Property="Opacity" Value="0.9" />
@@ -139,7 +145,9 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style x:Key="Chip" TargetType="Border">
-        <Setter Property="CornerRadius" Value="999" />
+        <!-- Exactly half the height: WPF draws a radius bigger than that as a pointed "lens". -->
+        <Setter Property="CornerRadius" Value="9" />
+        <Setter Property="MinHeight" Value="19" />
         <Setter Property="Padding" Value="9,2" />
         <Setter Property="Background" Value="{StaticResource ChipBrush}" />
         <Setter Property="VerticalAlignment" Value="Center" />

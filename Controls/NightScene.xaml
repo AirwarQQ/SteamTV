@@ -62,8 +62,19 @@
                             </RadialGradientBrush>
                         </Ellipse.Fill>
                     </Ellipse>
-                    <Ellipse Canvas.Left="534" Canvas.Top="36" Width="52" Height="52" Fill="#FFF1F6" />
-                    <Ellipse Canvas.Left="549" Canvas.Top="33" Width="44" Height="44" Fill="#3B2C6E" Opacity="0.18" />
+                    <!-- The disc: lit from the upper left, a few soft "seas" -->
+                    <Ellipse Canvas.Left="534" Canvas.Top="36" Width="52" Height="52">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush GradientOrigin="0.38,0.32" Center="0.42,0.38" RadiusX="0.7" RadiusY="0.7">
+                                <GradientStop Color="#FFFFFBFD" Offset="0" />
+                                <GradientStop Color="#FFFBE6EF" Offset="0.6" />
+                                <GradientStop Color="#FFEFCFE0" Offset="1" />
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                    <Ellipse Canvas.Left="545" Canvas.Top="48" Width="13" Height="10" Fill="#E3B9CF" Opacity="0.45" />
+                    <Ellipse Canvas.Left="563" Canvas.Top="61" Width="10" Height="8" Fill="#E3B9CF" Opacity="0.4" />
+                    <Ellipse Canvas.Left="552" Canvas.Top="68" Width="6" Height="5" Fill="#E3B9CF" Opacity="0.35" />
                 </Canvas>
 
                 <!-- City -->
@@ -110,20 +121,14 @@
                 <!-- Sakura branch, swaying from where it enters the frame (top right); blossoms added in code -->
                 <Canvas x:Name="Branch">
                     <Canvas.RenderTransform>
-                        <RotateTransform x:Name="BranchSway" CenterX="690" CenterY="4" />
+                        <TransformGroup>
+                            <ScaleTransform ScaleX="1.3" ScaleY="1.3" CenterX="716" CenterY="-10" />
+                            <RotateTransform x:Name="BranchSway" CenterX="716" CenterY="-10" />
+                        </TransformGroup>
                     </Canvas.RenderTransform>
-                    <!-- Bark: the main limb tapers from the corner in three strokes, then thin twigs. -->
-                    <Path Stroke="#24152C" StrokeThickness="8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                          Data="M704,-4 C684,6 664,16 638,32" />
-                    <Path Stroke="#24152C" StrokeThickness="5.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                          Data="M638,32 C618,44 602,56 588,70" />
-                    <Path Stroke="#24152C" StrokeThickness="3.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                          Data="M588,70 C576,82 566,92 556,106" />
-                    <Path Stroke="#24152C" StrokeThickness="2.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                          Data="M664,17 C672,28 676,38 678,50 M640,31 C644,46 646,58 652,72 M612,50 C614,40 618,32 626,24 M596,63 C586,60 578,58 568,60" />
-                    <!-- A faint highlight along the top of the limb -->
-                    <Path Stroke="#3D2747" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.8"
-                          Data="M700,-6 C682,4 662,14 637,29 C618,41 603,52 590,66" />
+                    <!-- Built in code: flowers behind the bark, the bark itself, flowers in front -->
+                    <Canvas x:Name="BlossomsBack" />
+                    <Canvas x:Name="Bark" />
                     <Canvas x:Name="Blossoms" />
                 </Canvas>
             </Canvas>

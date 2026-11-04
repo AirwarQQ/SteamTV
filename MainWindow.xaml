@@ -54,9 +54,9 @@
         <!-- ============================== Sidebar ============================== -->
         <Border Grid.Row="1" Grid.Column="0" Background="{StaticResource DeepBrush}" BorderBrush="#151832" BorderThickness="0,0,1,0">
             <DockPanel Margin="10,4,10,12">
-                <TextBlock DockPanel.Dock="Top" Margin="10,6,0,18" FontFamily="{StaticResource DisplayFont}" FontWeight="ExtraBold" FontSize="21">
-                    <Run Text="Steam" Foreground="{StaticResource TextBrush}" /><Run Text="TV" Foreground="{StaticResource SakuraGradient}" />
-                </TextBlock>
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="10,6,0,18" TextElement.FontFamily="{StaticResource DisplayFont}" TextElement.FontWeight="ExtraBold" TextElement.FontSize="21">
+                    <c:SmoothText Text="Steam" Foreground="{StaticResource TextBrush}" /><c:SmoothText Text="TV" Foreground="{StaticResource SakuraGradient}" />
+                </StackPanel>
 
                 <StackPanel DockPanel.Dock="Bottom">
                     <Button x:Name="BtnNavSupport" Style="{StaticResource QuietButton}" Margin="0,0,0,12" Padding="12,8" HorizontalContentAlignment="Left"
@@ -102,7 +102,7 @@
                         <StackPanel Margin="28,26,0,0" MaxWidth="390" HorizontalAlignment="Left" VerticalAlignment="Top">
                             <TextBlock x:Name="LblKana" Style="{StaticResource Kana}" />
                             <StackPanel x:Name="HeroCopy" MinHeight="78">
-                                <TextBlock x:Name="LblHeroTitle" FontFamily="{StaticResource DisplayFont}" FontWeight="ExtraBold" FontSize="30"
+                                <c:SmoothText x:Name="LblHeroTitle" FontFamily="{StaticResource DisplayFont}" FontWeight="ExtraBold" FontSize="30" Foreground="{StaticResource TextBrush}"
                                            Margin="0,4,0,6" TextWrapping="Wrap" />
                                 <TextBlock x:Name="LblHeroText" FontSize="13" Foreground="{StaticResource SoftBrush}" TextWrapping="Wrap" />
                             </StackPanel>
@@ -190,7 +190,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="24,20,24,20">
                     <TextBlock Text="デ バ イ ス" Style="{StaticResource Kana}" />
-                    <TextBlock Text="{l:Tr Nav.Devices}" Style="{StaticResource PageTitle}" />
+                    <c:SmoothText Text="{l:Tr Nav.Devices}" Style="{StaticResource PageTitle}" />
 
                     <TextBlock Text="{l:Tr Dev.Triggers}" Style="{StaticResource Section}" Margin="2,10,0,2" />
                     <TextBlock Text="{l:Tr Dev.Triggers.Sub}" Style="{StaticResource Hint}" Margin="2,0,0,8" />
@@ -313,7 +313,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="24,20,24,24">
                     <TextBlock Text="せ っ て い" Style="{StaticResource Kana}" />
-                    <TextBlock Text="{l:Tr Nav.Settings}" Style="{StaticResource PageTitle}" Margin="0,0,0,14" />
+                    <c:SmoothText Text="{l:Tr Nav.Settings}" Style="{StaticResource PageTitle}" Margin="0,0,0,14" />
 
                     <!-- Automatic setup -->
                     <Border Style="{StaticResource SettingRow}" Background="{StaticResource HighlightRowBrush}" BorderBrush="#3A2F5E">
@@ -639,7 +639,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="24,20,24,24">
                     <TextBlock Text="ホ ー ム ア シ ス タ ン ト" Style="{StaticResource Kana}" />
-                    <TextBlock Text="{l:Tr Nav.HomeAssistant}" Style="{StaticResource PageTitle}" Margin="0,0,0,14" />
+                    <c:SmoothText Text="{l:Tr Nav.HomeAssistant}" Style="{StaticResource PageTitle}" Margin="0,0,0,14" />
 
                     <TextBlock Text="{l:Tr Ha.Broker}" Style="{StaticResource Section}" Margin="2,0,0,8" />
                     <Border Style="{StaticResource SettingRow}">
@@ -711,7 +711,7 @@
             <Border>
                 <DockPanel Margin="24,20,24,20">
                     <TextBlock DockPanel.Dock="Top" Text="し ん だ ん" Style="{StaticResource Kana}" />
-                    <TextBlock DockPanel.Dock="Top" Text="{l:Tr Nav.Diagnostics}" Style="{StaticResource PageTitle}" Margin="0,0,0,10" />
+                    <c:SmoothText DockPanel.Dock="Top" Text="{l:Tr Nav.Diagnostics}" Style="{StaticResource PageTitle}" Margin="0,0,0,10" />
                     <TextBlock DockPanel.Dock="Top" Text="{l:Tr Diag.Steps}" Style="{StaticResource Section}" Margin="2,4,0,2" />
                     <TextBlock DockPanel.Dock="Top" Text="{l:Tr Diag.Steps.Sub}" Style="{StaticResource Hint}" Margin="2,0,0,8" />
                     <Border DockPanel.Dock="Top" Style="{StaticResource CardBorder}" Padding="10">

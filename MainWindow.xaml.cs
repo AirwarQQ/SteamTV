@@ -132,8 +132,9 @@ namespace SteamTV
             TestButtonsPanel.Children.Add(TestBtn("Switch HDMI Source", () =>
             {
                 var adb = new Adb(_settings.AdbPath, _settings.TvIp);
-                adb.SwitchSourceToPc(_settings.HdmiSourcePackage);
-                return "done (port " + _settings.HdmiPort + ")";
+                string method;
+                adb.SwitchToHdmi(_settings.HdmiPort, out method);
+                return "HDMI " + _settings.HdmiPort + " via " + method;
             }));
 
             TestButtonsPanel.Children.Add(TestBtn("Check ADB Connection", () =>

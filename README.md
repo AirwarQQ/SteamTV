@@ -24,7 +24,7 @@ Turn on your gamepad: the TV wakes up, switches to the PC's HDMI input, and Stea
 - ⚙️ **Per-device behaviour** — your own names, "TV + Big Picture" or "TV only" (e.g. a keyboard to use the desktop on the TV), restore on disconnect.
 - 🔌 **Bridge apps work too** — controllers connected through Switch2Connect (Switch 2 Pro Controller via an ESP32), DS4Windows and similar are picked up as virtual gamepads.
 - 🏠 **Home Assistant** (optional, over MQTT) — a SteamTV device with "Gamepad monitoring" and "Steam on TV" switches, for dashboards, automations and voice assistants.
-- 🛠️ **TV setup from the app** — install the bundled HDMI1/2/3 helpers over ADB and automatically find the TV's default launcher.
+- 🛠️ **Nothing to install on the TV** — the HDMI input is switched with the TV's own components, and the TV's default launcher is detected automatically.
 - ⌨️ **Global keyboard shortcuts** — assign your own Activate and Deactivate combinations; they work while SteamTV is in the tray.
 - 🪶 **Lives in the tray** — starts with Windows, reacts instantly to devices, notifies you only when something goes wrong, checks for updates. Light/dark theme.
 
@@ -50,7 +50,6 @@ Turn on your gamepad: the TV wakes up, switches to the PC's HDMI input, and Stea
 |---|---|
 | **Windows 10 / 11** | .NET Framework 4.8 is already built in (Windows 10 1903+). |
 | **Android TV with ADB** | *Developer options → USB debugging* (or *Wireless debugging*) enabled — see [Setup](#2-enable-adb-on-the-tv). `adb.exe` itself is bundled, nothing to install on the PC. |
-| **TV External Source app** | HDMI1/2/3 helpers are bundled: install them from the Monitor tab over ADB. HDMI4 requires its own helper, installed separately. |
 | **Steam** | Default install path, or set yours on the Advanced tab. |
 
 ---
@@ -76,8 +75,6 @@ Grab `SteamTV-vX.Y.Z-win.zip` from the [latest release](https://github.com/Airwa
 Click **Start**. The first time, the TV shows an "Allow USB debugging?" prompt — accept it (tick *Always allow*).
 
 ### 4. Pick your trigger devices
-For a new TV, first click **Install HDMI1 / HDMI2 / HDMI3 on TV** on the Monitor tab. SteamTV installs the bundled APKs over ADB, skips existing packages and reports errors in the log. Accept the debugging prompt on the TV if needed, then retry. No download is required. This installs shortcuts; it does not detect which HDMI port your PC uses.
-
 On **Advanced → TV integration**, click **Find TV launcher** to detect and save the TV's default Home app. If Android has no default launcher, select one on the TV first or enter the component manually.
 
 On the **Devices** tab, find your controller in the bottom list, select it and click **↑ Add** (or double-click it). Make sure its **On** box is ticked. That's it — switch the controller on and the TV should follow. More on this tab [below](#devices).
@@ -114,7 +111,7 @@ A few details worth knowing:
 |---|---|
 | Disable other monitors when TV is active | Only the TV stays on while it's in use; the full layout comes back afterwards. |
 | Wake TV via ADB when a device connects | Sends a power key press if the TV screen is off. |
-| Switch HDMI source on TV | Switches the TV to the PC's HDMI input through the TV External Source app. |
+| Switch HDMI source on TV | Switches the TV to the PC's HDMI input — nothing needs to be installed on the TV, see [How the HDMI input is switched](#how-the-hdmi-input-is-switched). |
 | Launch Steam Big Picture | Opens Big Picture once the TV is on the right input. |
 
 **Activate now** / **Deactivate / Restore** run the same sequences by hand — useful for testing, and as a one-click way back if something got out of sync. The **Test** tab has buttons for each individual step (wake TV, switch input, list/enable/disable displays, …).
@@ -132,7 +129,7 @@ The light / dark / auto theme switch sits in the title bar.
 |---|---|
 | **adb.exe path** | The bundled copy next to `SteamTV.exe`. Point it at your own `platform-tools` install if you prefer. |
 | **steam.exe path** | `C:\Program Files (x86)\Steam\steam.exe` |
-| **HDMI activity pattern** | Xiaomi / MiTV default; other TVs may need a different pattern — see below. |
+| **HDMI activity pattern** | Empty — SteamTV confirms the switch by itself. Only an override for TVs where that fails, see below. |
 | **TV home component** | Click **Find TV launcher** to detect the TV's default Home app, or enter its component manually. |
 
 ### Global keyboard shortcuts
@@ -140,14 +137,22 @@ Click the **Activate now** or **Deactivate / Restore** shortcut field, then pres
 
 SteamTV rejects duplicate combinations and reports shortcuts Windows cannot register (for example, those already used by another app). If registration fails, it attempts to restore the previous shortcuts. At startup, any registration error appears in the settings and log.
 
-### Values for a non-Xiaomi TV
-Use automatic launcher detection first. To find the HDMI activity pattern (or a launcher manually), connect to the TV (`adb connect <TV_IP>` from the folder with `adb.exe`) and inspect the foreground activity:
+### How the HDMI input is switched
+Nothing is installed on the TV. SteamTV tries, in order:
+1. **Xiaomi / MiTV** — the TV's own player (`com.xiaomi.mitv.tvplayer`), told which HDMI port to open.
+2. **Any Android TV** — the standard passthrough intent for the HDMI input listed by `dumpsys tv_input`.
+3. **TV External Source app** (liskovsoft `hdmiN`) — only if it's already installed, as a last resort.
+
+It then waits for the screen that method opens to come to the front; if it doesn't within 10 s, it rolls back.
+
+### Manual values
+Use automatic launcher detection first. To find an HDMI activity pattern override (or a launcher manually), connect to the TV (`adb connect <TV_IP>` from the folder with `adb.exe`) and inspect the foreground activity:
 
 ```
 adb shell dumpsys activity activities | findstr ResumedActivity
 ```
 
-1. **HDMI activity pattern** — switch the TV to the PC's input with the remote, run the command, take the `package/.Activity` part (e.g. `com.example.tvplayer/.ExternalSourceActivity`) and escape the dots: `com\.example\.tvplayer/\.ExternalSourceActivity`.
+1. **HDMI activity pattern** (only if the TV does switch but SteamTV still rolls back) — switch the TV to the PC's input with the remote, run the command, take the `package/.Activity` part (e.g. `com.example.tvplayer/.ExternalSourceActivity`) and escape the dots: `com\.example\.tvplayer/\.ExternalSourceActivity`.
 2. **TV home component** — click **Find TV launcher** for automatic detection. Alternatively, go back to the TV's home screen, run the command again, and paste the `package/.Activity` as-is (e.g. `com.example.launcher/.MainActivity`).
 
 All settings live in the registry under `HKCU\Software\SteamTV`.
@@ -203,7 +208,8 @@ Discovery and states are published again whenever Home Assistant restarts (`home
 - Many Android TVs **switch Wireless debugging off by themselves** after a reboot or update. Nothing on the PC side can turn it back on — re-enable it on the TV, or install [adb-auto-enable](https://github.com/mouldybread/adb-auto-enable) **on the TV** to have it re-enabled at every boot.
 
 **TV didn't switch to the PC ("rolled back")**
-- Usually the HDMI activity pattern doesn't match your TV — see [Values for a non-Xiaomi TV](#values-for-a-non-xiaomi-tv).
+- Click **Switch HDMI Source** on the Test tab — the log says which method was used, or why none worked.
+- If the TV did switch but SteamTV still rolled back, set an HDMI activity pattern override — see [Manual values](#manual-values).
 
 **Wrong display turned on**
 - Use **Displays…** to find the TV's number; it matches `\\.\DISPLAYn` in Windows display settings.

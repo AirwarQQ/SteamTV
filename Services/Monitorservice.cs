@@ -234,16 +234,34 @@ namespace SteamTV
 
             if (_s.EnableSourceSwitch)
             {
-                adb.SwitchSourceToPc(_s.HdmiSourcePackage, ct);
+                string pattern = null, method = null, switchErr = null;
+                try { pattern = adb.SwitchToHdmi(_s.HdmiPort, out method, ct); }
+                catch (InvalidOperationException ex) { switchErr = ex.Message; }
+                if (ct.IsCancellationRequested) return;
+                if (!string.IsNullOrWhiteSpace(_s.HdmiActivityPattern)) pattern = _s.HdmiActivityPattern;
 
-                double elapsed = 0;
-                while (!adb.IsHdmiSourceActive(_s.HdmiActivityPattern) && elapsed < 10.0)
+                bool active = false;
+                if (switchErr == null)
                 {
-                    if (Sleep(ct, 200)) return;
-                    elapsed += 0.2;
+                    L("Switching to HDMI " + _s.HdmiPort + " via " + method + ".");
+                    if (pattern == null)
+                    {
+                        // The legacy app opens a vendor screen we can't name — give it time instead.
+                        if (Sleep(ct, 2000)) return;
+                        active = true;
+                    }
+                    else
+                    {
+                        double elapsed = 0;
+                        while (!(active = adb.IsHdmiSourceActive(pattern)) && elapsed < 10.0)
+                        {
+                            if (Sleep(ct, 200)) return;
+                            elapsed += 0.2;
+                        }
+                    }
                 }
 
-                if (adb.IsHdmiSourceActive(_s.HdmiActivityPattern))
+                if (active)
                 {
                     if (Sleep(ct, 1000)) return;
                     L("HDMI source active.");
@@ -260,8 +278,9 @@ namespace SteamTV
                 }
                 else
                 {
-                    L("HDMI source did not activate within 10s — rolling back.");
-                    N("SteamTV", "TV didn't switch to the PC's HDMI input in time — rolled back.");
+                    L((switchErr ?? "HDMI source did not activate within 10s.") + " Rolling back.");
+                    N("SteamTV", switchErr != null ? "Can't switch the TV's HDMI input — rolled back. " + switchErr
+                        : "TV didn't switch to the PC's HDMI input in time — rolled back.");
                     RestoreDisplayState();
                     adb.RestoreSourceBeforeShutdown(_s.TvHomeComponent, ct);
                     adb.Disconnect();

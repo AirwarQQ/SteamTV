@@ -10,26 +10,6 @@ namespace SteamTV
     {
         private GlobalHotkeys _hotkeys;
 
-        private async void InstallHdmi_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateIpOrWarn()) return;
-            SaveUiToSettings();
-            var adb = new Adb(string.IsNullOrWhiteSpace(TxtAdbPath.Text) ? "adb.exe" : TxtAdbPath.Text.Trim(), TxtIp.Text.Trim());
-            BtnInstallHdmi.IsEnabled = false;
-            LblHdmiInstall.Text = "Connecting to TV…";
-            try
-            {
-                LblHdmiInstall.Text = await Task.Run(() => HdmiInstaller.Install(adb, message =>
-                {
-                    AppendLog("HDMI setup: " + message);
-                    Dispatcher.BeginInvoke(new Action(() => LblHdmiInstall.Text = message));
-                }));
-                AppendLog(LblHdmiInstall.Text);
-            }
-            catch (Exception ex) { LblHdmiInstall.Text = ex.Message; AppendLog("HDMI setup: " + ex.Message); }
-            finally { BtnInstallHdmi.IsEnabled = true; }
-        }
-
         private void Hotkey_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             var key = e.Key == Key.System ? e.SystemKey : e.Key;

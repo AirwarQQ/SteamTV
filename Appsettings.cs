@@ -34,7 +34,7 @@ namespace SteamTV
 
         public string TvIp = "192.168.1.102";
         public int TargetDisplay = 3;
-        public int HdmiPort = 2;         // 1–4; maps to com.liskovsoft.tvexternalsource.hdmiN
+        public int HdmiPort = 2;         // 1–4; the TV input the PC is plugged into
         public bool DisableOthers = false;
         public bool EnableWakeTV = true;
         public bool EnableSourceSwitch = true;
@@ -51,15 +51,14 @@ namespace SteamTV
 
         public string AdbPath = @"adb.exe";
         public string SteamPath = @"C:\Program Files (x86)\Steam\steam.exe";
-        public string HdmiActivityPattern = @"com\.xiaomi\.mitv\.tvplayer/\.ExternalSourceActivity";
+        // Optional override; empty = confirm with the screen the chosen switch method opens.
+        public string HdmiActivityPattern = "";
+        private const string OldXiaomiPattern = @"com\.xiaomi\.mitv\.tvplayer/\.ExternalSourceActivity";   // pre-1.11 default
         public string ActivateHotkey = "", DeactivateHotkey = "";
         public string TvHomeComponent = "com.spocky.projengmenu/.ui.home.MainActivity";
 
         // Replaced wholesale (never mutated in place) so the monitor thread can read it without locking.
         public List<WatchedDevice> WatchedDevices = new List<WatchedDevice>();
-
-        // Derived from HdmiPort — no manual override needed for the standard liskovsoft app.
-        public string HdmiSourcePackage => "com.liskovsoft.tvexternalsource.hdmi" + HdmiPort;
 
         public static AppSettings Load()
         {
@@ -80,6 +79,7 @@ namespace SteamTV
                     s.AdbPath = (string)(k.GetValue("AdbPath") ?? s.AdbPath);
                     s.SteamPath = (string)(k.GetValue("SteamPath") ?? s.SteamPath);
                     s.HdmiActivityPattern = (string)(k.GetValue("HdmiActivityPattern") ?? s.HdmiActivityPattern);
+                    if (s.HdmiActivityPattern == OldXiaomiPattern) s.HdmiActivityPattern = "";
                     s.TvHomeComponent = (string)(k.GetValue("TvHomeComponent") ?? s.TvHomeComponent);
                     s.ActivateHotkey = (string)(k.GetValue("ActivateHotkey") ?? "");
                     s.DeactivateHotkey = (string)(k.GetValue("DeactivateHotkey") ?? "");
@@ -175,6 +175,7 @@ namespace SteamTV
                         .ToArray();
                     k.SetValue("WatchedDevices", raw, RegistryValueKind.MultiString);
                     k.DeleteValue("WatchedGamepads", false);
+                    k.DeleteValue("HdmiSourcePackage", false);
                 }
             }
             catch (Exception ex) { Console.WriteLine("[AppSettings] Save error: " + ex.Message); }

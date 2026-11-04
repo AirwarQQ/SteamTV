@@ -96,10 +96,8 @@
                                 <ui:NumberBox Grid.Column="1" x:Name="NumHdmiPort" Width="110" Minimum="1" Maximum="4"
                                               SpinButtonPlacementMode="Inline" ClearButtonEnabled="False" />
                             </Grid>
-                            <TextBlock Text="1–4, used by the TV External Source app" Margin="0,6,0,0"
+                            <TextBlock Text="1–4, the TV input the PC is plugged into. Nothing needs to be installed on the TV." Margin="0,6,0,0"
                                        Foreground="Gray" TextWrapping="Wrap" />
-                            <Button x:Name="BtnInstallHdmi" Content="Install HDMI1 / HDMI2 / HDMI3 on TV" Click="InstallHdmi_Click" HorizontalAlignment="Left" Margin="0,8,0,0" />
-                            <TextBlock x:Name="LblHdmiInstall" TextWrapping="Wrap" Margin="0,6,0,0" />
                         </StackPanel>
                     </ui:Card>
 
@@ -364,7 +362,7 @@
                             <TextBlock Text="HDMI activity pattern" Margin="0,0,0,4" />
                             <TextBox x:Name="TxtHdmiActivityPattern" FontFamily="Consolas" FontSize="12" />
                             <TextBlock Margin="0,4,0,0" Foreground="Gray" TextWrapping="Wrap"
-                                       Text="Regex matched against 'adb shell dumpsys activity activities' to confirm the TV's HDMI-source screen actually opened. The default matches Xiaomi/MiTV's player — on another TV, switch to the PC's HDMI input by hand, then run that command over adb and look for the line containing 'ResumedActivity'; the package/.Activity shown there is what to put here (escape any dots with backslashes)." />
+                                       Text="Leave empty — SteamTV confirms the switch by itself. Only if it keeps rolling back although the TV did switch: enter a regex for the 'ResumedActivity' line of 'adb shell dumpsys activity activities' while the PC's input is shown." />
 
                             <TextBlock Text="TV home component" Margin="0,14,0,4" />
                             <TextBox x:Name="TxtTvHomeComponent" FontFamily="Consolas" FontSize="12" />

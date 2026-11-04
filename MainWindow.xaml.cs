@@ -64,6 +64,7 @@ namespace SteamTV
             _ha.Log += AppendLog;
             _ha.StatusChanged += OnMqttStatus;
             _ha.Command += OnHaCommand;
+            _ha.PowerCommand += OnHaPowerCommand;
 
             LoadSettingsToUi();
             InitDevicesTab();
@@ -240,7 +241,10 @@ namespace SteamTV
             TxtDeactivateHotkey.Text = _settings.DeactivateHotkey;
             _loadingUi = true;
             ChkMqttEnabled.IsChecked = _settings.MqttEnabled;
+            ChkMqttPower.IsChecked = _settings.MqttPowerButtons;
             _loadingUi = false;
+            UpdateMqttPowerInfo();
+            TxtPcMac.Text = PowerControl.PrimaryMac() ?? "not found — see the adapter in ipconfig /all";
             TxtMqttHost.Text = _settings.MqttHost;
             NumMqttPort.Value = _settings.MqttPort;
             TxtMqttUser.Text = _settings.MqttUser;
@@ -326,6 +330,45 @@ namespace SteamTV
                 else DeactivateNow(interactive: false);
             }
             UpdateStatusLabel();
+        }
+
+        private void OnHaPowerCommand(HaPower p)
+        {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnHaPowerCommand(p))); return; }
+            if (p == HaPower.Sleep)
+            {
+                // A moment for the MQTT acknowledgement and the log line to go out before the PC freezes.
+                AppendLog("Home Assistant: going to sleep.");
+                Task.Delay(1500).ContinueWith(_ =>
+                {
+                    string err = PowerControl.Sleep();
+                    if (err != null) AppendLog("Home Assistant: sleep FAILED — " + err);
+                });
+                return;
+            }
+            string what = p == HaPower.Shutdown ? "shutting down" : "restarting";
+            string error = p == HaPower.Shutdown ? PowerControl.Shutdown() : PowerControl.Restart();
+            if (error != null) { AppendLog("Home Assistant: " + what + " FAILED — " + error); return; }
+            AppendLog("Home Assistant: " + what + " in " + PowerControl.ShutdownDelaySec + " s (cancel: shutdown /a).");
+            ShowTrayBalloon("SteamTV", "Home Assistant: " + what + " in " + PowerControl.ShutdownDelaySec + " s. Run \"shutdown /a\" to cancel.");
+        }
+
+        private void UpdateMqttPowerInfo()
+        {
+            LblMqttPowerInfo.Text = ChkMqttPower.IsChecked == true
+                ? "Sleep, Shut down and Restart buttons appear on the SteamTV device in Home Assistant. Shut down and Restart give a "
+                  + PowerControl.ShutdownDelaySec + "-second Windows warning first. They only work while SteamTV runs, i.e. after you sign in to Windows."
+                : "Off: Home Assistant gets no power buttons, and power commands are ignored.";
+        }
+
+        private void ChkMqttPower_Changed(object sender, RoutedEventArgs e)
+        {
+            UpdateMqttPowerInfo();
+            if (_loadingUi) return;
+            _settings.MqttPowerButtons = ChkMqttPower.IsChecked == true;
+            _settings.Save();
+            // Reconnect re-announces discovery, which adds or removes the buttons in HA.
+            if (_settings.MqttEnabled) StartMqtt();
         }
 
         private void OnMqttStatus(string status)

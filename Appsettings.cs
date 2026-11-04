@@ -48,6 +48,7 @@ namespace SteamTV
         public string MqttUser = "";
         public string MqttPassword = "";   // kept DPAPI-encrypted (current user) in the registry
         public string MqttDeviceId = MakeDeviceId(Environment.MachineName);   // steamtv/<id>/... topics
+        public bool MqttPowerButtons = false;   // Sleep / Shut down / Restart buttons in HA — opt-in
 
         public string AdbPath = @"adb.exe";
         public string SteamPath = @"C:\Program Files (x86)\Steam\steam.exe";
@@ -92,6 +93,7 @@ namespace SteamTV
                     s.MqttUser = (string)(k.GetValue("MqttUser") ?? s.MqttUser);
                     s.MqttPassword = Unprotect(k.GetValue("MqttPassword") as byte[]);
                     s.MqttDeviceId = MakeDeviceId((string)k.GetValue("MqttDeviceId") ?? s.MqttDeviceId);
+                    s.MqttPowerButtons = ToInt(k.GetValue("MqttPowerButtons"), 0) != 0;
 
                     // REG_MULTI_SZ, one device per line:
                     //   v2: "v2|Key|Enabled|Category|Action|RestoreOnDisconnect|Alias|Name" (Alias/Name URI-escaped)
@@ -170,6 +172,7 @@ namespace SteamTV
                     k.SetValue("MqttUser", MqttUser ?? "");
                     k.SetValue("MqttPassword", Protect(MqttPassword), RegistryValueKind.Binary);
                     k.SetValue("MqttDeviceId", MqttDeviceId ?? "");
+                    k.SetValue("MqttPowerButtons", MqttPowerButtons ? 1 : 0, RegistryValueKind.DWord);
 
                     string[] raw = WatchedDevices
                         .Select(e => string.Join("|",

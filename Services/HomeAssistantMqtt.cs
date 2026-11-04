@@ -1,5 +1,6 @@
-// Optional Home Assistant link over MQTT: announces one "SteamTV" device with two switches via
-// MQTT discovery, publishes their state and turns commands from HA into Command events.
+// Optional Home Assistant link over MQTT: announces one "SteamTV" device with two switches (and,
+// if allowed, Sleep / Shut down / Restart buttons) via MQTT discovery, publishes the switch states
+// and turns commands from HA into Command / PowerCommand events.
 // Nothing here runs unless the integration is switched on in settings.
 using System;
 using System.Text;
@@ -13,16 +14,18 @@ namespace SteamTV
 {
 
     internal enum HaSwitch { Monitoring, SteamOnTv }
+    internal enum HaPower { Sleep, Shutdown, Restart }
 
     internal sealed class MqttConfig
     {
         public string Host, User, Password, DeviceId;
         public int Port = 1883;
+        public bool PowerButtons;
 
         public static MqttConfig From(AppSettings s) => new MqttConfig
         {
             Host = (s.MqttHost ?? "").Trim(), Port = s.MqttPort, User = s.MqttUser, Password = s.MqttPassword,
-            DeviceId = s.MqttDeviceId,
+            DeviceId = s.MqttDeviceId, PowerButtons = s.MqttPowerButtons,
         };
     }
 
@@ -44,6 +47,7 @@ namespace SteamTV
         public event Action<string> StatusChanged;
         // Raised on a thread-pool thread — the receiver marshals to the UI thread itself.
         public event Action<HaSwitch, bool> Command;
+        public event Action<HaPower> PowerCommand;
 
         public HomeAssistantMqtt(MonitorService monitor, string version)
         {
@@ -197,6 +201,9 @@ namespace SteamTV
             await client.PublishAsync(Message(DiscoveryTopic(HaSwitch.SteamOnTv), DiscoveryJson(HaSwitch.SteamOnTv), retain: true), ct);
             await client.PublishAsync(Message(StateTopic(HaSwitch.Monitoring), OnOff(_monitor.IsRunning), retain: true), ct);
             await client.PublishAsync(Message(StateTopic(HaSwitch.SteamOnTv), OnOff(_monitor.IsDisplayActive), retain: true), ct);
+            // Power control off → an empty retained config makes HA remove the buttons rather than leave them dead.
+            foreach (HaPower p in Enum.GetValues(typeof(HaPower)))
+                await client.PublishAsync(Message(DiscoveryTopic(p), _cfg.PowerButtons ? DiscoveryJson(p) : "", retain: true), ct);
         }
 
         private void OnMessage(MqttApplicationMessage m)
@@ -209,6 +216,19 @@ namespace SteamTV
                 var client = _client;
                 if (client != null && payload == "online")
                     _ = Task.Run(async () => { try { await AnnounceAsync(client, CancellationToken.None); } catch { } });
+                return;
+            }
+
+            // Commands come from presses, never from a stray retained message the broker replays on
+            // every connect — for Sleep that would send the PC straight back to sleep each time it wakes.
+            if (m.Retain) return;
+
+            foreach (HaPower p in Enum.GetValues(typeof(HaPower)))
+            {
+                if (topic != SetTopic(p)) continue;
+                if (!_cfg.PowerButtons) { L("Home Assistant: ignored " + Title(p) + " — power control is switched off."); return; }
+                L("Home Assistant command: " + Title(p));
+                PowerCommand?.Invoke(p);
                 return;
             }
 
@@ -252,26 +272,41 @@ namespace SteamTV
         private string StateTopic(HaSwitch sw) => Base + "/" + Key(sw) + "/state";
         private string SetTopic(HaSwitch sw) => Base + "/" + Key(sw) + "/set";
         private string DiscoveryTopic(HaSwitch sw) => DiscoveryPrefix + "/switch/steamtv_" + _cfg.DeviceId + "/" + Key(sw) + "/config";
+        private static string Key(HaPower p) => p == HaPower.Sleep ? "sleep" : p == HaPower.Shutdown ? "shutdown" : "restart";
+        private static string Title(HaPower p) => p == HaPower.Sleep ? "Sleep" : p == HaPower.Shutdown ? "Shut down" : "Restart";
+        private string SetTopic(HaPower p) => Base + "/" + Key(p) + "/set";
+        private string DiscoveryTopic(HaPower p) => DiscoveryPrefix + "/button/steamtv_" + _cfg.DeviceId + "/" + Key(p) + "/config";
         private static string ClientId(MqttConfig c) => "steamtv-" + c.DeviceId;
         private static string OnOff(bool on) => on ? "ON" : "OFF";
 
-        private string DiscoveryJson(HaSwitch sw)
+        private string DiscoveryJson(HaSwitch sw) => "{"
+            + Prop("name", Title(sw)) + ","
+            + Prop("unique_id", "steamtv_" + _cfg.DeviceId + "_" + Key(sw)) + ","
+            + Prop("icon", sw == HaSwitch.Monitoring ? "mdi:controller" : "mdi:television-play") + ","
+            + Prop("command_topic", SetTopic(sw)) + ","
+            + Prop("state_topic", StateTopic(sw)) + ","
+            + Prop("availability_topic", Base + "/availability") + ","
+            + DeviceJson() + "}";
+
+        private string DiscoveryJson(HaPower p) => "{"
+            + Prop("name", Title(p)) + ","
+            + Prop("unique_id", "steamtv_" + _cfg.DeviceId + "_" + Key(p)) + ","
+            + Prop("icon", p == HaPower.Sleep ? "mdi:power-sleep" : p == HaPower.Shutdown ? "mdi:power" : "mdi:restart") + ","
+            + Prop("command_topic", SetTopic(p)) + ","
+            + Prop("payload_press", "PRESS") + ","
+            + Prop("availability_topic", Base + "/availability") + ","
+            + DeviceJson() + "}";
+
+        private string DeviceJson()
         {
             string id = "steamtv_" + _cfg.DeviceId;
-            return "{"
-                + Prop("name", Title(sw)) + ","
-                + Prop("unique_id", id + "_" + Key(sw)) + ","
-                + Prop("icon", sw == HaSwitch.Monitoring ? "mdi:controller" : "mdi:television-play") + ","
-                + Prop("command_topic", SetTopic(sw)) + ","
-                + Prop("state_topic", StateTopic(sw)) + ","
-                + Prop("availability_topic", Base + "/availability") + ","
-                + "\"device\":{"
-                    + "\"identifiers\":[" + Str(id) + "],"
-                    + Prop("name", "SteamTV") + ","
-                    + Prop("manufacturer", "SteamTV") + ","
-                    + Prop("model", "Windows tray app (" + Environment.MachineName + ")") + ","
-                    + Prop("sw_version", _version)
-                + "}}";
+            return "\"device\":{"
+                + "\"identifiers\":[" + Str(id) + "],"
+                + Prop("name", "SteamTV") + ","
+                + Prop("manufacturer", "SteamTV") + ","
+                + Prop("model", "Windows tray app (" + Environment.MachineName + ")") + ","
+                + Prop("sw_version", _version)
+                + "}";
         }
 
         private static string Prop(string name, string value) => Str(name) + ":" + Str(value);

@@ -288,12 +288,12 @@
                 </ScrollViewer>
             </TabItem>
 
-            <!-- Advanced tab -->
-            <TabItem Header="Advanced">
+            <!-- Home Assistant tab -->
+            <TabItem Header="Home Assistant">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="0,12,0,0">
 
-                    <TextBlock Text="Home Assistant (MQTT)" FontWeight="SemiBold" Margin="2,0,0,6" />
+                    <TextBlock Text="MQTT broker" FontWeight="SemiBold" Margin="2,0,0,6" />
                     <ui:Card Margin="0,0,0,12">
                         <StackPanel>
                             <CheckBox x:Name="ChkMqttEnabled" Content="Connect to Home Assistant through an MQTT broker"
@@ -329,6 +329,26 @@
                                        Text="Adds a &quot;SteamTV&quot; device to Home Assistant (MQTT discovery) with two switches: Gamepad monitoring (Start/Stop) and Steam on TV (Activate/Deactivate). Leave it off and nothing changes." />
                         </StackPanel>
                     </ui:Card>
+
+                    <TextBlock Text="PC power" FontWeight="SemiBold" Margin="2,0,0,6" />
+                    <ui:Card Margin="0,0,0,12">
+                        <StackPanel>
+                            <CheckBox x:Name="ChkMqttPower" Content="Let Home Assistant put this PC to sleep, shut it down or restart it"
+                                      Checked="ChkMqttPower_Changed" Unchecked="ChkMqttPower_Changed" />
+                            <TextBlock x:Name="LblMqttPowerInfo" Margin="0,8,0,0" Foreground="Gray" TextWrapping="Wrap" />
+                            <TextBlock Margin="0,10,0,4" Text="Switching on: the PC is off then, so Home Assistant sends the Wake on LAN packet itself. Add the Wake on LAN integration there with this MAC:"
+                                       TextWrapping="Wrap" />
+                            <TextBox x:Name="TxtPcMac" IsReadOnly="True" FontFamily="Consolas" HorizontalAlignment="Left" MinWidth="180" />
+                        </StackPanel>
+                    </ui:Card>
+                </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Advanced tab -->
+            <TabItem Header="Advanced">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,12,0,0">
 
                     <TextBlock Text="Global keyboard shortcuts" FontWeight="SemiBold" Margin="2,0,0,6" />
                     <ui:Card Margin="0,0,0,12">

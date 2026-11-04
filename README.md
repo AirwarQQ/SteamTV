@@ -23,7 +23,7 @@ Turn on your gamepad: the TV wakes up, switches to the PC's HDMI input, and Stea
 - 🚀 **Steam Big Picture** opens on the TV, and closing it ends the session. Or end it when the controller switches off — with a 10 s grace period for Bluetooth hiccups.
 - ⚙️ **Per-device behaviour** — your own names, "TV + Big Picture" or "TV only" (e.g. a keyboard to use the desktop on the TV), restore on disconnect.
 - 🔌 **Bridge apps work too** — controllers connected through Switch2Connect (Switch 2 Pro Controller via an ESP32), DS4Windows and similar are picked up as virtual gamepads.
-- 🏠 **Home Assistant** (optional, over MQTT) — a SteamTV device with "Gamepad monitoring" and "Steam on TV" switches, for dashboards, automations and voice assistants.
+- 🏠 **Home Assistant** (optional, over MQTT) — a SteamTV device with "Gamepad monitoring" and "Steam on TV" switches, plus optional Sleep / Shut down / Restart buttons, for dashboards, automations and voice assistants.
 - 🛠️ **Nothing to install on the TV** — the HDMI input is switched with the TV's own components, and the TV's default launcher is detected automatically.
 - ⌨️ **Global keyboard shortcuts** — Ctrl+Alt+9 / Ctrl+Alt+0 out of the box, or your own combinations; they work while SteamTV is in the tray.
 - 🪶 **Lives in the tray** — starts with Windows, reacts instantly to devices, notifies you only when something goes wrong, checks for updates. Light/dark theme.
@@ -162,11 +162,11 @@ All settings live in the registry under `HKCU\Software\SteamTV`.
 
 Optional — SteamTV can show up in Home Assistant as a device you can see and switch from a dashboard, an automation or a voice assistant. It talks MQTT, so you need a broker (the **Mosquitto broker** add-on, or any other) and the **MQTT** integration set up in Home Assistant.
 
-1. On the **Advanced** tab, under **Home Assistant (MQTT)**, enter the broker's **Host**, **Port** (1883 by default), **Login** and **Password** (an HA user works with the Mosquitto add-on).
+1. On the **Home Assistant** tab, under **MQTT broker**, enter the broker's **Host**, **Port** (1883 by default), **Login** and **Password** (an HA user works with the Mosquitto add-on).
 2. **Test** checks that the broker accepts the connection and the login — it doesn't change anything.
 3. Tick **Connect to Home Assistant through an MQTT broker**. After editing the fields later, click **Save & reconnect**.
 
-<p align="center"><img src="docs/screenshots/home-assistant.png" width="560" alt="Home Assistant settings on the Advanced tab"></p>
+<p align="center"><img src="docs/screenshots/home-assistant.png" width="560" alt="Home Assistant tab"></p>
 
 A **SteamTV** device appears in Home Assistant by itself (MQTT discovery), with two switches:
 
@@ -182,6 +182,15 @@ A **SteamTV** device appears in Home Assistant by itself (MQTT discovery), with 
 - The password is stored encrypted for your Windows account (DPAPI).
 - Unticked, SteamTV makes no network connections for this at all.
 
+### PC power
+Tick **Let Home Assistant put this PC to sleep, shut it down or restart it** and the device also gets **Sleep**, **Shut down** and **Restart** buttons. This replaces the usual SSH-into-Windows `shell_command` setup: no OpenSSH server on the PC, no keys or YAML in Home Assistant, and the buttons come back by themselves after a Home Assistant reinstall.
+
+- **Shut down** and **Restart** show Windows' own 30-second warning first; `shutdown /a` cancels it.
+- The buttons only work while SteamTV runs, i.e. after you've signed in to Windows.
+- Unticked, the buttons disappear from Home Assistant and power commands are ignored.
+
+**Switching on** can't come from SteamTV, since the PC is off at that point. Add the **Wake on LAN** integration in Home Assistant (Settings → Devices & services → Add integration) with the MAC address shown on the tab, and enable Wake on LAN in the BIOS / network adapter settings. To get a single on/off switch, add a **Template → Switch** helper: state from a **Ping** sensor for the PC, turn on → the Wake on LAN button, turn off → SteamTV's **Sleep** or **Shut down** button.
+
 <details>
 <summary>MQTT topics</summary>
 
@@ -192,7 +201,8 @@ A **SteamTV** device appears in Home Assistant by itself (MQTT discovery), with 
 | `steamtv/<id>/availability` | `online` / `offline` (retained; `offline` is also the last will) |
 | `steamtv/<id>/monitoring/state`, `steamtv/<id>/steam_on_tv/state` | `ON` / `OFF` (retained) |
 | `steamtv/<id>/monitoring/set`, `steamtv/<id>/steam_on_tv/set` | send `ON` / `OFF` |
-| `homeassistant/switch/steamtv_<id>/<switch>/config` | discovery (retained) |
+| `steamtv/<id>/sleep/set`, `steamtv/<id>/shutdown/set`, `steamtv/<id>/restart/set` | send `PRESS` (only with PC power on; retained messages are ignored) |
+| `homeassistant/switch/steamtv_<id>/<switch>/config`, `homeassistant/button/steamtv_<id>/<button>/config` | discovery (retained) |
 
 Discovery and states are published again whenever Home Assistant restarts (`homeassistant/status` = `online`).
 </details>
@@ -235,7 +245,7 @@ Produces a single self-contained `bin\Release\net48\SteamTV.exe` — WPF-UI is m
 ```
 SteamTV/
 ├─ App.xaml(.cs)            entry point: single instance, -autostart flag, theme
-├─ MainWindow.xaml(.cs)     UI: Monitor / Devices / Test / Advanced tabs, tray icon
+├─ MainWindow.xaml(.cs)     UI: Monitor / Devices / Test / Home Assistant / Advanced tabs, tray icon
 ├─ Appsettings.cs           registry-backed settings, WatchedDevice model
 ├─ app.manifest             per-monitor DPI awareness
 ├─ Interop/Native.cs        P/Invoke: CCD display API, device-change notifications
@@ -245,6 +255,8 @@ SteamTV/
 │  ├─ Displaymanager.cs     enable / disable / restore monitors (SetDisplayConfig)
 │  ├─ Adb.cs, AdbBundle.cs  adb wrapper; unpacking the bundled adb.exe
 │  ├─ Steamhelper.cs        Big Picture: detect, launch, close; minimize Steam
+│  ├─ HomeAssistantMqtt.cs  MQTT discovery, switch states, commands from Home Assistant
+│  ├─ PowerControl.cs       sleep / shut down / restart, MAC for Wake on LAN
 │  └─ UpdateChecker.cs      new-release check on startup
 └─ Vendor/adb.exe           Android Platform Tools (Apache 2.0, see adb-NOTICE.txt)
 ```

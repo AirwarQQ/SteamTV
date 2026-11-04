@@ -4,6 +4,7 @@
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6)
 ![Android TV](https://img.shields.io/badge/TV-Android%20TV-3DDC84)
 [![License](https://img.shields.io/github/license/AirwarQQ/SteamTV)](LICENSE)
+[![Support on Boosty](https://img.shields.io/badge/support-Boosty-FF7EB6)](https://boosty.to/airwaruwu/donate)
 
 **Pick up the controller — the TV is already showing Steam.**
 
@@ -301,5 +302,11 @@ SteamTV/
 │  └─ AppLog.cs             log file in %LOCALAPPDATA%\SteamTV
 └─ Vendor/adb.exe           Android Platform Tools (Apache 2.0, see adb-NOTICE.txt)
 ```
+
+## Support
+
+SteamTV is free and stays free. If it makes your evenings on the couch nicer, you can buy the author a coffee on **[Boosty](https://boosty.to/airwaruwu/donate)** — it's also behind the ♥ button in the app and the tray menu.
+
+---
 
 UI built with [WPF-UI](https://github.com/lepoco/wpfui); headings in [M PLUS Rounded 1c](https://github.com/coz-m/MPLUS_FONTS) (SIL Open Font License, see `Fonts/OFL.txt`). The Home banner is original artwork. SteamTV is licensed under MIT — see [LICENSE](LICENSE).

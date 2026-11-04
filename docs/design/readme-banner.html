@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<!-- README header (1600x400), same scene as the Boosty cover. Rendered to docs/screenshots/banner.png with headless Edge. -->
+<html><head><meta charset="utf-8"><style>
+@font-face { font-family: "MPR"; src: url("../../Fonts/MPLUSRounded1c-ExtraBold.ttf"); font-weight: 800; }
+@font-face { font-family: "MPR"; src: url("../../Fonts/MPLUSRounded1c-Bold.ttf"); font-weight: 700; }
+html, body { margin: 0; width: 1600px; height: 400px; overflow: hidden; background: #0f1222; }
+.wrap { position: relative; width: 1600px; height: 400px; }
+svg { position: absolute; inset: 0; }
+.fade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(15,18,34,.97) 0%, rgba(15,18,34,.85) 30%, rgba(15,18,34,0) 62%); }
+.copy { position: absolute; left: 90px; top: 74px; color: #ecebf5; font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif; }
+.kana { font-family: "MPR", "Yu Gothic UI", sans-serif; font-weight: 700; font-size: 20px; letter-spacing: 6px; color: #ff7eb6; }
+h1 { margin: 6px 0 14px; font-family: "MPR"; font-weight: 800; font-size: 92px; line-height: 1; letter-spacing: .5px; }
+h1 i { font-style: normal; background: linear-gradient(90deg, #ff7eb6, #9b8cff); -webkit-background-clip: text; color: transparent; }
+.ru { font-size: 30px; font-weight: 600; color: #ecebf5; }
+.en { margin-top: 6px; font-size: 21px; color: #8e93b4; }
+.chip { display: inline-flex; align-items: center; gap: 10px; margin-top: 26px; padding: 9px 20px 9px 16px; border-radius: 999px;
+        background: rgba(255,126,182,.12); border: 1.5px solid rgba(255,126,182,.4); color: #ffb3d1; font-size: 19px; font-weight: 600; }
+.chip b { color: #ff7eb6; font-size: 20px; }
+</style></head><body><div class="wrap">
+<svg width="1600" height="400" viewBox="0 0 1600 400">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1840"/><stop offset=".55" stop-color="#3b2c6e"/><stop offset=".85" stop-color="#8a4c8f"/><stop offset="1" stop-color="#e28aa9"/>
+    </linearGradient>
+    <radialGradient id="moonglow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff3f8" stop-opacity=".55"/><stop offset="1" stop-color="#fff3f8" stop-opacity="0"/></radialGradient>
+    <radialGradient id="tvglow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#7fd6ff" stop-opacity=".55"/><stop offset="1" stop-color="#7fd6ff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1600" height="400" fill="url(#sky)"/>
+  <g transform="translate(444 -30) scale(1.7)">
+    <g fill="#fff" opacity=".8"><circle cx="300" cy="30" r="1"/><circle cx="360" cy="58" r="1.2"/><circle cx="430" cy="22" r=".9"/><circle cx="500" cy="48" r="1.1"/><circle cx="610" cy="26" r="1"/><circle cx="650" cy="70" r=".8"/><circle cx="390" cy="96" r=".8"/><circle cx="560" cy="88" r="1"/><circle cx="250" cy="50" r=".9"/><circle cx="200" cy="20" r="1"/><circle cx="160" cy="70" r=".8"/></g>
+    <circle cx="560" cy="62" r="60" fill="url(#moonglow)"/>
+    <circle cx="560" cy="62" r="26" fill="#fff1f6"/>
+    <circle cx="571" cy="55" r="22" fill="#3b2c6e" opacity=".18"/>
+    <g fill="#2a2150">
+      <rect x="230" y="166" width="30" height="70"/><rect x="264" y="140" width="32" height="96"/>
+      <rect x="300" y="150" width="34" height="86"/><rect x="338" y="128" width="26" height="108"/><rect x="368" y="160" width="40" height="76"/><rect x="412" y="118" width="22" height="118"/>
+      <rect x="438" y="146" width="36" height="90"/><rect x="478" y="134" width="28" height="102"/><rect x="510" y="164" width="44" height="72"/><rect x="558" y="124" width="24" height="112"/>
+      <rect x="586" y="152" width="38" height="84"/><rect x="628" y="140" width="52" height="96"/>
+      <rect x="230" y="230" width="460" height="40"/>
+    </g>
+    <g fill="#ffd9a8" opacity=".75">
+      <rect x="272" y="154" width="4" height="5"/><rect x="284" y="176" width="4" height="5"/>
+      <rect x="344" y="140" width="4" height="5"/><rect x="354" y="152" width="4" height="5"/><rect x="418" y="132" width="4" height="5"/><rect x="418" y="160" width="4" height="5"/>
+      <rect x="486" y="148" width="4" height="5"/><rect x="564" y="138" width="4" height="5"/><rect x="572" y="170" width="4" height="5"/><rect x="640" y="156" width="4" height="5"/>
+    </g>
+    <ellipse cx="470" cy="212" rx="120" ry="40" fill="url(#tvglow)"/>
+    <g transform="translate(408 170)">
+      <rect x="0" y="0" width="124" height="70" rx="6" fill="#12152a" stroke="#7fd6ff" stroke-opacity=".7"/>
+      <rect x="6" y="6" width="112" height="58" rx="3" fill="#1f3a5c"/>
+      <path d="M42 22l26 13-26 13z" fill="#7fd6ff" opacity=".9"/>
+    </g>
+    <g stroke="#1a1430" stroke-width="5" fill="none" stroke-linecap="round">
+      <path d="M690 4 C620 30 600 40 560 100"/><path d="M640 26 C630 50 640 70 650 84"/><path d="M600 60 C580 66 566 80 556 96"/>
+    </g>
+    <g fill="#ffb3d1">
+      <circle cx="636" cy="30" r="7"/><circle cx="648" cy="38" r="6"/><circle cx="626" cy="44" r="6"/><circle cx="652" cy="84" r="7"/><circle cx="642" cy="74" r="5"/>
+      <circle cx="582" cy="70" r="6"/><circle cx="560" cy="96" r="6"/><circle cx="596" cy="58" r="5"/><circle cx="668" cy="16" r="6"/>
+    </g>
+    <g fill="#ff8fbf"><circle cx="636" cy="30" r="2.5"/><circle cx="652" cy="84" r="2.5"/><circle cx="582" cy="70" r="2.5"/></g>
+    <g fill="#ffd1e3" opacity=".85">
+      <ellipse cx="520" cy="120" rx="4" ry="2.5" transform="rotate(30 520 120)"/><ellipse cx="470" cy="80" rx="3.5" ry="2" transform="rotate(-20 470 80)"/>
+      <ellipse cx="610" cy="140" rx="4" ry="2.5" transform="rotate(50 610 140)"/><ellipse cx="400" cy="110" rx="3" ry="2" transform="rotate(10 400 110)"/>
+      <ellipse cx="330" cy="70" rx="3.5" ry="2.2" transform="rotate(-35 330 70)"/><ellipse cx="545" cy="180" rx="3.5" ry="2.2" transform="rotate(25 545 180)"/>
+    </g>
+  </g>
+</svg>
+<div class="fade"></div>
+<div class="copy">
+  <div class="kana">ソファモード · COUCH MODE</div>
+  <h1>Steam<i>TV</i></h1>
+  <div class="ru">Your gaming PC, now a console on the couch.</div>
+  <div class="en">Pick up the controller — the TV is already showing Steam.</div>
+  <div class="chip"><b>▶</b> Windows 10/11 · Android TV · free</div>
+</div>
+</div></body></html>

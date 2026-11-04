@@ -32,20 +32,51 @@ namespace SteamTV
         private void Hotkey_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
         {
             if (e.NewFocus == TxtActivateHotkey || e.NewFocus == TxtDeactivateHotkey) return;
-            _hotkeys?.ApplyEach(_settings.ActivateHotkey, _settings.DeactivateHotkey);
+            ApplySavedHotkeys();
         }
+
+        // In "one shortcut for both" mode only the first one is registered; it toggles.
+        private string[] ApplySavedHotkeys() =>
+            _hotkeys?.ApplyEach(_settings.ActivateHotkey, _settings.HotkeyToggle ? "" : _settings.DeactivateHotkey) ?? new string[0];
 
         private void SaveHotkeys_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                _hotkeys.Apply(TxtActivateHotkey.Text, TxtDeactivateHotkey.Text);
+                _hotkeys.Apply(TxtActivateHotkey.Text, _settings.HotkeyToggle ? "" : TxtDeactivateHotkey.Text);
                 _settings.ActivateHotkey = TxtActivateHotkey.Text;
                 _settings.DeactivateHotkey = TxtDeactivateHotkey.Text;
                 _settings.Save();
                 LblHotkeys.Text = Loc.T("Hot.Saved");
+                UpdateHotkeyHints();
             }
             catch (Exception ex) { LblHotkeys.Text = ex.Message; AppendLog("Hotkeys: " + ex.Message); }
+        }
+
+        private void ChkHotkeyToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loadingUi) return;
+            _settings.HotkeyToggle = ChkHotkeyToggle.IsChecked == true;
+            _settings.Save();
+            UpdateHotkeyFields();
+            foreach (var err in ApplySavedHotkeys()) AppendLog(err);
+            UpdateHotkeyHints();
+        }
+
+        private void UpdateHotkeyFields()
+        {
+            bool one = _settings.HotkeyToggle;
+            LblHotkeyOn.Text = Loc.T(one ? "Set.Hotkeys.Both" : "Set.Hotkeys.On");
+            LblHotkeyOff.Text = Loc.T("Set.Hotkeys.Off");
+            LblHotkeyOff.Visibility = TxtDeactivateHotkey.Visibility = one ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        // Button tooltips name the shortcut that does the same thing.
+        private void UpdateHotkeyHints()
+        {
+            string on = _settings.ActivateHotkey, off = _settings.HotkeyToggle ? _settings.ActivateHotkey : _settings.DeactivateHotkey;
+            BtnActivateNow.ToolTip = Loc.T("Home.Play.Tip") + (string.IsNullOrEmpty(on) ? "" : "\n" + Loc.T("Home.Tip.Key", on));
+            BtnDeactivateNow.ToolTip = Loc.T("Home.Back.Tip") + (string.IsNullOrEmpty(off) ? "" : "\n" + Loc.T("Home.Tip.Key", off));
         }
 
         private async void DetectLauncher_Click(object sender, RoutedEventArgs e)

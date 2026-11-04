@@ -23,8 +23,8 @@ namespace SteamTV
         private readonly AutoResetEvent _devicesChanged = new AutoResetEvent(false);
 
         // Bluetooth controllers drop for a moment now and then (sleep, interference); don't tear the
-        // whole TV session down over a blip.
-        private static readonly TimeSpan RestoreGrace = TimeSpan.FromSeconds(10);
+        // whole TV session down over a blip. How long counts as a blip is a setting.
+        private TimeSpan RestoreGrace => TimeSpan.FromSeconds(_s.RestoreGraceSec);
 
         private DisplayConfigSnapshot _preActivateSnapshot;
         private PhysicalDisplayId? _targetPhysicalId;
@@ -37,6 +37,21 @@ namespace SteamTV
         private bool? _hdrPrevious;         // TV display's HDR state before SteamTV turned it on
 
         private Adb NewAdb() => new Adb(_s.AdbPath, _s.TvIp);   // TvIp can change (found again after DHCP)
+
+        private void MinimizeSteam() { if (_s.MinimizeSteamAfter) SteamHelper.MinimizeSteamWindow(); }
+
+        // What an activation or deactivation is doing right now, for the Home page: a Loc key
+        // ("Phase.Wake", …) plus its argument, or null when idle.
+        public string PhaseKey { get; private set; }
+        public object PhaseArg { get; private set; }
+        public event Action PhaseChanged;
+
+        private void Phase(string key, object arg = null)
+        {
+            PhaseKey = key;
+            PhaseArg = arg;
+            PhaseChanged?.Invoke();
+        }
 
         public event Action<string> Log;
         public event Action<bool> RunningChanged;
@@ -129,7 +144,7 @@ namespace SteamTV
                     L("Manual deactivate requested.");
                     CloseBigPictureBeforeDeactivate(CancellationToken.None);
                     Deactivate(NewAdb(), CancellationToken.None);
-                    SteamHelper.MinimizeSteamWindow();
+                    MinimizeSteam();
                 }
             });
         }
@@ -198,6 +213,13 @@ namespace SteamTV
         // Used both by the automatic device-connect trigger and ActivateNow().
         private void Activate(Adb adb, CancellationToken ct, bool launchBigPicture)
         {
+            Phase("Phase.Start");
+            try { ActivateCore(adb, ct, launchBigPicture); }
+            finally { Phase(null); }
+        }
+
+        private void ActivateCore(Adb adb, CancellationToken ct, bool launchBigPicture)
+        {
             L("Activating TV.");
             _tvWasAsleep = false;
             _tvPreviousApp = null;
@@ -217,6 +239,7 @@ namespace SteamTV
 
             if (_s.EnableWakeTV)
             {
+                Phase("Phase.Wake");
                 L(adb.WakeTv(out _tvWasAsleep));
                 if (_tvWasAsleep && Sleep(ct, 1500)) return;   // let the TV finish waking before asking it things
             }
@@ -230,6 +253,7 @@ namespace SteamTV
                 if (_tvPreviousApp != null) L("TV was showing " + _tvPreviousApp + ".");
             }
 
+            Phase("Phase.Display");
             string err;
             if (_s.DisableOthers)
             {
@@ -286,6 +310,7 @@ namespace SteamTV
 
             if (_s.EnableSourceSwitch)
             {
+                Phase("Phase.Hdmi", _s.HdmiPort);
                 string pattern = null, method = null, switchErr = null;
                 try { pattern = adb.SwitchToHdmi(_s.HdmiPort, out method, ct); }
                 catch (InvalidOperationException ex) { switchErr = ex.Message; }
@@ -321,6 +346,7 @@ namespace SteamTV
                     if (launchBigPicture)
                     {
                         L("Starting Big Picture.");
+                        Phase("Phase.BigPicture");
                         string bpErr;
                         if (!SteamHelper.StartBigPicture(_s.SteamPath, out bpErr))
                         {
@@ -404,6 +430,7 @@ namespace SteamTV
 
             if (_s.SwitchAudio)
             {
+                Phase("Phase.Sound");
                 string hint = string.IsNullOrWhiteSpace(_s.TvAudioDevice) ? DisplayManager.GetFriendlyName(_s.TargetDisplay) : _s.TvAudioDevice;
                 var tv = AudioSwitcher.WaitForDevice(hint, 8000, ct);
                 string current = AudioSwitcher.GetDefaultId();
@@ -419,6 +446,13 @@ namespace SteamTV
         // DeactivateNow() (which also minimizes Steam itself — the automatic path does that
         // separately since it wants it right after this, not as part of the shared sequence).
         private void Deactivate(Adb adb, CancellationToken ct)
+        {
+            Phase("Phase.Back");
+            try { DeactivateCore(adb, ct); }
+            finally { Phase(null); }
+        }
+
+        private void DeactivateCore(Adb adb, CancellationToken ct)
         {
             L("Deactivating TV.");
             RestoreDisplayState();
@@ -512,7 +546,7 @@ namespace SteamTV
                                         L(NamesOf(watched, armed) + " still gone -> deactivating TV.");
                                         CloseBigPictureBeforeDeactivate(ct);
                                         Deactivate(NewAdb(), ct);
-                                        SteamHelper.MinimizeSteamWindow();
+                                        MinimizeSteam();
                                     }
                                 }
                                 curBp = SteamHelper.IsBigPictureRunning();
@@ -545,7 +579,7 @@ namespace SteamTV
                             {
                                 L("Big Picture closed -> deactivating TV.");
                                 Deactivate(NewAdb(), ct);
-                                SteamHelper.MinimizeSteamWindow();
+                                MinimizeSteam();
                             }
                         }
                     }

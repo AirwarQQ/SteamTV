@@ -74,6 +74,8 @@
     <FontFamily x:Key="DisplayFont">pack://application:,,,/Fonts/#Rounded Mplus 1c</FontFamily>
     <FontFamily x:Key="SectionFont">pack://application:,,,/Fonts/#Rounded Mplus 1c Bold</FontFamily>
     <FontFamily x:Key="BodyFont">Segoe UI Variable Text, Segoe UI</FontFamily>
+    <!-- Small headings: the rounded font has no hinting once subset and looks rough at 13–14 px. -->
+    <FontFamily x:Key="HeadingFont">Segoe UI Variable Display, Segoe UI</FontFamily>
     <FontFamily x:Key="KanaFont">Segoe UI Variable Text, Segoe UI, Yu Gothic UI</FontFamily>
 
     <!-- Text -->
@@ -92,13 +94,15 @@
         <Setter Property="Margin" Value="0,0,0,4" />
     </Style>
     <Style x:Key="Section" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource SectionFont}" />
+        <Setter Property="FontFamily" Value="{StaticResource HeadingFont}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Foreground" Value="{StaticResource SakuraBrush}" />
         <Setter Property="Margin" Value="2,18,0,8" />
     </Style>
     <Style x:Key="CardTitle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource SectionFont}" />
+        <Setter Property="FontFamily" Value="{StaticResource HeadingFont}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />

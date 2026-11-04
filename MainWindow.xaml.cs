@@ -50,8 +50,6 @@ namespace SteamTV
         {
             InitializeComponent();
 
-            var icon = LoadAppIcon();
-            Icon = Imaging.CreateBitmapSourceFromHIcon(icon.Handle, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
             Title = "SteamTV";
 
             _settings = AppSettings.Load();
@@ -62,6 +60,7 @@ namespace SteamTV
             _monitor.RunningChanged += OnRunningChanged;
             _monitor.Notify += ShowTrayBalloon;
             _monitor.DisplayActiveChanged += _ => Dispatcher.BeginInvoke(new Action(UpdateStatusLabel));
+            _monitor.PhaseChanged += () => Dispatcher.BeginInvoke(new Action(UpdateStatusLabel));
             _monitor.TvAddressChanged += ip => Dispatcher.BeginInvoke(new Action(() =>
             {
                 TxtIp.Text = ip;
@@ -75,6 +74,7 @@ namespace SteamTV
 
             LoadSettingsToUi();
             WireAutoSave();
+            UpdateHotkeyHints();
             InitDevicesTab();
             BuildTestButtons();
             BuildTray();
@@ -121,14 +121,26 @@ namespace SteamTV
         private string _updateTag;
         private Forms.ToolStripMenuItem _miTrayUpdate;
 
-        private async Task CheckForUpdatesAsync()
+        // On start, then once a day (OnStatusTick) — SteamTV can sit in the tray for weeks.
+        private DateTime _lastUpdateCheck = DateTime.MinValue;
+
+        private async Task CheckForUpdatesAsync(bool manual = false)
         {
+            _lastUpdateCheck = DateTime.Now;
             string tag = await UpdateChecker.GetLatestTagAsync();
             var current = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            if (!UpdateChecker.IsNewer(tag, current)) return;
+            if (!UpdateChecker.IsNewer(tag, current))
+            {
+                if (manual)
+                    Dispatcher.Invoke(() => System.Windows.MessageBox.Show(Loc.T(tag == null ? "Upd.Failed" : "Upd.Latest"), "SteamTV",
+                        MessageBoxButton.OK, tag == null ? MessageBoxImage.Warning : MessageBoxImage.Information));
+                return;
+            }
 
             Dispatcher.Invoke(() =>
             {
+                if (manual) { _updateTag = tag; InstallUpdate(); return; }
+                if (_updateTag == tag) return;   // already announced this one
                 _updateAvailable = true;
                 _updateTag = tag;
                 if (_miTrayUpdate != null) { _miTrayUpdate.Text = Loc.T("Tray.Update", tag); _miTrayUpdate.Visible = true; }
@@ -289,6 +301,10 @@ namespace SteamTV
             HdmiPortUi = _settings.HdmiPort;
             FillDisplays(_settings.TargetDisplay);
             ChkAutoMonitor.IsChecked = _settings.AutoMonitorOnStart;
+            ChkMinimizeSteam.IsChecked = _settings.MinimizeSteamAfter;
+            ChkHotkeyToggle.IsChecked = _settings.HotkeyToggle;
+            UpdateHotkeyFields();
+            FillGrace();
             CmbLanguage.SelectedItem = CmbLanguage.Items.Cast<ComboBoxItem>()
                 .FirstOrDefault(i => (string)i.Tag == (_settings.Language ?? "")) ?? CmbLanguage.Items[0];
             LblNavVersion.Text = GetVersionString();
@@ -327,6 +343,8 @@ namespace SteamTV
             _settings.HdmiPort = HdmiPortUi;
             _settings.TargetDisplay = TargetDisplayUi ?? _settings.TargetDisplay;
             _settings.AutoMonitorOnStart = ChkAutoMonitor.IsChecked == true;
+            _settings.MinimizeSteamAfter = ChkMinimizeSteam.IsChecked == true;
+            if (CmbGrace.SelectedItem is ComboBoxItem grace) _settings.RestoreGraceSec = (int)grace.Tag;
             _settings.DisableOthers = ChkDisableOthers.IsChecked == true;
             _settings.EnableWakeTV = ChkWakeTV.IsChecked == true;
             _settings.EnableSourceSwitch = ChkSourceSwitch.IsChecked == true;
@@ -349,12 +367,13 @@ namespace SteamTV
         {
             RoutedEventHandler save = (s, e) => SaveUiToSettings();
             foreach (var t in new[] { ChkWakeTV, ChkSourceSwitch, ChkRestoreTvApp, ChkSleepTv, ChkDisableOthers,
-                                      ChkSwitchAudio, ChkHdr, ChkBigPicture, ChkAutoMonitor })
+                                      ChkSwitchAudio, ChkHdr, ChkBigPicture, ChkAutoMonitor, ChkMinimizeSteam })
             { t.Checked += save; t.Unchecked += save; }
             foreach (var t in new[] { TxtIp, TxtTvHomeComponent, TxtTvAudioDevice, TxtSteamPath, TxtAdbPath })
                 t.LostKeyboardFocus += (s, e) => SaveUiToSettings();
             CmbHdmi.SelectionChanged += (s, e) => SaveUiToSettings();
             CmbDisplay.SelectionChanged += (s, e) => SaveUiToSettings();
+            CmbGrace.SelectionChanged += (s, e) => { SaveUiToSettings(); RefreshDeviceTexts(); };
         }
 
         private int HdmiPortUi
@@ -391,6 +410,19 @@ namespace SteamTV
         }
 
         private void CmbDisplay_DropDownOpened(object sender, EventArgs e) => FillDisplays(TargetDisplayUi ?? _settings.TargetDisplay);
+
+        private static readonly int[] GraceChoices = { 5, 10, 15, 20, 30, 45, 60, 90, 120 };
+
+        private void FillGrace()
+        {
+            bool loading = _loadingUi;
+            _loadingUi = true;
+            CmbGrace.Items.Clear();
+            foreach (int s in GraceChoices.Union(new[] { _settings.RestoreGraceSec }).OrderBy(x => x))
+                CmbGrace.Items.Add(new ComboBoxItem { Content = Loc.T("Set.Seconds", s), Tag = s });
+            CmbGrace.SelectedItem = CmbGrace.Items.Cast<ComboBoxItem>().First(i => (int)i.Tag == _settings.RestoreGraceSec);
+            _loadingUi = loading;
+        }
 
         // Shared by Start and the manual Activate/Deactivate buttons — all of them need a valid IP.
         // Remote (Home Assistant) commands pass interactive: false — nobody may be at the PC to
@@ -465,6 +497,7 @@ namespace SteamTV
         private void OnStatusTick()
         {
             UpdateStatusLabel();
+            if ((DateTime.Now - _lastUpdateCheck).TotalHours >= 24) _ = CheckForUpdatesAsync();
 
             // Live device status — only while someone can actually see the Devices tab.
             if (IsVisible && (CurrentPage <= 1) && ++_scanTick % 2 == 0)
@@ -533,6 +566,7 @@ namespace SteamTV
         private static readonly System.Windows.Media.Brush Mint = (System.Windows.Media.Brush)Application.Current.Resources["MintBrush"];
         private static readonly System.Windows.Media.Brush Sakura = (System.Windows.Media.Brush)Application.Current.Resources["SakuraBrush"];
         private static readonly System.Windows.Media.Brush Rose = (System.Windows.Media.Brush)Application.Current.Resources["RoseBrush"];
+        private static readonly System.Windows.Media.Brush Lavender = (System.Windows.Media.Brush)Application.Current.Resources["LavenderBrush"];
         private static readonly System.Windows.Media.Brush Muted = (System.Windows.Media.Brush)Application.Current.Resources["MutedBrush"];
         private static readonly System.Windows.Media.Brush Soft = (System.Windows.Media.Brush)Application.Current.Resources["SoftBrush"];
         private static readonly System.Windows.Media.Brush ChipBg = (System.Windows.Media.Brush)Application.Current.Resources["ChipBrush"];
@@ -559,22 +593,26 @@ namespace SteamTV
             int hour = DateTime.Now.Hour;
             LblKana.Text = Tracked(Loc.T(hour >= 5 && hour < 11 ? "Home.Kana.Morning" : hour >= 11 && hour < 18 ? "Home.Kana.Day" : "Home.Kana.Evening"));
 
-            string state = setup ? "Setup" : active ? "Active" : running ? "Ready" : "Paused";
-            LblHeroTitle.Text = Loc.T("Home.Title." + state);
-            LblHeroText.Text = state == "Ready"
-                ? (trigger != null ? Loc.T("Home.Text.Ready", trigger.DisplayName) : Loc.T("Home.Text.ReadyNoDevice"))
+            // What the banner says, most specific first: an action in progress, not set up yet, TV
+            // on, TV not answering, waiting for a controller, monitoring off.
+            string phase = _monitor.PhaseKey;
+            bool unreachable = !setup && _lastAdbReachable == false && !active;
+            string state = phase != null ? (phase == "Phase.Back" ? "Returning" : "Busy")
+                : setup ? "Setup" : active ? "Active" : unreachable ? "Unreachable" : running ? "Ready" : "Paused";
+            string title = Loc.T("Home.Title." + state);
+            string text = state == "Busy" || state == "Returning" ? Loc.T(phase, _monitor.PhaseArg)
+                : state == "Ready" ? (trigger != null ? Loc.T("Home.Text.Ready", trigger.DisplayName) : Loc.T("Home.Text.ReadyNoDevice"))
+                : state == "Unreachable" ? Loc.T("Home.Text.Unreachable", _settings.TvIp)
                 : Loc.T("Home.Text." + state);
+            SetHeroText(title, text);
 
-            string pill = Loc.T(setup ? "Home.Status.Setup" : active ? "Home.Status.Active" : running ? "Home.Status.Waiting" : "Home.Status.Paused");
+            string pill = Loc.T(state == "Busy" || state == "Returning" ? "Home.Status.Busy" : setup ? "Home.Status.Setup" : active ? "Home.Status.Active"
+                : unreachable ? "Home.Status.Unreachable" : running ? "Home.Status.Waiting" : "Home.Status.Paused");
             if (!setup) pill += "  ·  " + TvDisplayName() + "  ·  HDMI " + _settings.HdmiPort;
             LblStatus.Text = pill;
-            var pillBrush = active ? Sakura : running && !setup ? Sky : Muted;
-            var pillColor = ((System.Windows.Media.SolidColorBrush)pillBrush).Color;
-            LblStatus.Foreground = StatusLed.Fill = pillBrush;
-            StatusGlow.Color = pillColor;
-            StatusGlow.Opacity = pillBrush == Muted ? 0 : 0.9;
-            StatusPill.Background = Frozen(System.Windows.Media.Color.FromArgb(0x1A, pillColor.R, pillColor.G, pillColor.B));
-            StatusPill.BorderBrush = Frozen(System.Windows.Media.Color.FromArgb(0x47, pillColor.R, pillColor.G, pillColor.B));
+            var pillColor = ((System.Windows.Media.SolidColorBrush)(state == "Busy" || state == "Returning" ? Lavender
+                : active ? Sakura : unreachable ? Rose : running && !setup ? Sky : Muted)).Color;
+            SetPillColor(pillColor, glow: pillColor != ((System.Windows.Media.SolidColorBrush)Muted).Color);
 
             BtnActivateNow.Visibility = BtnDeactivateNow.Visibility = setup ? Visibility.Collapsed : Visibility.Visible;
             BtnHomeSetup.Visibility = setup ? Visibility.Visible : Visibility.Collapsed;
@@ -612,6 +650,59 @@ namespace SteamTV
         // WPF has no letter-spacing; thin spaces between the characters give the small kana label
         // the airy tracking it has in the design.
         private static string Tracked(string s) => string.Join(" ", s.Select(c => c.ToString()));
+
+        // Banner text changes cross-fade instead of snapping: out, swap, then in from a few px below.
+        private string _heroTitle, _heroText;
+
+        private void SetHeroText(string title, string text)
+        {
+            if (title == _heroTitle && text == _heroText) return;
+            bool first = _heroTitle == null;
+            _heroTitle = title;
+            _heroText = text;
+            if (first || !IsVisible) { LblHeroTitle.Text = title; LblHeroText.Text = text; return; }
+
+            var ease = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut };
+            var fadeOut = new System.Windows.Media.Animation.DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(130)));
+            fadeOut.Completed += (s, e) =>
+            {
+                LblHeroTitle.Text = _heroTitle;
+                LblHeroText.Text = _heroText;
+                var shift = HeroCopy.RenderTransform as System.Windows.Media.TranslateTransform;
+                if (shift == null) HeroCopy.RenderTransform = shift = new System.Windows.Media.TranslateTransform();
+                HeroCopy.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(1, new Duration(TimeSpan.FromMilliseconds(260))) { EasingFunction = ease });
+                shift.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty,
+                    new System.Windows.Media.Animation.DoubleAnimation(8, 0, new Duration(TimeSpan.FromMilliseconds(320))) { EasingFunction = ease });
+            };
+            HeroCopy.BeginAnimation(OpacityProperty, fadeOut);
+        }
+
+        // The status pill glides to its new colour (fill, border, LED, text) rather than jumping.
+        private System.Windows.Media.SolidColorBrush _pillText, _pillBg, _pillBorder;
+        private System.Windows.Media.Color? _pillColor;
+
+        private void SetPillColor(System.Windows.Media.Color c, bool glow)
+        {
+            if (_pillText == null)
+            {
+                _pillText = new System.Windows.Media.SolidColorBrush(c);
+                _pillBg = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(0x1A, c.R, c.G, c.B));
+                _pillBorder = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(0x47, c.R, c.G, c.B));
+                LblStatus.Foreground = StatusLed.Fill = _pillText;
+                StatusPill.Background = _pillBg;
+                StatusPill.BorderBrush = _pillBorder;
+            }
+            StatusGlow.Opacity = glow ? 0.9 : 0;
+            if (_pillColor == c) return;
+            _pillColor = c;
+            StatusGlow.Color = c;
+            var time = new Duration(TimeSpan.FromMilliseconds(450));
+            _pillText.BeginAnimation(System.Windows.Media.SolidColorBrush.ColorProperty, new System.Windows.Media.Animation.ColorAnimation(c, time));
+            _pillBg.BeginAnimation(System.Windows.Media.SolidColorBrush.ColorProperty,
+                new System.Windows.Media.Animation.ColorAnimation(System.Windows.Media.Color.FromArgb(0x1A, c.R, c.G, c.B), time));
+            _pillBorder.BeginAnimation(System.Windows.Media.SolidColorBrush.ColorProperty,
+                new System.Windows.Media.Animation.ColorAnimation(System.Windows.Media.Color.FromArgb(0x47, c.R, c.G, c.B), time));
+        }
 
         private static void SetChip(Border chip, TextBlock text, string label, bool? good)
         {
@@ -657,6 +748,9 @@ namespace SteamTV
             OnMqttStatus(_ha.LastStatus ?? Loc.T("Ha.Off"));
             RefreshTrayTexts();
             RefreshDeviceTexts();
+            UpdateHotkeyFields();
+            UpdateHotkeyHints();
+            FillGrace();
             RenderRecent();
             UpdateStatusLabel();
         }
@@ -780,6 +874,12 @@ namespace SteamTV
         private void BtnAdd_Click(object sender, RoutedEventArgs e) => AddSelectedDevice();
 
         private void OpenLogFile_Click(object sender, RoutedEventArgs e) => OpenUrl(AppLog.FilePath);
+        private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
+        {
+            BtnCheckUpdates.IsEnabled = false;
+            try { await CheckForUpdatesAsync(manual: true); }
+            finally { BtnCheckUpdates.IsEnabled = true; }
+        }
         private void GitHub_Click(object sender, RoutedEventArgs e) => OpenUrl(Links.Repository);
         private void Support_Click(object sender, RoutedEventArgs e) => OpenUrl(Links.Support);
 

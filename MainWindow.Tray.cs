@@ -100,7 +100,7 @@ namespace SteamTV
             }
         }
 
-        private Forms.ToolStripMenuItem _miTrayPlay, _miTrayBack, _miTrayMonitoring, _miTrayShow, _miTrayLog, _miTrayExit;
+        private Forms.ToolStripMenuItem _miTrayPlay, _miTrayBack, _miTrayMonitoring, _miTrayShow, _miTrayCheck, _miTrayLog, _miTrayExit;
 
         private void BuildTray()
         {
@@ -131,6 +131,8 @@ namespace SteamTV
 
             _miTrayUpdate = new Forms.ToolStripMenuItem { Visible = false };
             _miTrayUpdate.Click += (s, e) => InstallUpdate();
+            _miTrayCheck = new Forms.ToolStripMenuItem();
+            _miTrayCheck.Click += async (s, e) => await CheckForUpdatesAsync(manual: true);
             _miTrayLog = new Forms.ToolStripMenuItem();
             _miTrayLog.Click += (s, e) => OpenUrl(AppLog.FilePath);
             _miTrayExit = new Forms.ToolStripMenuItem();
@@ -144,7 +146,7 @@ namespace SteamTV
                 _miTrayPlay, _miTrayBack, new Forms.ToolStripSeparator(),
                 _miTrayMonitoring, _miTrayShow, new Forms.ToolStripSeparator(),
                 _miTrayAutostart, _miTrayAutoMonitor, new Forms.ToolStripSeparator(),
-                _miTrayUpdate, _miTrayLog, _miTrayExit,
+                _miTrayUpdate, _miTrayCheck, _miTrayLog, _miTrayExit,
             });
             foreach (Forms.ToolStripItem item in menu.Items) item.ForeColor = System.Drawing.Color.FromArgb(0xEC, 0xEB, 0xF5);
             _miTrayMonitorStatus.ForeColor = _miTrayAdbStatus.ForeColor = System.Drawing.Color.FromArgb(0x8E, 0x93, 0xB4);
@@ -181,6 +183,7 @@ namespace SteamTV
             _miTrayAutoMonitor.Text = Loc.T("Tray.AutoMonitor");
             _miTrayAutoMonitor.Checked = _settings.AutoMonitorOnStart;
             if (_updateTag != null) _miTrayUpdate.Text = Loc.T("Tray.Update", _updateTag);
+            _miTrayCheck.Text = Loc.T("Tray.CheckUpdates");
             _miTrayLog.Text = Loc.T("Tray.Log");
             _miTrayExit.Text = Loc.T("Tray.Exit");
             _tray.Text = BuildTrayTooltip();

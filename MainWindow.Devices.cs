@@ -95,7 +95,7 @@ namespace SteamTV
             HwndSource.FromHwnd(hwnd)?.AddHook(WndProc);
             _devNotifyHandle = Native.RegisterForAllDeviceInterfaces(hwnd);
             _hotkeys = new GlobalHotkeys(hwnd);
-            var errors = _hotkeys.ApplyEach(_settings.ActivateHotkey, _settings.DeactivateHotkey);
+            var errors = ApplySavedHotkeys();
             if (errors.Length > 0)
             {
                 LblHotkeys.Text = string.Join("\n", errors);
@@ -114,6 +114,7 @@ namespace SteamTV
                 {
                     if (TxtActivateHotkey.IsKeyboardFocused || TxtDeactivateHotkey.IsKeyboardFocused) return;
                     AppendLog("Hotkey: " + (activate ? "Activate now" : "Deactivate / Restore"));
+                    if (_settings.HotkeyToggle) activate = !_monitor.IsDisplayActive;   // one key: on when off, back when on
                     if (activate) ActivateNow(false); else DeactivateNow(false);
                 }));
             }
@@ -153,6 +154,7 @@ namespace SteamTV
             };
 
             FillCategories();
+            LblRestore.Text = Loc.T("Dev.Restore", _settings.RestoreGraceSec);
 
             RebuildWatchedRows();
         }
@@ -169,6 +171,7 @@ namespace SteamTV
 
         private void RefreshDeviceTexts()
         {
+            LblRestore.Text = Loc.T("Dev.Restore", _settings.RestoreGraceSec);
             FillCategories();
             foreach (var row in _watchedRows) row.RefreshTexts();
             foreach (var row in _deviceRows) row.RefreshTexts();

@@ -5,6 +5,7 @@
                  xmlns:l="clr-namespace:SteamTV"
                  xmlns:c="clr-namespace:SteamTV.Controls"
                  Title="SteamTV"
+                 Icon="pack://application:,,,/start_icon.ico"
                  Width="940" Height="700" MinWidth="820" MinHeight="600"
                  Background="{StaticResource BgBrush}"
                  FontFamily="{StaticResource BodyFont}"
@@ -43,7 +44,7 @@
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0" Grid.ColumnSpan="2" Background="{StaticResource DeepBrush}" />
-        <ui:TitleBar Grid.Row="0" Grid.ColumnSpan="2" ShowMaximize="True" Title="" />
+        <ui:TitleBar Grid.Row="0" Grid.ColumnSpan="2" ShowMaximize="True" Title="" Height="36" />
         <!-- App mark in the title bar; not hit-testable, so the bar still drags the window. -->
         <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
             <Border Width="15" Height="15" CornerRadius="4" Background="{StaticResource SakuraDiagonal}" Margin="0,0,10,0" />
@@ -98,28 +99,13 @@
                 <StackPanel>
                     <Grid Height="250">
                         <c:NightScene x:Name="Scene" />
-                        <Rectangle>
-                            <Rectangle.Fill>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                    <GradientStop Color="#EB0F1222" Offset="0" />
-                                    <GradientStop Color="#8C0F1222" Offset="0.42" />
-                                    <GradientStop Color="#000F1222" Offset="0.72" />
-                                </LinearGradientBrush>
-                            </Rectangle.Fill>
-                        </Rectangle>
-                        <Rectangle>
-                            <Rectangle.Fill>
-                                <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
-                                    <GradientStop Color="#FF0F1222" Offset="0" />
-                                    <GradientStop Color="#000F1222" Offset="0.4" />
-                                </LinearGradientBrush>
-                            </Rectangle.Fill>
-                        </Rectangle>
                         <StackPanel Margin="28,26,0,0" MaxWidth="390" HorizontalAlignment="Left" VerticalAlignment="Top">
                             <TextBlock x:Name="LblKana" Style="{StaticResource Kana}" />
-                            <TextBlock x:Name="LblHeroTitle" FontFamily="{StaticResource DisplayFont}" FontWeight="ExtraBold" FontSize="30"
-                                       Margin="0,4,0,6" TextWrapping="Wrap" />
-                            <TextBlock x:Name="LblHeroText" FontSize="13" Foreground="{StaticResource SoftBrush}" TextWrapping="Wrap" />
+                            <StackPanel x:Name="HeroCopy" MinHeight="78">
+                                <TextBlock x:Name="LblHeroTitle" FontFamily="{StaticResource DisplayFont}" FontWeight="ExtraBold" FontSize="30"
+                                           Margin="0,4,0,6" TextWrapping="Wrap" />
+                                <TextBlock x:Name="LblHeroText" FontSize="13" Foreground="{StaticResource SoftBrush}" TextWrapping="Wrap" />
+                            </StackPanel>
                             <Border x:Name="StatusPill" Margin="0,14,0,0" HorizontalAlignment="Left" CornerRadius="14" Padding="11,5,13,5" MinHeight="28"
                                     Background="#1A7FD6FF" BorderBrush="#477FD6FF" BorderThickness="1">
                                 <StackPanel Orientation="Horizontal">
@@ -134,14 +120,14 @@
 
                     <StackPanel Margin="24,0,24,22">
                         <StackPanel Orientation="Horizontal" Margin="0,-4,0,0">
-                            <Button x:Name="BtnActivateNow" Style="{StaticResource PlayButton}" Click="BtnActivateNow_Click" ToolTip="{l:Tr Home.Play.Tip}">
+                            <Button x:Name="BtnActivateNow" Style="{StaticResource PlayButton}" Click="BtnActivateNow_Click" >
                                 <StackPanel Orientation="Horizontal">
                                     <Path Data="M0,0 L11,7 L0,14 Z" Fill="White" Margin="0,0,10,0" VerticalAlignment="Center" />
                                     <TextBlock Text="{l:Tr Home.Play}" />
                                 </StackPanel>
                             </Button>
                             <Button x:Name="BtnDeactivateNow" Style="{StaticResource QuietButton}" Margin="10,0,0,0" Click="BtnDeactivateNow_Click"
-                                    Content="{l:Tr Home.Back}" ToolTip="{l:Tr Home.Back.Tip}" />
+                                    Content="{l:Tr Home.Back}"  />
                             <Button x:Name="BtnHomeSetup" Style="{StaticResource PlayButton}" Margin="10,0,0,0" Click="AutoSetup_Click"
                                     Content="{l:Tr Home.Setup}" Visibility="Collapsed" />
                         </StackPanel>
@@ -267,7 +253,7 @@
                                 <DockPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,10,0,0">
                                     <ToggleButton x:Name="ChkRestoreOnDisconnect" Style="{StaticResource Toggle}" Margin="0,0,10,0"
                                                   Checked="ChkRestoreOnDisconnect_Changed" Unchecked="ChkRestoreOnDisconnect_Changed" ToolTip="{l:Tr Dev.RestoreTip}" />
-                                    <TextBlock Text="{l:Tr Dev.Restore}" VerticalAlignment="Center" TextWrapping="Wrap" ToolTip="{l:Tr Dev.RestoreTip}" />
+                                    <TextBlock x:Name="LblRestore" VerticalAlignment="Center" TextWrapping="Wrap" ToolTip="{l:Tr Dev.RestoreTip}" />
                                 </DockPanel>
                                 <Button Grid.Row="1" Grid.Column="3" x:Name="BtnRemove" Style="{StaticResource QuietButton}" Content="{l:Tr Dev.Remove}"
                                         Margin="0,10,0,0" HorizontalAlignment="Right" Click="BtnRemove_Click" />
@@ -481,6 +467,33 @@
                             </StackPanel>
                         </DockPanel>
                     </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel>
+                            <Border Style="{StaticResource IconTile}"><ui:SymbolIcon Symbol="ArrowMinimize24" Style="{StaticResource TileIcon}" /></Border>
+                            <ToggleButton DockPanel.Dock="Right" x:Name="ChkMinimizeSteam" Style="{StaticResource Toggle}" />
+                            <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                <TextBlock Text="{l:Tr Set.MinimizeSteam}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{l:Tr Set.MinimizeSteam.Sub}" Style="{StaticResource Hint}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel>
+                            <Border Style="{StaticResource IconTile}"><ui:SymbolIcon Symbol="Timer24" Style="{StaticResource TileIcon}" /></Border>
+                            <ComboBox DockPanel.Dock="Right" x:Name="CmbGrace" Width="200" VerticalAlignment="Center" />
+                            <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                <TextBlock Text="{l:Tr Set.Grace}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{l:Tr Set.Grace.Sub}" Style="{StaticResource Hint}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}" Background="Transparent" BorderBrush="{StaticResource LineBrush}">
+                        <DockPanel>
+                            <Border Style="{StaticResource IconTile}" Background="Transparent" TextElement.Foreground="{StaticResource SakuraBrush}"><ui:SymbolIcon Symbol="Games24" Style="{StaticResource TileIcon}" /></Border>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource QuietButton}" Content="{l:Tr Set.PerDevice.Button}" Click="GoDevices_Click" />
+                            <TextBlock Text="{l:Tr Set.PerDevice}" Style="{StaticResource Hint}" FontSize="13" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        </DockPanel>
+                    </Border>
 
                     <!-- App -->
                     <TextBlock Text="{l:Tr Set.App}" Style="{StaticResource Section}" />
@@ -532,10 +545,10 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Text="{l:Tr Set.Hotkeys.On}" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{StaticResource SoftBrush}" />
+                                <TextBlock Grid.Row="0" x:Name="LblHotkeyOn" Text="{l:Tr Set.Hotkeys.On}" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{StaticResource SoftBrush}" />
                                 <TextBox Grid.Row="0" Grid.Column="1" x:Name="TxtActivateHotkey" IsReadOnly="True" PreviewKeyDown="Hotkey_PreviewKeyDown"
                                          GotKeyboardFocus="Hotkey_GotKeyboardFocus" LostKeyboardFocus="Hotkey_LostKeyboardFocus" />
-                                <TextBlock Grid.Row="1" Text="{l:Tr Set.Hotkeys.Off}" VerticalAlignment="Center" Margin="0,6,10,0" Foreground="{StaticResource SoftBrush}" />
+                                <TextBlock Grid.Row="1" x:Name="LblHotkeyOff" Text="{l:Tr Set.Hotkeys.Off}" VerticalAlignment="Center" Margin="0,6,10,0" Foreground="{StaticResource SoftBrush}" />
                                 <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtDeactivateHotkey" IsReadOnly="True" PreviewKeyDown="Hotkey_PreviewKeyDown" Margin="0,6,0,0"
                                          GotKeyboardFocus="Hotkey_GotKeyboardFocus" LostKeyboardFocus="Hotkey_LostKeyboardFocus" />
                                 <Button Grid.Row="2" Grid.Column="1" Style="{StaticResource QuietButton}" Content="{l:Tr Set.Hotkeys.Save}" Click="SaveHotkeys_Click" Margin="0,6,0,0" />
@@ -543,6 +556,11 @@
                             <StackPanel Margin="0,0,12,0">
                                 <TextBlock Text="{l:Tr Set.Hotkeys}" Style="{StaticResource RowTitle}" />
                                 <TextBlock Text="{l:Tr Set.Hotkeys.Sub}" Style="{StaticResource Hint}" />
+                                <DockPanel Margin="0,10,0,0">
+                                    <ToggleButton x:Name="ChkHotkeyToggle" Style="{StaticResource Toggle}" Margin="0,0,10,0"
+                                                  Checked="ChkHotkeyToggle_Changed" Unchecked="ChkHotkeyToggle_Changed" />
+                                    <TextBlock Text="{l:Tr Set.Hotkeys.Toggle}" Style="{StaticResource Hint}" FontSize="13" Foreground="{StaticResource SoftBrush}" VerticalAlignment="Center" />
+                                </DockPanel>
                                 <TextBlock x:Name="LblHotkeys" Style="{StaticResource Hint}" Foreground="{StaticResource AmberBrush}" Margin="0,4,0,0" />
                             </StackPanel>
                         </DockPanel>
@@ -553,7 +571,8 @@
                     <Border Style="{StaticResource SettingRow}">
                         <DockPanel>
                             <Border Style="{StaticResource IconTile}"><ui:SymbolIcon Symbol="Info24" Style="{StaticResource TileIcon}" /></Border>
-                            <Button DockPanel.Dock="Right" Style="{StaticResource QuietButton}" Content="{l:Tr Set.GitHub}" Click="GitHub_Click" />
+                            <Button DockPanel.Dock="Right" Style="{StaticResource QuietButton}" Content="{l:Tr Set.GitHub}" Click="GitHub_Click" Margin="8,0,0,0" />
+                            <Button DockPanel.Dock="Right" x:Name="BtnCheckUpdates" Style="{StaticResource QuietButton}" Content="{l:Tr Set.CheckUpdates}" Click="CheckUpdates_Click" />
                             <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
                                 <TextBlock x:Name="LblVersion" Style="{StaticResource RowTitle}" />
                                 <TextBlock Text="{l:Tr Set.Version.Sub}" Style="{StaticResource Hint}" />

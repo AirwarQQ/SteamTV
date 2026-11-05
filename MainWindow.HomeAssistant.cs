@@ -61,7 +61,7 @@ namespace SteamTV
             string error = p == HaPower.Shutdown ? PowerControl.Shutdown() : PowerControl.Restart();
             if (error != null) { AppendLog("Home Assistant: " + what + " FAILED — " + error); return; }
             AppendLog("Home Assistant: " + what + " in " + PowerControl.ShutdownDelaySec + " s (cancel: shutdown /a).");
-            ShowTrayBalloon("SteamTV", "Home Assistant: " + what + " in " + PowerControl.ShutdownDelaySec + " s. Run \"shutdown /a\" to cancel.");
+            ShowTrayBalloon("SteamTV", "Home Assistant: " + what + " in " + PowerControl.ShutdownDelaySec + " s. Run \"shutdown /a\" to cancel.", always: true);
         }
 
         private void UpdateMqttPowerInfo()

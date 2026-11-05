@@ -156,7 +156,7 @@ namespace SteamTV
                 _updateTag = tag;
                 if (_miTrayUpdate != null) { _miTrayUpdate.Text = Loc.T("Tray.Update", tag); _miTrayUpdate.Visible = true; }
                 AppendLog("Update available: " + tag + " (running v" + current.Major + "." + current.Minor + "." + current.Build + ") — " + UpdateChecker.ReleasesPageUrl);
-                _tray?.ShowBalloonTip(8000, Loc.T("Msg.UpdateTitle"), Loc.T("Msg.UpdateText", tag), Forms.ToolTipIcon.Info);
+                if (_settings.Notifications) _tray?.ShowBalloonTip(8000, Loc.T("Msg.UpdateTitle"), Loc.T("Msg.UpdateText", tag), Forms.ToolTipIcon.Info);
             });
         }
 
@@ -314,6 +314,7 @@ namespace SteamTV
             ChkAutoMonitor.IsChecked = _settings.AutoMonitorOnStart;
             ChkMinimizeSteam.IsChecked = _settings.MinimizeSteamAfter;
             ChkAnimate.IsChecked = _settings.AnimateBanner;
+            ChkNotifications.IsChecked = _settings.Notifications;
             Scene.Animate = _settings.AnimateBanner;
             ChkHotkeyToggle.IsChecked = _settings.HotkeyToggle;
             UpdateHotkeyFields();
@@ -358,6 +359,7 @@ namespace SteamTV
             _settings.AutoMonitorOnStart = ChkAutoMonitor.IsChecked == true;
             _settings.MinimizeSteamAfter = ChkMinimizeSteam.IsChecked == true;
             _settings.AnimateBanner = ChkAnimate.IsChecked == true;
+            _settings.Notifications = ChkNotifications.IsChecked == true;
             Scene.Animate = _settings.AnimateBanner;
             if (CmbGrace.SelectedItem is ComboBoxItem grace) _settings.RestoreGraceSec = (int)grace.Tag;
             _settings.DisableOthers = ChkDisableOthers.IsChecked == true;
@@ -382,7 +384,7 @@ namespace SteamTV
         {
             RoutedEventHandler save = (s, e) => SaveUiToSettings();
             foreach (var t in new[] { ChkWakeTV, ChkSourceSwitch, ChkRestoreTvApp, ChkSleepTv, ChkDisableOthers,
-                                      ChkSwitchAudio, ChkHdr, ChkBigPicture, ChkAutoMonitor, ChkMinimizeSteam, ChkAnimate })
+                                      ChkSwitchAudio, ChkHdr, ChkBigPicture, ChkAutoMonitor, ChkMinimizeSteam, ChkAnimate, ChkNotifications })
             { t.Checked += save; t.Unchecked += save; }
             foreach (var t in new[] { TxtIp, TxtTvHomeComponent, TxtTvAudioDevice, TxtSteamPath, TxtAdbPath })
                 t.LostKeyboardFocus += (s, e) => SaveUiToSettings();
@@ -806,10 +808,14 @@ namespace SteamTV
         }
 
         // Surfaces failures worth interrupting the user for, even when the window is hidden in
-        // the tray and nobody is looking at the log.
-        private void ShowTrayBalloon(string title, string message)
+        // the tray and nobody is looking at the log. Off in Settings → nothing pops up (the log and
+        // the Home page still say it); always = a warning the user must see (PC about to shut down).
+        private void ShowTrayBalloon(string title, string message) => ShowTrayBalloon(title, message, false);
+
+        private void ShowTrayBalloon(string title, string message, bool always)
         {
-            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => ShowTrayBalloon(title, message))); return; }
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => ShowTrayBalloon(title, message, always))); return; }
+            if (!always && !_settings.Notifications) return;
             _tray?.ShowBalloonTip(6000, title, message, Forms.ToolTipIcon.Warning);
         }
 

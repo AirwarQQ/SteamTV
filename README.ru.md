@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/screenshots/banner-ru.png" alt="NekoCouch — твой игровой ПК теперь консоль у дивана">
+  <img src="docs/images/banner-ru.png" alt="NekoCouch — твой игровой ПК теперь консоль у дивана">
 </p>
 
 <p align="center"><a href="README.md">English</a> · <b>Русский</b></p>
@@ -15,11 +15,11 @@
 <p align="center"><sub>Раньше назывался <b>SteamTV</b>. При обновлении настройки, автозапуск и ярлыки переносятся сами.</sub></p>
 
 <p align="center">
-  <img src="docs/screenshots/catgirl-couch-ru.jpg" alt="Не впечатлила Steam Machine? Твой игровой ПК уже ей стал. Возьми геймпад — телевизор проснётся, переключится на ПК и откроет Big Picture. Закроешь — и стол снова как был. Без второй коробки, без пульта, без Win+P.">
+  <img src="docs/images/catgirl-couch-ru.jpg" alt="Не впечатлила Steam Machine? Твой игровой ПК уже ей стал. Возьми геймпад — телевизор проснётся, переключится на ПК и откроет Big Picture. Закроешь — и стол снова как был. Без второй коробки, без пульта, без Win+P.">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/home-ru.png" width="760" alt="Главная страница NekoCouch">
+  <img src="docs/images/home-ru.png" width="760" alt="Главная страница NekoCouch">
 </p>
 
 ## Что умеет
@@ -42,9 +42,9 @@
 Включи в настройках **Запускать вместе с Windows** — и открывать NekoCouch больше не придётся.
 
 <p align="center">
-  <img src="docs/screenshots/settings-ru.png" width="375" alt="Страница настроек">
+  <img src="docs/images/settings-ru.png" width="375" alt="Страница настроек">
   &nbsp;
-  <img src="docs/screenshots/devices-ru.png" width="375" alt="Страница устройств">
+  <img src="docs/images/devices-ru.png" width="375" alt="Страница устройств">
 </p>
 
 ## Советы
@@ -56,7 +56,7 @@
 - **Когда геймпад отключился,** NekoCouch может сам вернуться к ПК — это включается для каждого устройства на странице «Устройства», а сколько ждать, задаётся в настройках.
 
 <p align="center">
-  <img src="docs/screenshots/catgirl-tv-ru.jpg" alt="Как это работает: 1. Геймпад подключился — телевизор просыпается, переключается на ПК, звук идёт за ним, открывается Big Picture. 2. Big Picture закрыт — мониторы, звук и телевизор возвращаются как были. HDMI-CEC не нужен; работает с Android / Google TV через ADB.">
+  <img src="docs/images/catgirl-tv-ru.jpg" alt="Как это работает: 1. Геймпад подключился — телевизор просыпается, переключается на ПК, звук идёт за ним, открывается Big Picture. 2. Big Picture закрыт — мониторы, звук и телевизор возвращаются как были. HDMI-CEC не нужен; работает с Android / Google TV через ADB.">
 </p>
 
 ## Home Assistant
@@ -89,7 +89,7 @@ Discovery публикуется заново при каждом перезап
 
 ## Поддержать
 
-<p align="center"><a href="https://boosty.to/airwaruwu/donate"><img src="docs/screenshots/catgirl-support-ru.jpg" alt="Бесплатно и навсегда. Если NekoCouch делает твои вечера на диване уютнее, можно угостить автора кофе. В приложении для этого есть кнопка ♥."></a></p>
+<p align="center"><a href="https://boosty.to/airwaruwu/donate"><img src="docs/images/catgirl-support-ru.jpg" alt="Бесплатно и навсегда. Если NekoCouch делает твои вечера на диване уютнее, можно угостить автора кофе. В приложении для этого есть кнопка ♥."></a></p>
 
 <p align="center"><b><a href="https://boosty.to/airwaruwu/donate">♥ Поддержать NekoCouch на Boosty</a></b></p>
 

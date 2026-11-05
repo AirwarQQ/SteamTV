@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/screenshots/banner.png" alt="NekoCouch — your gaming PC, now a console on the couch">
+  <img src="docs/images/banner.png" alt="NekoCouch — your gaming PC, now a console on the couch">
 </p>
 
 <p align="center"><b>English</b> · <a href="README.ru.md">Русский</a></p>
@@ -15,11 +15,11 @@
 <p align="center"><sub>Formerly <b>SteamTV</b>. Updating from it keeps your settings, autostart and shortcuts.</sub></p>
 
 <p align="center">
-  <img src="docs/screenshots/catgirl-couch.jpg" alt="Not sold on the Steam Machine? Your gaming PC already is one. Pick up the controller — the TV wakes up, switches to the PC and opens Big Picture. Close it, and your desk is back as you left it. No second box, no remote, no Win+P.">
+  <img src="docs/images/catgirl-couch.jpg" alt="Not sold on the Steam Machine? Your gaming PC already is one. Pick up the controller — the TV wakes up, switches to the PC and opens Big Picture. Close it, and your desk is back as you left it. No second box, no remote, no Win+P.">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/home.png" width="760" alt="NekoCouch home page">
+  <img src="docs/images/home.png" width="760" alt="NekoCouch home page">
 </p>
 
 ## What it does
@@ -42,9 +42,9 @@
 Turn on **Start with Windows** in Settings and you'll never need to open it again.
 
 <p align="center">
-  <img src="docs/screenshots/settings.png" width="375" alt="Settings page">
+  <img src="docs/images/settings.png" width="375" alt="Settings page">
   &nbsp;
-  <img src="docs/screenshots/devices.png" width="375" alt="Devices page">
+  <img src="docs/images/devices.png" width="375" alt="Devices page">
 </p>
 
 ## Tips
@@ -56,7 +56,7 @@ Turn on **Start with Windows** in Settings and you'll never need to open it agai
 - **When a controller disconnects** NekoCouch can go back to the PC by itself — turn it on per device on the Devices page; how long it waits is in Settings.
 
 <p align="center">
-  <img src="docs/screenshots/catgirl-tv.jpg" alt="How it works: 1. A controller connects — the TV wakes over Wi-Fi, switches to the PC's HDMI, the sound follows, Big Picture opens. 2. Big Picture closes — your monitors, sound and TV come back. No HDMI-CEC needed; works with Android / Google TVs over ADB.">
+  <img src="docs/images/catgirl-tv.jpg" alt="How it works: 1. A controller connects — the TV wakes over Wi-Fi, switches to the PC's HDMI, the sound follows, Big Picture opens. 2. Big Picture closes — your monitors, sound and TV come back. No HDMI-CEC needed; works with Android / Google TVs over ADB.">
 </p>
 
 ## Home Assistant
@@ -89,7 +89,7 @@ Discovery is published again whenever Home Assistant restarts.
 
 ## Support
 
-<p align="center"><a href="https://boosty.to/airwaruwu/donate"><img src="docs/screenshots/catgirl-support.jpg" alt="Free, and stays free. If NekoCouch makes your evenings on the couch nicer, you can buy the author a coffee. There's also a ♥ button in the app."></a></p>
+<p align="center"><a href="https://boosty.to/airwaruwu/donate"><img src="docs/images/catgirl-support.jpg" alt="Free, and stays free. If NekoCouch makes your evenings on the couch nicer, you can buy the author a coffee. There's also a ♥ button in the app."></a></p>
 
 <p align="center"><b><a href="https://boosty.to/airwaruwu/donate">♥ Support NekoCouch on Boosty</a></b></p>
 

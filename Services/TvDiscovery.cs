@@ -10,7 +10,7 @@ using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
-namespace SteamTV
+namespace NekoCouch
 {
     internal sealed class FoundTv
     {

@@ -16,7 +16,7 @@ using Microsoft.Win32;
 using Wpf.Ui.Appearance;
 using Forms = System.Windows.Forms;
 
-namespace SteamTV
+namespace NekoCouch
 {
 
     public partial class MainWindow
@@ -100,7 +100,7 @@ namespace SteamTV
             {
                 LblHotkeys.Text = string.Join("\n", errors);
                 foreach (var err in errors) AppendLog(err);
-                ShowTrayBalloon("SteamTV", string.Join("\n", errors) + "\n" + Loc.T("Msg.HotkeyChange"));
+                ShowTrayBalloon("NekoCouch", string.Join("\n", errors) + "\n" + Loc.T("Msg.HotkeyChange"));
             }
         }
 

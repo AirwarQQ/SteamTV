@@ -1,4 +1,4 @@
-// SteamTV — entry point.
+// NekoCouch — entry point.
 // See README.md for project description, build options, and settings location.
 using System;
 using System.Linq;
@@ -6,7 +6,7 @@ using System.Threading;
 using System.Windows;
 using Wpf.Ui.Appearance;
 
-namespace SteamTV
+namespace NekoCouch
 {
 
     public partial class App : Application
@@ -23,7 +23,8 @@ namespace SteamTV
 
             // Prevent a second instance (manual start + autostart must not duplicate). A second manual
             // start brings the running one's window up instead of silently doing nothing; after a
-            // self-update the new exe waits for the old one to let go first.
+            // self-update the new exe waits for the old one to let go first. The names still say SteamTV
+            // (the app's old name) so a SteamTV build updating itself to this one is waited for too.
             bool createdNew;
             _mutex = new Mutex(true, "SteamTV_SingleInstance_8f2b1c", out createdNew);
             if (!createdNew && e.Args.Contains(Updater.WaitArg))
@@ -42,6 +43,7 @@ namespace SteamTV
             _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
 
             Updater.CleanUpOldExe();
+            Rebrand.Run(NekoCouch.MainWindow.RunKeyPath, NekoCouch.MainWindow.RunValueName);
             AdbBundle.EnsureExtracted();
 
             // One look, always dark (Theme.xaml); WPF-UI's accent becomes the palette's sakura pink.
@@ -61,7 +63,7 @@ namespace SteamTV
                     try { showEvent.WaitOne(); } catch { return; }   // disposed on exit
                     Dispatcher.BeginInvoke(new Action(window.ShowFromTray));
                 }
-            }) { IsBackground = true, Name = "SteamTV-ShowRequests" }.Start();
+            }) { IsBackground = true, Name = "NekoCouch-ShowRequests" }.Start();
         }
 
         private const string ShowEventName = "SteamTV_Show_8f2b1c";

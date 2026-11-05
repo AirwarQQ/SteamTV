@@ -5,11 +5,11 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace SteamTV
+namespace NekoCouch
 {
     internal static class UpdateChecker
     {
-        private const string LatestReleaseUrl = "https://github.com/AirwarQQ/SteamTV/releases/latest";
+        private const string LatestReleaseUrl = "https://github.com/AirwarQQ/NekoCouch/releases/latest";
         public const string ReleasesPageUrl = LatestReleaseUrl;
 
         // Returns the latest release tag (e.g. "v1.4.1"), or null if the check failed.
@@ -20,7 +20,7 @@ namespace SteamTV
                 using (var handler = new HttpClientHandler { AllowAutoRedirect = false })
                 using (var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(6) })
                 {
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("SteamTV-UpdateCheck");
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("NekoCouch-UpdateCheck");
                     using (var response = await client.GetAsync(LatestReleaseUrl).ConfigureAwait(false))
                     {
                         var location = response.Headers.Location;

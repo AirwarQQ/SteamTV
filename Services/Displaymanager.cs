@@ -5,7 +5,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
-namespace SteamTV
+namespace NekoCouch
 {
 
     internal sealed class DisplayConfigSnapshot

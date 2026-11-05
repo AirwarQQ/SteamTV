@@ -12,7 +12,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 
-namespace SteamTV.Controls
+namespace NekoCouch.Controls
 {
     public partial class NightScene : UserControl
     {

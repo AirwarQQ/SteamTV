@@ -1,23 +1,25 @@
 <p align="center">
-  <img src="docs/screenshots/banner-ru.png" alt="SteamTV — твой игровой ПК теперь консоль у дивана">
+  <img src="docs/screenshots/banner-ru.png" alt="NekoCouch — твой игровой ПК теперь консоль у дивана">
 </p>
 
 <p align="center"><a href="README.md">English</a> · <b>Русский</b></p>
 
 <p align="center">
-  <a href="https://github.com/AirwarQQ/SteamTV/releases/latest"><img src="https://img.shields.io/github/v/release/AirwarQQ/SteamTV" alt="Последняя версия"></a>
+  <a href="https://github.com/AirwarQQ/NekoCouch/releases/latest"><img src="https://img.shields.io/github/v/release/AirwarQQ/NekoCouch" alt="Последняя версия"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6" alt="Windows 10/11">
   <img src="https://img.shields.io/badge/TV-Android%20TV-3DDC84" alt="Android TV">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/AirwarQQ/SteamTV" alt="Лицензия"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/AirwarQQ/NekoCouch" alt="Лицензия"></a>
   <a href="https://boosty.to/airwaruwu/donate"><img src="https://img.shields.io/badge/support-Boosty-FF7EB6" alt="Поддержать на Boosty"></a>
 </p>
+
+<p align="center"><sub>Раньше назывался <b>SteamTV</b>. При обновлении настройки, автозапуск и ярлыки переносятся сами.</sub></p>
 
 <p align="center">
   <img src="docs/screenshots/catgirl-couch-ru.jpg" alt="Не впечатлила Steam Machine? Твой игровой ПК уже ей стал. Возьми геймпад — телевизор проснётся, переключится на ПК и откроет Big Picture. Закроешь — и стол снова как был. Без второй коробки, без пульта, без Win+P.">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/home-ru.png" width="760" alt="Главная страница SteamTV">
+  <img src="docs/screenshots/home-ru.png" width="760" alt="Главная страница NekoCouch">
 </p>
 
 ## Что умеет
@@ -32,12 +34,12 @@
 
 ## Быстрый старт
 
-1. **Скачай** `SteamTV-vX.Y.Z-win.zip` из [последнего релиза](https://github.com/AirwarQQ/SteamTV/releases/latest), распакуй куда угодно и запусти `SteamTV.exe`.
+1. **Скачай** `NekoCouch-vX.Y.Z-win.zip` из [последнего релиза](https://github.com/AirwarQQ/NekoCouch/releases/latest), распакуй куда угодно и запусти `NekoCouch.exe`.
 2. **На телевизоре** включи *Для разработчиков* (Настройки → Настройки устройства → Об устройстве → 7 раз нажми на *Сборку*) и включи **отладку по USB / по сети**.
-3. При первом запуске SteamTV **настроится сам**. Когда телевизор спросит *«Разрешить отладку по USB?»*, согласись и отметь *Всегда разрешать*.
+3. При первом запуске NekoCouch **настроится сам**. Когда телевизор спросит *«Разрешить отладку по USB?»*, согласись и отметь *Всегда разрешать*.
 4. На странице **Устройства** отметь свой геймпад. Включи его — телевизор включится следом.
 
-Включи в настройках **Запускать вместе с Windows** — и открывать SteamTV больше не придётся.
+Включи в настройках **Запускать вместе с Windows** — и открывать NekoCouch больше не придётся.
 
 <p align="center">
   <img src="docs/screenshots/settings-ru.png" width="375" alt="Страница настроек">
@@ -47,11 +49,11 @@
 
 ## Советы
 
-- **Держи экран телевизора отключённым в Windows** (Параметры → Система → Дисплей → *Отключить этот дисплей*). SteamTV включает его на время игры и потом снова отключает, так что за столом он не мешает.
+- **Держи экран телевизора отключённым в Windows** (Параметры → Система → Дисплей → *Отключить этот дисплей*). NekoCouch включает его на время игры и потом снова отключает, так что за столом он не мешает.
 - **«Только телевизор, пока он включён»** стоит включить: когда остальные мониторы выключены, игры из Big Picture открываются на телевизоре, а не на мониторе.
 - **Телевизор далеко от ПК?** Оптический HDMI-кабель спокойно работает на 15–20 м — у автора всё на нём.
 - **Отладка по сети выключается сама** на многих телевизорах после перезагрузки. У автора её держит включённой **tvQuickActions**; то же делают [adb-auto-enable](https://github.com/mouldybread/adb-auto-enable) и [KeepADB](https://f-droid.org/packages/de.hohnepeople.keepadb/).
-- **Когда геймпад отключился,** SteamTV может сам вернуться к ПК — это включается для каждого устройства на странице «Устройства», а сколько ждать, задаётся в настройках.
+- **Когда геймпад отключился,** NekoCouch может сам вернуться к ПК — это включается для каждого устройства на странице «Устройства», а сколько ждать, задаётся в настройках.
 
 <p align="center">
   <img src="docs/screenshots/catgirl-tv-ru.jpg" alt="Как это работает: 1. Геймпад подключился — телевизор просыпается, переключается на ПК, звук идёт за ним, открывается Big Picture. 2. Big Picture закрыт — мониторы, звук и телевизор возвращаются как были. HDMI-CEC не нужен; работает с Android / Google TV через ADB.">
@@ -59,12 +61,12 @@
 
 ## Home Assistant
 
-По желанию. На странице **Home Assistant** укажи MQTT-брокер (например, дополнение Mosquitto) и включи. Устройство **SteamTV** появится само, с двумя переключателями — **Gamepad monitoring** (мониторинг геймпадов) и **Steam on TV** (Steam на ТВ), — а если разрешишь, ещё и с кнопками **Sleep**, **Shut down** и **Restart** для ПК. Включать ПК умеет интеграция Wake on LAN в самом Home Assistant; нужный MAC-адрес показан на странице.
+По желанию. На странице **Home Assistant** укажи MQTT-брокер (например, дополнение Mosquitto) и включи. Устройство **NekoCouch** появится само, с двумя переключателями — **Gamepad monitoring** (мониторинг геймпадов) и **Steam on TV** (Steam на ТВ), — а если разрешишь, ещё и с кнопками **Sleep**, **Shut down** и **Restart** для ПК. Включать ПК умеет интеграция Wake on LAN в самом Home Assistant; нужный MAC-адрес показан на странице.
 
 <details>
 <summary>Топики MQTT</summary>
 
-`<id>` — имя ПК строчными буквами.
+`<id>` — имя ПК строчными буквами. Топики по-прежнему начинаются со `steamtv/`, старого имени программы, чтобы уже настроенные сущности и автоматизации в Home Assistant продолжали работать.
 
 | Топик | |
 |---|---|
@@ -87,9 +89,9 @@ Discovery публикуется заново при каждом перезап
 
 ## Поддержать
 
-<p align="center"><a href="https://boosty.to/airwaruwu/donate"><img src="docs/screenshots/catgirl-support-ru.jpg" alt="Бесплатно и навсегда. Если SteamTV делает твои вечера на диване уютнее, можно угостить автора кофе. В приложении для этого есть кнопка ♥."></a></p>
+<p align="center"><a href="https://boosty.to/airwaruwu/donate"><img src="docs/screenshots/catgirl-support-ru.jpg" alt="Бесплатно и навсегда. Если NekoCouch делает твои вечера на диване уютнее, можно угостить автора кофе. В приложении для этого есть кнопка ♥."></a></p>
 
-<p align="center"><b><a href="https://boosty.to/airwaruwu/donate">♥ Поддержать SteamTV на Boosty</a></b></p>
+<p align="center"><b><a href="https://boosty.to/airwaruwu/donate">♥ Поддержать NekoCouch на Boosty</a></b></p>
 
 ---
 

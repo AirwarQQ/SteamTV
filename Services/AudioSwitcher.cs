@@ -7,7 +7,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 
-namespace SteamTV
+namespace NekoCouch
 {
     internal sealed class AudioDevice
     {

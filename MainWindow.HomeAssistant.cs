@@ -16,7 +16,7 @@ using Microsoft.Win32;
 using Wpf.Ui.Appearance;
 using Forms = System.Windows.Forms;
 
-namespace SteamTV
+namespace NekoCouch
 {
 
     public partial class MainWindow
@@ -61,7 +61,7 @@ namespace SteamTV
             string error = p == HaPower.Shutdown ? PowerControl.Shutdown() : PowerControl.Restart();
             if (error != null) { AppendLog("Home Assistant: " + what + " FAILED — " + error); return; }
             AppendLog("Home Assistant: " + what + " in " + PowerControl.ShutdownDelaySec + " s (cancel: shutdown /a).");
-            ShowTrayBalloon("SteamTV", "Home Assistant: " + what + " in " + PowerControl.ShutdownDelaySec + " s. Run \"shutdown /a\" to cancel.", always: true);
+            ShowTrayBalloon("NekoCouch", "Home Assistant: " + what + " in " + PowerControl.ShutdownDelaySec + " s. Run \"shutdown /a\" to cancel.", always: true);
         }
 
         private void UpdateMqttPowerInfo()

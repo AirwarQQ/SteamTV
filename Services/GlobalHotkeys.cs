@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows.Input;
 
-namespace SteamTV
+namespace NekoCouch
 {
     internal sealed class GlobalHotkeys : IDisposable
     {

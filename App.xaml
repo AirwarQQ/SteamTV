@@ -1,4 +1,4 @@
-<Application x:Class="SteamTV.App"
+<Application x:Class="NekoCouch.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
@@ -7,7 +7,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <ui:ThemesDictionary Theme="Dark" />
                 <ui:ControlsDictionary />
-                <!-- After WPF-UI's dictionaries, so its brush keys resolve to the SteamTV palette. -->
+                <!-- After WPF-UI's dictionaries, so its brush keys resolve to the NekoCouch palette. -->
                 <ResourceDictionary Source="Theme.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

@@ -3,7 +3,7 @@
      coordinates: the scene, then the fades that keep the text readable, then the petals on top,
      so they float across the whole banner. All motion lives in NightScene.xaml.cs and only runs
      while the banner is on screen. -->
-<UserControl x:Class="SteamTV.Controls.NightScene"
+<UserControl x:Class="NekoCouch.Controls.NightScene"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              ClipToBounds="True" IsHitTestVisible="False">

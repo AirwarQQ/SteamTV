@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
-namespace SteamTV
+namespace NekoCouch
 {
     public partial class MainWindow
     {

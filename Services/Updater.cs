@@ -1,5 +1,5 @@
-// Self-update: downloads the release zip, swaps SteamTV.exe in place and restarts. Windows lets a
-// running exe be renamed (not overwritten), so the old one moves aside to SteamTV.old.exe and is
+// Self-update: downloads the release zip, swaps NekoCouch.exe in place and restarts. Windows lets a
+// running exe be renamed (not overwritten), so the old one moves aside to NekoCouch.old.exe and is
 // deleted on the next start.
 using System;
 using System.Diagnostics;
@@ -10,13 +10,13 @@ using System.Net.Http;
 using System.Reflection;
 using System.Threading.Tasks;
 
-namespace SteamTV
+namespace NekoCouch
 {
     internal static class Updater
     {
         public const string WaitArg = "--after-update";   // new exe: wait for the old one to exit
 
-        private static string ExePath => Assembly.GetEntryAssembly().Location;
+        private static string ExePath => Rebrand.ExePath;
         private static string OldExePath => Path.ChangeExtension(ExePath, ".old.exe");
 
         public static void CleanUpOldExe()
@@ -28,15 +28,15 @@ namespace SteamTV
         // success — the caller then exits — or why it failed (nothing was changed in that case).
         public static async Task<string> InstallAsync(string tag, bool startHidden)
         {
-            string temp = Path.Combine(Path.GetTempPath(), "SteamTV-update-" + Guid.NewGuid().ToString("N"));
+            string temp = Path.Combine(Path.GetTempPath(), "NekoCouch-update-" + Guid.NewGuid().ToString("N"));
             try
             {
                 Directory.CreateDirectory(temp);
                 string zip = Path.Combine(temp, "update.zip");
-                string url = "https://github.com/AirwarQQ/SteamTV/releases/download/" + tag + "/SteamTV-" + tag + "-win.zip";
+                string url = "https://github.com/AirwarQQ/NekoCouch/releases/download/" + tag + "/NekoCouch-" + tag + "-win.zip";
                 using (var client = new HttpClient { Timeout = TimeSpan.FromMinutes(2) })
                 {
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("SteamTV-Updater");
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("NekoCouch-Updater");
                     using (var response = await client.GetAsync(url).ConfigureAwait(false))
                     {
                         if (!response.IsSuccessStatusCode) return "download failed (" + (int)response.StatusCode + ")";
@@ -44,20 +44,20 @@ namespace SteamTV
                     }
                 }
 
-                string newExe = Path.Combine(temp, "SteamTV.exe");
+                string newExe = Path.Combine(temp, "NekoCouch.exe");
                 using (var archive = ZipFile.OpenRead(zip))
                 {
-                    var entry = archive.Entries.FirstOrDefault(x => string.Equals(x.Name, "SteamTV.exe", StringComparison.OrdinalIgnoreCase));
-                    if (entry == null) return "the release archive has no SteamTV.exe";
+                    var entry = archive.Entries.FirstOrDefault(x => string.Equals(x.Name, "NekoCouch.exe", StringComparison.OrdinalIgnoreCase));
+                    if (entry == null) return "the release archive has no NekoCouch.exe";
                     entry.ExtractToFile(newExe, true);
                 }
 
-                // Only ever move forward, and only to something that really is a SteamTV build.
+                // Only ever move forward, and only to something that really is a NekoCouch build.
                 var info = FileVersionInfo.GetVersionInfo(newExe);
                 Version got;
-                if (info.ProductName != "SteamTV" || !Version.TryParse(info.FileVersion, out got) ||
+                if (info.ProductName != "NekoCouch" || !Version.TryParse(info.FileVersion, out got) ||
                     got <= Assembly.GetExecutingAssembly().GetName().Version)
-                    return "the downloaded file isn't a newer SteamTV (" + info.ProductName + " " + info.FileVersion + ")";
+                    return "the downloaded file isn't a newer NekoCouch (" + info.ProductName + " " + info.FileVersion + ")";
 
                 CleanUpOldExe();
                 File.Move(ExePath, OldExePath);

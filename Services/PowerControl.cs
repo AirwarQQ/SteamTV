@@ -6,7 +6,7 @@ using System.Linq;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 
-namespace SteamTV
+namespace NekoCouch
 {
 
     internal static class PowerControl

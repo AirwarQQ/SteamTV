@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SteamTV
+namespace NekoCouch
 {
 
     internal sealed class MonitorService
@@ -31,10 +31,10 @@ namespace SteamTV
         private volatile bool _displayEnabled;
 
         // What this session changed, so deactivation puts exactly that back.
-        private bool _tvWasAsleep;          // SteamTV woke it → may put it back to sleep
+        private bool _tvWasAsleep;          // NekoCouch woke it → may put it back to sleep
         private string _tvPreviousApp;      // package/.Activity the TV showed before the switch
         private string _audioPreviousId;    // default playback device before switching to the TV
-        private bool? _hdrPrevious;         // TV display's HDR state before SteamTV turned it on
+        private bool? _hdrPrevious;         // TV display's HDR state before NekoCouch turned it on
 
         private Adb NewAdb() => new Adb(_s.AdbPath, _s.TvIp);   // TvIp can change (found again after DHCP)
 
@@ -91,7 +91,7 @@ namespace SteamTV
             if (_running) return;
             _cts = new CancellationTokenSource();
             _running = true;
-            _thread = new Thread(() => RunLoop(_cts.Token)) { IsBackground = true, Name = "SteamTV-Monitor" };
+            _thread = new Thread(() => RunLoop(_cts.Token)) { IsBackground = true, Name = "NekoCouch-Monitor" };
             _thread.Start();
             RunningChanged?.Invoke(true);
             L("Monitor started. IP=" + _s.TvIp + ", display #" + _s.TargetDisplay +
@@ -160,7 +160,7 @@ namespace SteamTV
             else
             {
                 L("Big Picture " + how + " — deactivating anyway.");
-                N("SteamTV", Loc.T("Note.BpNotClosed"));
+                N("NekoCouch", Loc.T("Note.BpNotClosed"));
             }
         }
 
@@ -192,7 +192,7 @@ namespace SteamTV
                 if (!DisplayManager.RestoreAll(_preActivateSnapshot, out err))
                 {
                     L("Restore monitors FAILED: " + err);
-                    N("SteamTV", Loc.T("Note.RestoreFailed", err));
+                    N("NekoCouch", Loc.T("Note.RestoreFailed", err));
                 }
                 else if (!string.IsNullOrEmpty(err))
                     L("Restore monitors (fallback): " + err);
@@ -231,7 +231,7 @@ namespace SteamTV
                 if (!EnsureTvReachable(adb, ct))
                 {
                     L("TV not reachable over ADB — activation cancelled.");
-                    N("SteamTV", Loc.T("Note.Unreachable", _s.TvIp));
+                    N("NekoCouch", Loc.T("Note.Unreachable", _s.TvIp));
                     return;
                 }
                 adb = NewAdb();   // EnsureTvReachable may have found the TV under a new address
@@ -351,14 +351,14 @@ namespace SteamTV
                         if (!SteamHelper.StartBigPicture(_s.SteamPath, out bpErr))
                         {
                             L("Start Big Picture FAILED: " + bpErr);
-                            N("SteamTV", Loc.T("Note.BpFailed", bpErr));
+                            N("NekoCouch", Loc.T("Note.BpFailed", bpErr));
                         }
                     }
                 }
                 else
                 {
                     L((switchErr ?? "HDMI source did not activate within 10s.") + " Rolling back.");
-                    N("SteamTV", switchErr != null ? Loc.T("Note.SwitchFailed", switchErr) : Loc.T("Note.SwitchTimeout"));
+                    N("NekoCouch", switchErr != null ? Loc.T("Note.SwitchFailed", switchErr) : Loc.T("Note.SwitchTimeout"));
                     RestoreDisplayState();
                     L("TV: " + adb.ReturnTv(_tvPreviousApp, _s.TvHomeComponent, _s.SleepTvAfter && _tvWasAsleep, ct) + ".");
                     SetDisplayEnabled(false);
@@ -373,7 +373,7 @@ namespace SteamTV
                 if (!SteamHelper.StartBigPicture(_s.SteamPath, out bpErr))
                 {
                     L("Start Big Picture FAILED: " + bpErr);
-                    N("SteamTV", Loc.T("Note.BpFailed", bpErr));
+                    N("NekoCouch", Loc.T("Note.BpFailed", bpErr));
                 }
             }
         }

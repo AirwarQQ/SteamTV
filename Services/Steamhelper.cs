@@ -3,7 +3,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 
-namespace SteamTV
+namespace NekoCouch
 {
 
     internal static class SteamHelper

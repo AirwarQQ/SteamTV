@@ -16,7 +16,7 @@ using Microsoft.Win32;
 using Wpf.Ui.Appearance;
 using Forms = System.Windows.Forms;
 
-namespace SteamTV
+namespace NekoCouch
 {
 
     public partial class MainWindow
@@ -43,14 +43,14 @@ namespace SteamTV
                 {
                     if (k == null) return;
                     if (enable)
-                        k.SetValue(RunValueName, "\"" + System.Reflection.Assembly.GetEntryAssembly().Location + "\" -autostart");
+                        k.SetValue(RunValueName, "\"" + Rebrand.ExePath + "\" -autostart");
                     else
                         k.DeleteValue(RunValueName, false);
                 }
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show("Failed to change autostart: " + ex.Message, "SteamTV",
+                System.Windows.MessageBox.Show("Failed to change autostart: " + ex.Message, "NekoCouch",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
@@ -61,7 +61,7 @@ namespace SteamTV
 
         private static System.Drawing.Icon LoadAppIcon()
         {
-            try { return System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetEntryAssembly().Location); }
+            try { return System.Drawing.Icon.ExtractAssociatedIcon(Rebrand.ExePath); }
             catch { return SystemIcons.Application; }
         }
 
@@ -71,7 +71,7 @@ namespace SteamTV
         {
             try
             {
-                using (var s = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("SteamTV.start_icon.ico"))
+                using (var s = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("NekoCouch.start_icon.ico"))
                     if (s != null) return new System.Drawing.Icon(s, Forms.SystemInformation.SmallIconSize);
             }
             catch { }
@@ -109,7 +109,7 @@ namespace SteamTV
             _trayIconOk = BuildStatusIcon(baseIcon, System.Drawing.Color.FromArgb(0x7E, 0xE8, 0xC4));
             _trayIconBad = BuildStatusIcon(baseIcon, System.Drawing.Color.FromArgb(0xFF, 0x8A, 0x8A));
 
-            // Header: what SteamTV is doing right now (not clickable).
+            // Header: what NekoCouch is doing right now (not clickable).
             _miTrayMonitorStatus = new Forms.ToolStripMenuItem { Enabled = false };
             _miTrayAdbStatus = new Forms.ToolStripMenuItem { Enabled = false };
 
@@ -153,7 +153,7 @@ namespace SteamTV
 
             _tray = new Forms.NotifyIcon
             {
-                Text = "SteamTV",
+                Text = "NekoCouch",
                 Icon = _trayIconUnknown,
                 Visible = true,
                 ContextMenuStrip = menu
@@ -170,7 +170,7 @@ namespace SteamTV
         private void RefreshTrayTexts()
         {
             if (_tray == null) return;
-            _miTrayMonitorStatus.Text = "SteamTV — " + TrayStatusText();
+            _miTrayMonitorStatus.Text = "NekoCouch — " + TrayStatusText();
             _miTrayAdbStatus.Text = Loc.T(_lastAdbReachable == true ? "Nav.TvOk" : _lastAdbReachable == false ? "Nav.TvBad" : "Nav.TvUnknown");
             _miTrayPlay.Text = "▶  " + Loc.T("Tray.Play");
             _miTrayPlay.Enabled = !_monitor.IsDisplayActive;
@@ -218,7 +218,7 @@ namespace SteamTV
             ShowInTaskbar = false;
         }
 
-        // Another SteamTV.exe was started by hand while this one runs.
+        // Another NekoCouch.exe was started by hand while this one runs.
         internal void ShowFromTray() => RestoreFromTray();
 
         private void RestoreFromTray()

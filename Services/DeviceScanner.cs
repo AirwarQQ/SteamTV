@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace SteamTV
+namespace NekoCouch
 {
 
     internal sealed class ExternalDevice

@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-namespace SteamTV
+namespace NekoCouch
 {
 
     internal sealed class Adb

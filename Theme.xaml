@@ -1,10 +1,10 @@
-<!-- SteamTV look: a calm night palette (deep indigo, sakura pink, lavender, sky blue) on top of
+<!-- NekoCouch look: a calm night palette (deep indigo, sakura pink, lavender, sky blue) on top of
      WPF-UI's dark theme. The WPF-UI brush keys overridden at the bottom make its stock controls
      (text boxes, combo boxes, data grids, expanders) pick up the same palette. -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                    xmlns:c="clr-namespace:SteamTV.Controls">
+                    xmlns:c="clr-namespace:NekoCouch.Controls">
 
     <!-- Palette -->
     <Color x:Key="DeepColor">#0A0C18</Color>

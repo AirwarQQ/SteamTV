@@ -1,13 +1,13 @@
 // The log in the window is lost on restart; this keeps a copy on disk for bug reports:
-// %LOCALAPPDATA%\SteamTV\steamtv.log, rotated to steamtv.old.log at 1 MB.
+// %LOCALAPPDATA%\NekoCouch\nekocouch.log, rotated to nekocouch.old.log at 1 MB.
 using System;
 using System.IO;
 
-namespace SteamTV
+namespace NekoCouch
 {
     internal static class AppLog
     {
-        public static readonly string FilePath = Path.Combine(AdbBundle.Dir, "steamtv.log");
+        public static readonly string FilePath = Path.Combine(AdbBundle.Dir, "nekocouch.log");
         private const long MaxBytes = 1024 * 1024;
         private static readonly object Gate = new object();
 
@@ -21,7 +21,7 @@ namespace SteamTV
                     var info = new FileInfo(FilePath);
                     if (info.Exists && info.Length > MaxBytes)
                     {
-                        string old = Path.Combine(AdbBundle.Dir, "steamtv.old.log");
+                        string old = Path.Combine(AdbBundle.Dir, "nekocouch.old.log");
                         File.Delete(old);
                         File.Move(FilePath, old);
                     }

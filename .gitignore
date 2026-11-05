@@ -1,7 +1,7 @@
 # build output
 bin/
 obj/
-SteamTV.exe
+NekoCouch.exe
 *.pdb
 
 # VS / Rider / VSCode
@@ -15,3 +15,5 @@ FodyWeavers.xsd
 
 # icon is optional / local
 # start_icon.ico
+# release zips (tools/make-release.ps1)
+dist/

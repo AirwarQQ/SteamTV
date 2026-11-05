@@ -1,4 +1,4 @@
-// App settings: stored in registry HKCU\Software\SteamTV.
+// App settings: stored in registry HKCU\Software\NekoCouch.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,7 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Win32;
 
-namespace SteamTV
+namespace NekoCouch
 {
 
     internal enum TriggerAction
@@ -30,7 +30,7 @@ namespace SteamTV
 
     internal sealed class AppSettings
     {
-        private const string RegPath = @"Software\SteamTV";
+        private const string RegPath = @"Software\NekoCouch";
 
         // Blank on a fresh install: the first-run setup finds the TV, its display and the HDMI port.
         public string TvIp = "";
@@ -45,7 +45,7 @@ namespace SteamTV
         public bool SwitchAudio = true;          // default playback device → the TV while it's active
         public string TvAudioDevice = "";        // part of the endpoint name; blank = match the TV display's name
         public bool RestoreTvApp = true;         // back to what the TV showed before, not just Home
-        public bool SleepTvAfter = true;         // put the TV back to sleep if SteamTV woke it
+        public bool SleepTvAfter = true;         // put the TV back to sleep if NekoCouch woke it
         public bool EnableHdr = false;           // HDR on the TV while active, previous state restored after
         public string Language = "";             // "" = follow Windows; "en" or "ru"
         public bool MinimizeSteamAfter = true;   // minimize the Steam window once back on the PC

@@ -1,4 +1,4 @@
-// Optional Home Assistant link over MQTT: announces one "SteamTV" device with two switches (and,
+// Optional Home Assistant link over MQTT: announces one "NekoCouch" device with two switches (and,
 // if allowed, Sleep / Shut down / Restart buttons) via MQTT discovery, publishes the switch states
 // and turns commands from HA into Command / PowerCommand events.
 // Nothing here runs unless the integration is switched on in settings.
@@ -10,7 +10,7 @@ using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Protocol;
 
-namespace SteamTV
+namespace NekoCouch
 {
 
     internal enum HaSwitch { Monitoring, SteamOnTv }
@@ -266,6 +266,8 @@ namespace SteamTV
         // Topics and payloads
         // ---------------------------------------------------------------------
 
+        // Topics and unique ids keep the app's old name (SteamTV), so Home Assistant keeps the same
+        // entities, dashboards and automations; only the device's shown name changed.
         private string Base => "steamtv/" + _cfg.DeviceId;
         private static string Key(HaSwitch sw) => sw == HaSwitch.Monitoring ? "monitoring" : "steam_on_tv";
         private static string Title(HaSwitch sw) => sw == HaSwitch.Monitoring ? "Gamepad monitoring" : "Steam on TV";
@@ -302,8 +304,8 @@ namespace SteamTV
             string id = "steamtv_" + _cfg.DeviceId;
             return "\"device\":{"
                 + "\"identifiers\":[" + Str(id) + "],"
-                + Prop("name", "SteamTV") + ","
-                + Prop("manufacturer", "SteamTV") + ","
+                + Prop("name", "NekoCouch") + ","
+                + Prop("manufacturer", "NekoCouch") + ","
                 + Prop("model", "Windows tray app (" + Environment.MachineName + ")") + ","
                 + Prop("sw_version", _version)
                 + "}";

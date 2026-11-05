@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 
-namespace SteamTV
+namespace NekoCouch
 {
     public partial class MainWindow
     {

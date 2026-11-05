@@ -1,6 +1,6 @@
-// Extracts the embedded adb.exe to %LOCALAPPDATA%\SteamTV, so no separate platform-tools install
-// is needed and it works even when SteamTV.exe sits somewhere read-only (Program Files). The copy
-// is replaced whenever a newer SteamTV ships a different adb.exe.
+// Extracts the embedded adb.exe to %LOCALAPPDATA%\NekoCouch, so no separate platform-tools install
+// is needed and it works even when NekoCouch.exe sits somewhere read-only (Program Files). The copy
+// is replaced whenever a newer NekoCouch ships a different adb.exe.
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -8,19 +8,19 @@ using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 
-namespace SteamTV
+namespace NekoCouch
 {
     internal static class AdbBundle
     {
         public static readonly string Dir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SteamTV");
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NekoCouch");
         public static readonly string ExePath = Path.Combine(Dir, "adb.exe");
 
         public static void EnsureExtracted()
         {
             try
             {
-                using (var res = Assembly.GetExecutingAssembly().GetManifestResourceStream("SteamTV.adb.exe"))
+                using (var res = Assembly.GetExecutingAssembly().GetManifestResourceStream("NekoCouch.adb.exe"))
                 {
                     if (res == null) return;
                     byte[] bytes;
@@ -40,7 +40,7 @@ namespace SteamTV
             }
             catch
             {
-                // Best effort — Resolve() falls back to adb.exe next to SteamTV.exe or on PATH.
+                // Best effort — Resolve() falls back to adb.exe next to NekoCouch.exe or on PATH.
             }
         }
 

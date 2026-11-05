@@ -1,23 +1,25 @@
 <p align="center">
-  <img src="docs/screenshots/banner.png" alt="SteamTV — your gaming PC, now a console on the couch">
+  <img src="docs/screenshots/banner.png" alt="NekoCouch — your gaming PC, now a console on the couch">
 </p>
 
 <p align="center"><b>English</b> · <a href="README.ru.md">Русский</a></p>
 
 <p align="center">
-  <a href="https://github.com/AirwarQQ/SteamTV/releases/latest"><img src="https://img.shields.io/github/v/release/AirwarQQ/SteamTV" alt="Latest release"></a>
+  <a href="https://github.com/AirwarQQ/NekoCouch/releases/latest"><img src="https://img.shields.io/github/v/release/AirwarQQ/NekoCouch" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6" alt="Windows 10/11">
   <img src="https://img.shields.io/badge/TV-Android%20TV-3DDC84" alt="Android TV">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/AirwarQQ/SteamTV" alt="License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/AirwarQQ/NekoCouch" alt="License"></a>
   <a href="https://boosty.to/airwaruwu/donate"><img src="https://img.shields.io/badge/support-Boosty-FF7EB6" alt="Support on Boosty"></a>
 </p>
+
+<p align="center"><sub>Formerly <b>SteamTV</b>. Updating from it keeps your settings, autostart and shortcuts.</sub></p>
 
 <p align="center">
   <img src="docs/screenshots/catgirl-couch.jpg" alt="Not sold on the Steam Machine? Your gaming PC already is one. Pick up the controller — the TV wakes up, switches to the PC and opens Big Picture. Close it, and your desk is back as you left it. No second box, no remote, no Win+P.">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/home.png" width="760" alt="SteamTV home page">
+  <img src="docs/screenshots/home.png" width="760" alt="NekoCouch home page">
 </p>
 
 ## What it does
@@ -32,9 +34,9 @@
 
 ## Quick start
 
-1. **Download** `SteamTV-vX.Y.Z-win.zip` from the [latest release](https://github.com/AirwarQQ/SteamTV/releases/latest), extract it anywhere, run `SteamTV.exe`.
+1. **Download** `NekoCouch-vX.Y.Z-win.zip` from the [latest release](https://github.com/AirwarQQ/NekoCouch/releases/latest), extract it anywhere, run `NekoCouch.exe`.
 2. **On the TV**, enable *Developer options* (Settings → Device Preferences → About → tap *Build number* 7 times) and turn on **USB / network debugging**.
-3. SteamTV **sets itself up** on first launch. When the TV asks *"Allow USB debugging?"*, accept and tick *Always allow*.
+3. NekoCouch **sets itself up** on first launch. When the TV asks *"Allow USB debugging?"*, accept and tick *Always allow*.
 4. On the **Devices** page, add your controller. Switch it on — the TV follows.
 
 Turn on **Start with Windows** in Settings and you'll never need to open it again.
@@ -47,11 +49,11 @@ Turn on **Start with Windows** in Settings and you'll never need to open it agai
 
 ## Tips
 
-- **Keep the TV display switched off in Windows** (Settings → System → Display → *Disconnect this display*). SteamTV turns it on when you play and off again afterwards, so it never gets in the way at the desk.
+- **Keep the TV display switched off in Windows** (Settings → System → Display → *Disconnect this display*). NekoCouch turns it on when you play and off again afterwards, so it never gets in the way at the desk.
 - **Only the TV while it's on** is worth turning on: with the other monitors off, games started from Big Picture open on the TV instead of on a desk monitor.
 - **TV far from the PC?** An optical (fiber) HDMI cable works over 15–20 m without a hitch — the author's setup runs on one.
 - **Network debugging turns itself off** on many TVs after a reboot. On the author's TV, **tvQuickActions** keeps it on; [adb-auto-enable](https://github.com/mouldybread/adb-auto-enable) and [KeepADB](https://f-droid.org/packages/de.hohnepeople.keepadb/) do the same job.
-- **When a controller disconnects** SteamTV can go back to the PC by itself — turn it on per device on the Devices page; how long it waits is in Settings.
+- **When a controller disconnects** NekoCouch can go back to the PC by itself — turn it on per device on the Devices page; how long it waits is in Settings.
 
 <p align="center">
   <img src="docs/screenshots/catgirl-tv.jpg" alt="How it works: 1. A controller connects — the TV wakes over Wi-Fi, switches to the PC's HDMI, the sound follows, Big Picture opens. 2. Big Picture closes — your monitors, sound and TV come back. No HDMI-CEC needed; works with Android / Google TVs over ADB.">
@@ -59,12 +61,12 @@ Turn on **Start with Windows** in Settings and you'll never need to open it agai
 
 ## Home Assistant
 
-Optional. On the **Home Assistant** page, enter your MQTT broker (e.g. the Mosquitto add-on) and turn it on. A **SteamTV** device appears by itself with two switches — **Gamepad monitoring** and **Steam on TV** — and, if you allow it, **Sleep**, **Shut down** and **Restart** buttons for the PC. Switching the PC *on* is Home Assistant's Wake on LAN integration; the page shows the MAC to use.
+Optional. On the **Home Assistant** page, enter your MQTT broker (e.g. the Mosquitto add-on) and turn it on. A **NekoCouch** device appears by itself with two switches — **Gamepad monitoring** and **Steam on TV** — and, if you allow it, **Sleep**, **Shut down** and **Restart** buttons for the PC. Switching the PC *on* is Home Assistant's Wake on LAN integration; the page shows the MAC to use.
 
 <details>
 <summary>MQTT topics</summary>
 
-`<id>` is the PC's name, lowercased.
+`<id>` is the PC's name, lowercased. The topics still start with `steamtv/`, the app's old name, so existing Home Assistant entities and automations keep working.
 
 | Topic | |
 |---|---|
@@ -87,9 +89,9 @@ Discovery is published again whenever Home Assistant restarts.
 
 ## Support
 
-<p align="center"><a href="https://boosty.to/airwaruwu/donate"><img src="docs/screenshots/catgirl-support.jpg" alt="Free, and stays free. If SteamTV makes your evenings on the couch nicer, you can buy the author a coffee. There's also a ♥ button in the app."></a></p>
+<p align="center"><a href="https://boosty.to/airwaruwu/donate"><img src="docs/screenshots/catgirl-support.jpg" alt="Free, and stays free. If NekoCouch makes your evenings on the couch nicer, you can buy the author a coffee. There's also a ♥ button in the app."></a></p>
 
-<p align="center"><b><a href="https://boosty.to/airwaruwu/donate">♥ Support SteamTV on Boosty</a></b></p>
+<p align="center"><b><a href="https://boosty.to/airwaruwu/donate">♥ Support NekoCouch on Boosty</a></b></p>
 
 ---
 

@@ -1,10 +1,10 @@
-<ui:FluentWindow x:Class="SteamTV.MainWindow"
+<ui:FluentWindow x:Class="NekoCouch.MainWindow"
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                 xmlns:l="clr-namespace:SteamTV"
-                 xmlns:c="clr-namespace:SteamTV.Controls"
-                 Title="SteamTV"
+                 xmlns:l="clr-namespace:NekoCouch"
+                 xmlns:c="clr-namespace:NekoCouch.Controls"
+                 Title="NekoCouch"
                  Icon="pack://application:,,,/start_icon.ico"
                  Width="940" Height="700" MinWidth="820" MinHeight="600"
                  Background="{StaticResource BgBrush}"
@@ -48,14 +48,14 @@
         <!-- App mark in the title bar; not hit-testable, so the bar still drags the window. -->
         <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
             <Border Width="15" Height="15" CornerRadius="4" Background="{StaticResource SakuraDiagonal}" Margin="0,0,10,0" />
-            <TextBlock Text="SteamTV" FontSize="12" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+            <TextBlock Text="NekoCouch" FontSize="12" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
         </StackPanel>
 
         <!-- ============================== Sidebar ============================== -->
         <Border Grid.Row="1" Grid.Column="0" Background="{StaticResource DeepBrush}" BorderBrush="#151832" BorderThickness="0,0,1,0">
             <DockPanel Margin="10,4,10,12">
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="10,6,0,18" TextElement.FontFamily="{StaticResource DisplayFont}" TextElement.FontWeight="ExtraBold" TextElement.FontSize="21">
-                    <c:SmoothText Text="Steam" Foreground="{StaticResource TextBrush}" /><c:SmoothText Text="TV" Foreground="{StaticResource SakuraGradient}" />
+                    <c:SmoothText Text="Neko" Foreground="{StaticResource TextBrush}" /><c:SmoothText Text="Couch" Foreground="{StaticResource SakuraGradient}" />
                 </StackPanel>
 
                 <StackPanel DockPanel.Dock="Bottom">

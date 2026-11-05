@@ -2,7 +2,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace SteamTV
+namespace NekoCouch
 {
 
     internal static class Native

@@ -16,7 +16,7 @@ using Microsoft.Win32;
 using Wpf.Ui.Appearance;
 using Forms = System.Windows.Forms;
 
-namespace SteamTV
+namespace NekoCouch
 {
 
     public partial class MainWindow
@@ -43,14 +43,14 @@ namespace SteamTV
         private int _adbFailStreak;
         private bool _adbFailNotified;
 
-        private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
-        private const string RunValueName = "SteamTV_Controller";
+        internal const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+        internal const string RunValueName = "NekoCouch_Controller";
 
         public MainWindow(bool autostart)
         {
             InitializeComponent();
 
-            Title = "SteamTV";
+            Title = "NekoCouch";
 
             _settings = AppSettings.Load();
             Loc.Set(_settings.Language);
@@ -64,7 +64,7 @@ namespace SteamTV
             _monitor.TvAddressChanged += ip => Dispatcher.BeginInvoke(new Action(() =>
             {
                 TxtIp.Text = ip;
-                ShowTrayBalloon("SteamTV", Loc.T("Msg.NewIp", ip));
+                ShowTrayBalloon("NekoCouch", Loc.T("Msg.NewIp", ip));
             }));
             _ha = new HomeAssistantMqtt(_monitor, GetVersionString());
             _ha.Log += AppendLog;
@@ -121,7 +121,7 @@ namespace SteamTV
         private string _updateTag;
         private Forms.ToolStripMenuItem _miTrayUpdate;
 
-        // On start, then once a day (OnStatusTick) — SteamTV can sit in the tray for weeks.
+        // On start, then once a day (OnStatusTick) — NekoCouch can sit in the tray for weeks.
         private DateTime _lastUpdateCheck = DateTime.MinValue;
 
         // manual: asked for from Settings → About (answer shown there) or the tray (answer as a
@@ -142,7 +142,7 @@ namespace SteamTV
                         LblUpdateStatus.Foreground = tag == null ? Rose : Mint;
                         LblUpdateStatus.Visibility = Visibility.Visible;
                         if (fromTray)
-                            _tray?.ShowBalloonTip(5000, "SteamTV", Loc.T(tag == null ? "Upd.Failed" : "Upd.Latest"),
+                            _tray?.ShowBalloonTip(5000, "NekoCouch", Loc.T(tag == null ? "Upd.Failed" : "Upd.Latest"),
                                 tag == null ? Forms.ToolTipIcon.Warning : Forms.ToolTipIcon.Info);
                     });
                 return;
@@ -166,7 +166,7 @@ namespace SteamTV
         {
             if (_updating || _updateTag == null) return;
             if (System.Windows.MessageBox.Show(Loc.T("Msg.UpdateAsk", _updateTag),
-                    "SteamTV", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+                    "NekoCouch", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
             _updating = true;
             AppendLog("Downloading " + _updateTag + "…");
             var restoring = _monitor.IsDisplayActive ? _monitor.DeactivateNow() : Task.CompletedTask;
@@ -175,7 +175,7 @@ namespace SteamTV
             _updating = false;
             if (err == null) { AppendLog("Update installed — restarting."); _reallyExit = true; Close(); return; }
             AppendLog("Update failed: " + err);
-            if (System.Windows.MessageBox.Show(Loc.T("Msg.UpdateFailed", err), "SteamTV",
+            if (System.Windows.MessageBox.Show(Loc.T("Msg.UpdateFailed", err), "NekoCouch",
                     MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
                 Process.Start(new ProcessStartInfo(UpdateChecker.ReleasesPageUrl) { UseShellExecute = true });
         }
@@ -455,11 +455,11 @@ namespace SteamTV
             if (problem == null) return true;
 
             if (interactive)
-                System.Windows.MessageBox.Show(problem, "SteamTV", MessageBoxButton.OK, MessageBoxImage.Warning);
+                System.Windows.MessageBox.Show(problem, "NekoCouch", MessageBoxButton.OK, MessageBoxImage.Warning);
             else
             {
                 AppendLog("Command ignored: " + problem);
-                ShowTrayBalloon("SteamTV", Loc.T("Msg.Ignored", problem));
+                ShowTrayBalloon("NekoCouch", Loc.T("Msg.Ignored", problem));
             }
             return false;
         }
@@ -553,7 +553,7 @@ namespace SteamTV
                             if (_adbFailStreak >= 3 && !_adbFailNotified)
                             {
                                 _adbFailNotified = true;
-                                ShowTrayBalloon("SteamTV", Loc.T("Msg.AdbLost"));
+                                ShowTrayBalloon("NekoCouch", Loc.T("Msg.AdbLost"));
                             }
                         }));
                     });
@@ -572,7 +572,7 @@ namespace SteamTV
             TxtIp.Text = ip;
             _adbFailStreak = 0;
             _lastAdbCheck = DateTime.MinValue;   // re-check right away
-            ShowTrayBalloon("SteamTV", Loc.T("Msg.NewIp", ip));
+            ShowTrayBalloon("NekoCouch", Loc.T("Msg.NewIp", ip));
         }
 
         // -------------------------------------------------------------------------

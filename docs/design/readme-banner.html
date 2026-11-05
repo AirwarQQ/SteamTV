@@ -63,8 +63,18 @@ h1 i { font-style: normal; background: linear-gradient(90deg, #ff7eb6, #9b8cff);
 <div class="copy">
   <div class="kana">ソファモード · COUCH MODE</div>
   <h1>Steam<i>TV</i></h1>
-  <div class="ru">Your gaming PC, now a console on the couch.</div>
-  <div class="en">Pick up the controller — the TV is already showing Steam.</div>
-  <div class="chip"><b>▶</b> Windows 10/11 · Android TV · free</div>
+  <div class="ru" id="l1">Your gaming PC, now a console on the couch.</div>
+  <div class="en" id="l2">Pick up the controller — the TV is already showing Steam.</div>
+  <div class="chip"><b>▶</b> <span id="l3">Windows 10/11 · Android TV · free</span></div>
 </div>
-</div></body></html>
+</div>
+<!-- readme-banner.html#ru renders the Russian header (docs/screenshots/banner-ru.png). -->
+<script>
+if (location.hash === '#ru') {
+  document.getElementById('l1').textContent = 'Твой игровой ПК — теперь консоль у дивана.';
+  document.getElementById('l2').textContent = 'Берёшь геймпад — а на телевизоре уже Steam.';
+  document.getElementById('l3').textContent = 'Windows 10/11 · Android TV · бесплатно';
+  document.querySelector('.kana').textContent = 'ソファモード · РЕЖИМ ДИВАНА';
+}
+</script>
+</body></html>

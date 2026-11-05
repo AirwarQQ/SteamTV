@@ -2,6 +2,8 @@
   <img src="docs/screenshots/banner.png" alt="SteamTV — your gaming PC, now a console on the couch">
 </p>
 
+<p align="center"><b>English</b> · <a href="README.ru.md">Русский</a></p>
+
 <p align="center">
   <a href="https://github.com/AirwarQQ/SteamTV/releases/latest"><img src="https://img.shields.io/github/v/release/AirwarQQ/SteamTV" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6" alt="Windows 10/11">

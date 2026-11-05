@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- README picture cards: the catgirl art (docs/design/art) with README text laid over it, in the app's
-     fonts. Render one card with headless Edge at 1600x667: readme-cards.html#couch, #how or #donate
+     fonts. Render one card with headless Edge at 1600x667: readme-cards.html#couch, #how or #donate (add -ru for the Russian README)
      → docs/screenshots/catgirl-couch.jpg / catgirl-tv.jpg / catgirl-support.jpg. -->
 <html><head><meta charset="utf-8"><style>
 @font-face { font-family: "MPR"; src: url("../../Fonts/MPLUSRounded1c-ExtraBold.ttf"); font-weight: 800; }
@@ -53,6 +53,38 @@ p b { color: #fff; font-weight: 600; }
     <div class="kana">おねがい · SUPPORT</div>
     <h2>Free, and<br><i>stays free</i></h2>
     <p>If SteamTV makes your evenings on the couch nicer, you can buy the author a coffee. There's also a ♥ button in the app.</p>
+    <div class="chips"><span class="chip">♥ boosty.to/airwaruwu</span></div>
+  </div>
+</div>
+
+<!-- Russian cards (README.ru.md) -->
+<div class="card" id="couch-ru" style="background-image: url('art/catgirl-couch.jpg')">
+  <div class="fade"></div>
+  <div class="copy" style="width: 660px; padding-top: 70px">
+    <div class="kana">ゲーム · ТВОЯ КОНСОЛЬ</div>
+    <h2>Не впечатлила<br><i>Steam Machine?</i></h2>
+    <p><b>Твой игровой ПК уже ей стал.</b> Возьми геймпад — телевизор проснётся, переключится на ПК и откроет Big Picture. Закроешь — и стол снова как был.</p>
+    <div class="chips"><span class="chip">без второй коробки</span><span class="chip">без пульта</span><span class="chip">без Win+P</span></div>
+  </div>
+</div>
+
+<div class="card" id="how-ru" style="background-image: url('art/catgirl-tv.jpg')">
+  <div class="fade"></div>
+  <div class="copy" style="width: 800px">
+    <div class="kana">しくみ · КАК ЭТО РАБОТАЕТ</div>
+    <h2>Как это <i>работает</i></h2>
+    <div class="step"><div class="num">1</div><p><b>Геймпад подключился</b> → телевизор просыпается, переключается на ПК, звук идёт за ним, открывается Big&nbsp;Picture.</p></div>
+    <div class="step"><div class="num">2</div><p><b>Big Picture закрыт</b> → мониторы, звук и телевизор возвращаются как были.</p></div>
+    <p class="note">HDMI-CEC не нужен. Работает с Android / Google TV через ADB.</p>
+  </div>
+</div>
+
+<div class="card" id="donate-ru" style="background-image: url('art/catgirl-donate.jpg')">
+  <div class="fade"></div>
+  <div class="copy" style="width: 580px">
+    <div class="kana">おねがい · ПОДДЕРЖКА</div>
+    <h2>Бесплатно<br><i>и навсегда</i></h2>
+    <p>Если SteamTV делает твои вечера на диване уютнее, можно угостить автора кофе. В&nbsp;приложении для этого есть кнопка ♥.</p>
     <div class="chips"><span class="chip">♥ boosty.to/airwaruwu</span></div>
   </div>
 </div>

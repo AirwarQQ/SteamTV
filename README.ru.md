@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/home-ru.png" width="760" alt="Главная страница NekoCouch">
+  <img src="docs/images/app/home-ru.png" width="760" alt="Главная страница NekoCouch">
 </p>
 
 ## Что умеет
@@ -42,9 +42,11 @@
 Включи в настройках **Запускать вместе с Windows** — и открывать NekoCouch больше не придётся.
 
 <p align="center">
-  <img src="docs/images/settings-ru.png" width="375" alt="Страница настроек">
-  &nbsp;
-  <img src="docs/images/devices-ru.png" width="375" alt="Страница устройств">
+  <img src="docs/images/app/settings-ru.png" width="760" alt="Страница настроек">
+</p>
+
+<p align="center">
+  <img src="docs/images/app/devices-ru.png" width="760" alt="Страница устройств">
 </p>
 
 ## Советы

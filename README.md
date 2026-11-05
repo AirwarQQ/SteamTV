@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/home.png" width="760" alt="NekoCouch home page">
+  <img src="docs/images/app/home.png" width="760" alt="NekoCouch home page">
 </p>
 
 ## What it does
@@ -42,9 +42,11 @@
 Turn on **Start with Windows** in Settings and you'll never need to open it again.
 
 <p align="center">
-  <img src="docs/images/settings.png" width="375" alt="Settings page">
-  &nbsp;
-  <img src="docs/images/devices.png" width="375" alt="Devices page">
+  <img src="docs/images/app/settings.png" width="760" alt="Settings page">
+</p>
+
+<p align="center">
+  <img src="docs/images/app/devices.png" width="760" alt="Devices page">
 </p>
 
 ## Tips

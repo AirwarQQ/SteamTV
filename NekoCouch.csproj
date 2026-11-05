@@ -5,8 +5,7 @@
     <TargetFramework>net48</TargetFramework>
     <RootNamespace>NekoCouch</RootNamespace>
     <AssemblyName>NekoCouch</AssemblyName>
-    <!-- The updater checks this. The release also carries a SteamTV-vX.Y.Z-win.zip built with
-         -p:Product=SteamTV, for SteamTV 2.0 and older, whose updater only accepts that name. -->
+    <!-- The updater checks this. -->
     <Product>NekoCouch</Product>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>

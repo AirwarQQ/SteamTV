@@ -1,4 +1,4 @@
-// Extracts the embedded adb.exe to %LOCALAPPDATA%\NekoCouch, so no separate platform-tools install
+// Extracts the embedded adb.exe (and the two DLLs it needs) to %LOCALAPPDATA%\NekoCouch, so no separate platform-tools install
 // is needed and it works even when NekoCouch.exe sits somewhere read-only (Program Files). The copy
 // is replaced whenever a newer NekoCouch ships a different adb.exe.
 using System;
@@ -16,31 +16,41 @@ namespace NekoCouch
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NekoCouch");
         public static readonly string ExePath = Path.Combine(Dir, "adb.exe");
 
+        // adb.exe won't start without its two DLLs next to it ("AdbWinApi.dll was not found") — on a
+        // PC with platform-tools on PATH it happens to find them there, elsewhere it doesn't.
+        private static readonly string[] Files = { "AdbWinApi.dll", "AdbWinUsbApi.dll", "adb.exe" };
+
         public static void EnsureExtracted()
         {
-            try
+            bool serverStopped = false;
+            foreach (string name in Files)
             {
-                using (var res = Assembly.GetExecutingAssembly().GetManifestResourceStream("NekoCouch.adb.exe"))
+                try
                 {
-                    if (res == null) return;
                     byte[] bytes;
-                    using (var ms = new MemoryStream()) { res.CopyTo(ms); bytes = ms.ToArray(); }
-                    if (File.Exists(ExePath) && SameContent(ExePath, bytes)) return;
+                    using (var res = Assembly.GetExecutingAssembly().GetManifestResourceStream("NekoCouch." + name))
+                    {
+                        if (res == null) continue;
+                        using (var ms = new MemoryStream()) { res.CopyTo(ms); bytes = ms.ToArray(); }
+                    }
+                    string path = Path.Combine(Dir, name);
+                    if (File.Exists(path) && SameContent(path, bytes)) continue;
 
                     Directory.CreateDirectory(Dir);
-                    try { File.WriteAllBytes(ExePath, bytes); }
-                    catch (IOException)
+                    try { File.WriteAllBytes(path, bytes); }
+                    catch (IOException) when (!serverStopped)
                     {
                         // The old copy is still running as the adb server — stop it and retry once.
+                        serverStopped = true;
                         try { using (var p = Process.Start(new ProcessStartInfo(ExePath, "kill-server") { UseShellExecute = false, CreateNoWindow = true })) p?.WaitForExit(5000); }
                         catch { }
-                        File.WriteAllBytes(ExePath, bytes);
+                        File.WriteAllBytes(path, bytes);
                     }
                 }
-            }
-            catch
-            {
-                // Best effort — Resolve() falls back to adb.exe next to NekoCouch.exe or on PATH.
+                catch
+                {
+                    // Best effort — Resolve() falls back to adb.exe next to NekoCouch.exe or on PATH.
+                }
             }
         }
 

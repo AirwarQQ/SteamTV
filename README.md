@@ -34,7 +34,7 @@
 
 ## Quick start
 
-1. **Download** `NekoCouch-vX.Y.Z-win.zip` from the [latest release](https://github.com/AirwarQQ/NekoCouch/releases/latest), extract it anywhere, run `NekoCouch.exe`.
+1. **Download** `NekoCouch-vX.Y.Z-win.zip` from the [latest release](https://github.com/AirwarQQ/NekoCouch/releases/latest), extract it anywhere, run `NekoCouch.exe`. If Windows shows a blue *"Windows protected your PC"* screen, click **More info → Run anyway**: the app isn't code-signed yet.
 2. **On the TV**, enable *Developer options* (Settings → Device Preferences → About → tap *Build number* 7 times) and turn on **USB / network debugging**.
 3. NekoCouch **sets itself up** on first launch. When the TV asks *"Allow USB debugging?"*, accept and tick *Always allow*.
 4. On the **Devices** page, add your controller. Switch it on — the TV follows.
